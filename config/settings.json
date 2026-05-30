@@ -18,6 +18,5 @@
     "commit-commands@claude-plugins-official": true
   },
   "alwaysThinkingEnabled": true,
-  "effortLevel": "medium",
-  "skipDangerousModePermissionPrompt": true
+  "effortLevel": "medium"
 }

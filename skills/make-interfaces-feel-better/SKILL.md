@@ -119,4 +119,5 @@ Interactive elements need at least 40×40px hit area. Extend with a pseudo-eleme
 - [typography.md](typography.md) — Text wrapping, font smoothing, tabular numbers
 - [surfaces.md](surfaces.md) — Border radius, optical alignment, shadows, image outlines
 - [animations.md](animations.md) — Interruptible animations, enter/exit transitions, icon animations, scale on press
+- [Transitions.dev Motion](../ui-skills/transitions-dev-motion/SKILL.md) — Concrete CSS/React patterns for common app transitions
 - [performance.md](performance.md) — Transition specificity, `will-change` usage

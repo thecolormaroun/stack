@@ -49,6 +49,7 @@ Entry point for design work. Load sub-nodes progressively — don't load everyth
 | Quick UI critique | [[studio.design.checklist.ui-critique]] |
 | Visual QA before shipping | [[studio.design.checklist.visual-qa]] |
 | Animation/transition review, easing, polish | [[studio.design.emil-design-eng]] |
+| Concrete app transition pattern | [[studio.design.patterns.transitions-dev-motion]] |
 | Full UI/UX rules audit (152 rules) | [[studio.design.userinterface-wiki]] |
 | Animation implementation review | [[studio.design.userinterface-wiki]] → `timing-*`, `physics-*`, `spring-*` rules |
 | UX psychology audit (Fitts's, Hick's, etc.) | [[studio.design.userinterface-wiki]] → `ux-*` rules |
@@ -72,6 +73,7 @@ Entry point for design work. Load sub-nodes progressively — don't load everyth
 ## Patterns
 - [[studio.design.patterns.design-with-taste]] — how to make opinionated design decisions
 - [[studio.design.patterns.motion-design-patterns]] — Motion.dev patterns
+- [[studio.design.patterns.transitions-dev-motion]] — concrete CSS/React transition patterns from Transitions.dev
 - [[studio.design.patterns.premium-interaction-patterns]] — premium feel heuristics
 
 ## Copy

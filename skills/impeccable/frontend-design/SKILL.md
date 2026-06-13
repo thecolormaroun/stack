@@ -93,6 +93,7 @@ Create visual rhythm through varied spacing—not the same padding everywhere. E
 
 ### Motion
 → *Consult [motion reference](reference/motion-design.md) for timing, easing, and reduced motion.*
+→ *For concrete CSS/React transition patterns, consult [Transitions.dev Motion](../../ui-skills/transitions-dev-motion/SKILL.md).*
 
 Focus on high-impact moments: one well-orchestrated page load with staggered reveals creates more delight than scattered micro-interactions.
 

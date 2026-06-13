@@ -2,6 +2,10 @@
 
 Interruptible animations, enter/exit transitions, and contextual icon animations.
 
+For concrete ready-to-adapt transition recipes, use
+`../ui-skills/transitions-dev-motion/SKILL.md` as the pattern catalog after
+choosing the motion principle here.
+
 ## Interruptible Animations
 
 Users change intent mid-interaction. If animations aren't interruptible, the interface feels broken.

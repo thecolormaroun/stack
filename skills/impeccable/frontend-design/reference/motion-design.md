@@ -1,5 +1,10 @@
 # Motion Design
 
+For concrete implementation patterns, use
+`../../../ui-skills/transitions-dev-motion/SKILL.md` as the pattern catalog for
+dropdowns, modals, panels, tabs, text swaps, badges, skeletons, tooltips, and
+other common UI transitions.
+
 ## Duration: The 100/300/500 Rule
 
 Timing matters more than easing. These durations feel right for most UI:

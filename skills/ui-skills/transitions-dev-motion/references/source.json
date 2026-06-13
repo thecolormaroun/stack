@@ -1,0 +1,123 @@
+{
+  "source_site": "https://transitions.dev",
+  "source_repo": "https://github.com/Jakubantalik/transitions.dev",
+  "source_index": "https://raw.githubusercontent.com/Jakubantalik/transitions.dev/main/index.html",
+  "upstream_skill_path": "skills/transitions-dev",
+  "checked_at": "2026-06-13T22:59:07Z",
+  "license": {
+    "github_reported_spdx_id": null,
+    "note": "GitHub reports no explicit upstream license; keep attribution and review before vendoring generated snippets into public repos."
+  },
+  "latest_commit": {
+    "sha": "e7af972cb1d0bbf91ae808e2c141567d6ede814b",
+    "date": "2026-06-10T15:59:05Z",
+    "message": "Restore smooth-out easing for Texts reveal transition",
+    "author": "Jakub Antalik"
+  },
+  "package": {
+    "name": "transitions-dev-skill",
+    "private": true,
+    "type": "module",
+    "scripts": {
+      "build": "node build/extract.mjs"
+    },
+    "dependencies": {},
+    "devDependencies": {}
+  },
+  "counts": {
+    "transitions": 18,
+    "tokens": 5
+  },
+  "file_map": [
+    {
+      "key": "p4",
+      "title": "Card resize",
+      "file": "01-card-resize.md"
+    },
+    {
+      "key": "p9",
+      "title": "Number pop-in",
+      "file": "02-number-pop-in.md"
+    },
+    {
+      "key": "p1",
+      "title": "Notification badge",
+      "file": "03-notification-badge.md"
+    },
+    {
+      "key": "p6",
+      "title": "Text states swap",
+      "file": "04-text-states-swap.md"
+    },
+    {
+      "key": "p2",
+      "title": "Menu dropdown",
+      "file": "05-menu-dropdown.md"
+    },
+    {
+      "key": "p7",
+      "title": "Modal open/close",
+      "file": "06-modal.md"
+    },
+    {
+      "key": "p3",
+      "title": "Panel reveal",
+      "file": "07-panel-reveal.md"
+    },
+    {
+      "key": "p8",
+      "title": "Page side-by-side",
+      "file": "08-page-side-by-side.md"
+    },
+    {
+      "key": "p5",
+      "title": "Icon swap",
+      "file": "09-icon-swap.md"
+    },
+    {
+      "key": "p10",
+      "title": "Success check",
+      "file": "10-success-check.md"
+    },
+    {
+      "key": "p11",
+      "title": "Avatar group hover",
+      "file": "11-avatar-group-hover.md"
+    },
+    {
+      "key": "p12",
+      "title": "Error state shake",
+      "file": "12-error-state-shake.md"
+    },
+    {
+      "key": "p13",
+      "title": "Input clear with dissolve",
+      "file": "13-input-clear-dissolve.md"
+    },
+    {
+      "key": "p14",
+      "title": "Skeleton loader and reveal",
+      "file": "14-skeleton-reveal.md"
+    },
+    {
+      "key": "p15",
+      "title": "Shimmer text",
+      "file": "15-shimmer-text.md"
+    },
+    {
+      "key": "p16",
+      "title": "Tabs sliding",
+      "file": "16-tabs-sliding.md"
+    },
+    {
+      "key": "p17",
+      "title": "Tooltip open/close",
+      "file": "17-tooltip.md"
+    },
+    {
+      "key": "p18",
+      "title": "Texts reveal",
+      "file": "18-texts-reveal.md"
+    }
+  ]
+}

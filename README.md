@@ -13,6 +13,10 @@ echo 'skills.load.extraDirs: ["~/.claude/stack/skills"]' >> ~/.claude/settings.j
 
 # Install compound-engineering (powers /lfg)
 claude plugins install compound-engineering@every-marketplace
+
+# Install illo (editorial illustration skill/plugin)
+claude plugin marketplace add tmchow/illo-skill
+claude plugin install illo@illo-skill
 ```
 
 Or copy individual skills into any project's `skills/` directory.
@@ -120,6 +124,7 @@ Community skills for UI craft. Claude consults these automatically during UI wor
 | `ui-design-brain/` | 60+ component patterns across 5 design styles | [carmahhawwari/ui-design-brain](https://github.com/carmahhawwari/ui-design-brain) |
 | `userinterface-wiki/` | 152 rules across 12 categories — animations, CSS, typography, UX patterns | [raphael-salaja](https://github.com/raphael-salaja) |
 | `better-icons/` | 200k+ icons via MCP | [better-auth/better-icons](https://github.com/better-auth/better-icons) |
+| `illo/` | Editorial illustrations with a recurring mascot, print-style looks, and Codex/OpenRouter backends | [tmchow/illo-skill](https://github.com/tmchow/illo-skill) |
 
 ### Code Quality Skills
 
@@ -188,6 +193,7 @@ Entry point: `skills/studio/_graph/studio.moc.md`
 │   ├── ui-design-brain/
 │   ├── userinterface-wiki/
 │   ├── better-icons/
+│   ├── illo/
 │   ├── deslop/
 │   ├── simplify/
 │   ├── rams/
@@ -206,9 +212,12 @@ Entry point: `skills/studio/_graph/studio.moc.md`
 
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)
 - [compound-engineering plugin](https://github.com/EveryInc/compound-engineering-plugin) — powers `/lfg`
+- [illo plugin](https://github.com/tmchow/illo-skill) — powers editorial illustration generation
 
 ```bash
 claude plugins install compound-engineering@every-marketplace
+claude plugin marketplace add tmchow/illo-skill
+claude plugin install illo@illo-skill
 ```
 
 ---

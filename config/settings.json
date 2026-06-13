@@ -5,6 +5,7 @@
   "hooks": {},
   "enabledPlugins": {
     "compound-engineering@every-marketplace": true,
+    "illo@illo-skill": true,
     "vercel@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": true,
     "github@claude-plugins-official": true,
@@ -16,6 +17,14 @@
     "ralph-loop@claude-plugins-official": true,
     "playwright@claude-plugins-official": false,
     "commit-commands@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "illo-skill": {
+      "source": {
+        "source": "github",
+        "repo": "tmchow/illo-skill"
+      }
+    }
   },
   "alwaysThinkingEnabled": true,
   "effortLevel": "medium"

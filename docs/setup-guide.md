@@ -8,6 +8,8 @@
 ```bash
 # Third-party
 claude plugins install compound-engineering@every-marketplace
+claude plugin marketplace add tmchow/illo-skill
+claude plugin install illo@illo-skill
 
 # Official plugins — enable in ~/.claude/settings.json
 # They auto-install from claude-plugins-official
@@ -34,4 +36,3 @@ When doing product/design/UI work, consult:
 
 ### Individual Skills
 Drop any skill folder into your project. Each has a SKILL.md with usage instructions.
-

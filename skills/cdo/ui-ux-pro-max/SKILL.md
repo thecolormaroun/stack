@@ -202,6 +202,14 @@ python3 skills/ui-ux-pro-max/scripts/search.py "<keyword>" --stack html-tailwind
 
 Available stacks: `html-tailwind`, `react`, `nextjs`, `vue`, `svelte`, `swiftui`, `react-native`, `flutter`, `shadcn`, `jetpack-compose`
 
+**For shadcn registry/block sourcing:** use the `shadcn` stack search before installing third-party blocks:
+
+```bash
+python3 skills/ui-ux-pro-max/scripts/search.py "AI blocks ecommerce dashboard registry discovery" --stack shadcn
+```
+
+When the search surfaces registry guidance, use https://shoogle.dev/directory as a discovery shortlist for shadcn-compatible community registries, then inspect the source, license, maintenance date, dependencies, and generated diff before keeping any copied code. Existing project primitives and the official shadcn registry remain the default first choice.
+
 ---
 
 ## Search Reference

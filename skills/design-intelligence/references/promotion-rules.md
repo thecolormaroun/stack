@@ -42,6 +42,18 @@ Every candidate must include:
 
 Use the Codex design skill eval harness when available.
 
+Scope the gate to the actual candidate bundle and `codex-current`; do not run unrelated historical bundles when evaluating one candidate change.
+
+Recommended scoped command:
+
+```bash
+cd /Users/maroun/Codex
+EVAL_BUNDLES="codex-current design-intelligence-v1" \
+EVAL_PROMPTS="001-operational-dashboard 002-productivity-app 003-landing-page-with-assets 004-existing-page-redesign 005-data-workflow" \
+FINAL_HTML_ONLY=1 IGNORE_USER_CONFIG=1 RUN_ID=design-intelligence-gate \
+  scripts/evaluate-design-skills.sh run-matrix
+```
+
 Promotion rule:
 - candidate beats `codex-current` on at least 4 fixtures.
 - no hard fails on mobile width, content overflow, missing primary workflow, fake critical data, or broken HTML.
@@ -57,4 +69,3 @@ The skill may generate:
 - a short summary for chat/Telegram.
 
 It must not silently update the default runtime bundle, install skills globally, or enable a recurring automation without operator approval.
-

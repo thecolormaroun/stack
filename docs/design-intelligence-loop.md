@@ -72,6 +72,8 @@ Promotion gate:
 
 ```bash
 cd /Users/maroun/Codex
+EVAL_BUNDLES="codex-current design-intelligence-v1" \
+EVAL_PROMPTS="001-operational-dashboard 002-productivity-app 003-landing-page-with-assets 004-existing-page-redesign 005-data-workflow" \
 FINAL_HTML_ONLY=1 IGNORE_USER_CONFIG=1 RUN_ID=design-intelligence-gate \
   scripts/evaluate-design-skills.sh run-matrix
 ```
@@ -83,3 +85,21 @@ Do not enable the recurring weekly automation until the operator approves the li
 Recommended live cadence:
 - Saturday morning: source manifest and digest.
 - Sunday evening: taste-compounding promotion packet after digest review.
+
+## Latest Candidate Eval
+
+Latest verified gate: `2026-06-17`.
+
+Baseline run:
+`/Users/maroun/Codex/eval/design-skills/runs/design-intelligence-gate-20260615T223548Z`
+
+Candidate run:
+`/Users/maroun/Codex/eval/design-skills/runs/design-intelligence-gate-final2-20260615T232621Z`
+
+Result: `design-intelligence-v1` beat `codex-current` on 5 of 5 fixtures with no candidate hard fails.
+
+Evidence saved with the candidate run:
+- `report.md`
+- `viewport-hard-gate.tsv`
+- `screenshots-final/contact-sheet-mobile.jpg`
+- `screenshots-final/contact-sheet-desktop.jpg`

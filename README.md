@@ -220,6 +220,14 @@ claude plugin marketplace add tmchow/illo-skill
 claude plugin install illo@illo-skill
 ```
 
+## Security Guardrails
+
+Pull requests run a `Security scan` workflow before merge. The workflow combines
+Gitleaks with a stack-specific sensitive content scanner for local paths, private
+agent artifacts, credential-looking config values, and household or finance-lane
+references. See `docs/security/leak-prevention.md` for local hook setup and leak
+remediation guidance.
+
 ---
 
 ## Philosophy

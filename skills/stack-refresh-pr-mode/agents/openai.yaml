@@ -1,0 +1,4 @@
+interface:
+  display_name: "Stack Refresh PR Mode"
+  short_description: "Refresh skills without main pushes"
+  default_prompt: "Use $stack-refresh-pr-mode to run and verify the review-safe stack skill refresh."

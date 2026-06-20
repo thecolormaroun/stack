@@ -1,0 +1,4 @@
+interface:
+  display_name: "Goal Validation Threads"
+  short_description: "Validate skills in fresh goal threads"
+  default_prompt: "Use $goal-validation-threads to create focused validation goals for candidate skills."

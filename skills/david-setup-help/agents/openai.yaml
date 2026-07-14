@@ -1,0 +1,4 @@
+interface:
+  display_name: "David Setup Help"
+  short_description: "Walk the user through setting up anything step by step. Use..."
+  default_prompt: "Use $david-setup-help to walk the user through setting up anything step by step. Use when the user asks for help setting up, configuring, installing, or getting something working — \"help me set up X\", \"walk me through this\", \"setup-help\". Differentiator: gives one current step at a time, then always lists every remaining setup step after each response."

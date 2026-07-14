@@ -1,0 +1,4 @@
+interface:
+  display_name: "David Folder Specific Claude And Agents Md"
+  short_description: "Create a specialized CLAUDE.md (+ AGENTS.md symlink) inside..."
+  default_prompt: "Use $david-folder-specific-claude-and-agents-md to create a specialized CLAUDE.md (+ AGENTS.md symlink) inside a specific folder to give future agents folder-scoped context. Use when the user asks to create a CLAUDE.md for a folder, write folder instructions, or add agent context to a directory."

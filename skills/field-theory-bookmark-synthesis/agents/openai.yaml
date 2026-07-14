@@ -1,0 +1,4 @@
+interface:
+  display_name: "Field Theory Bookmark Synthesis"
+  short_description: "Summarize bookmark batches into grounded wiki pages"
+  default_prompt: "Use $field-theory-bookmark-synthesis to classify or synthesize a Field Theory bookmark batch into source-counted categories, domains, wiki pages, or adoption recommendations."

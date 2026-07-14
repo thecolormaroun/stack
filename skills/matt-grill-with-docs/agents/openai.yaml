@@ -1,0 +1,4 @@
+interface:
+  display_name: "Matt Grill With Docs"
+  short_description: "A relentless interview to sharpen a plan or design, which..."
+  default_prompt: "Use $matt-grill-with-docs to a relentless interview to sharpen a plan or design, which also creates docs (ADR's and glossary) as we go."

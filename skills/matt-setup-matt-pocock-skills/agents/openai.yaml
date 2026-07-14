@@ -1,0 +1,4 @@
+interface:
+  display_name: "Matt Setup Matt Pocock Skills"
+  short_description: "Configure this repo for the engineering skills — set up its..."
+  default_prompt: "Use $matt-setup-matt-pocock-skills to configure this repo for the engineering skills — set up its issue tracker, triage label vocabulary, and domain doc layout. Run once before first use of the other engineering skills."

@@ -2,15 +2,15 @@
   "source_site": "https://emilkowal.ski/skill",
   "source_repo": "https://github.com/emilkowalski/skill",
   "upstream_skill_path": "skills/review-animations",
-  "checked_at": "2026-06-24T16:00:36Z",
+  "checked_at": "2026-07-13T16:01:41Z",
   "license": {
     "github_reported_spdx_id": null,
     "note": "GitHub reports no explicit upstream license; keep attribution and review before publishing or relicensing the source text outside this repo."
   },
   "latest_commit": {
-    "sha": "ea2cd0ddb235abbe85cdbc03f26686cd465df897",
-    "date": "2026-06-22T00:24:43+02:00",
-    "message": "Update README.md",
+    "sha": "7bb7061b5cf7de15ea1aeaf00fbd9e6592a20fce",
+    "date": "2026-07-11T17:35:13+02:00",
+    "message": "Merge pull request #8 from CommanderClaude/fix/readme-typos",
     "author": "Emil Kowalski"
   },
   "files": [

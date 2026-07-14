@@ -21,6 +21,23 @@ Curated by Maroun. These are the galleries, collections, and channels Studio sho
   - Best for: Motion, transitions, hover states, subtle polish, "wow" moments
   - This is what separates good from great
 
+- **Border beam** — https://beam.jakubantalik.com/
+  - Animated border-beam component for React; free, lightweight, and well-tested.
+  - Best for: buttons, cards, loaders, and other subtle edge-motion accents where a bespoke effect would be brittle.
+  - Seen via Meng To’s X post, 2026-07-05.
+
+### Component Libraries & Primitives
+
+- **Emil Kowalski — favorite UI libraries** — https://x.com/emilkowalski/status/2074169272717152716?s=12
+  - "Some of my favorite UI libraries: NumberFlow for animating numbers. input-otp for one-time passwords. Liveline for real-time charts. Leva for customizable GUIs. cmdk for command menus. Virtuoso for virtualization. dnd kit for drag and drop. Sonner for notifications."
+  - Best for: component primitives with excellent defaults and low adoption friction.
+  - Seen via Emil Kowalski’s X post, 2026-07-06.
+
+- **Emil Kowalski — /apple-design** — https://x.com/emilkowalski/status/2075188252877672732?s=12
+  - 17 design and motion principles distilled from Apple WWDC videos; use as a review checklist for existing work or when starting something new.
+  - Best for: motion decisions, UI polish, and taste checks on new interactions.
+  - Seen via Emil Kowalski’s X post, 2026-07-10.
+
 ### Mobile Design
 - **Handheld Design** — https://www.handheld.design/
   - Mobile design decisions you can explain to your PM. Weekly frameworks.

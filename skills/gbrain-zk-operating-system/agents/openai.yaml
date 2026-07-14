@@ -1,0 +1,4 @@
+interface:
+  display_name: "GBrain ZK Operating System"
+  short_description: "Validate GBrain-first Zettelkasten gates."
+  default_prompt: "Use gbrain-zk-operating-system to inspect the current GBrain/Zettelkasten operating state and recommend the next safe gate."

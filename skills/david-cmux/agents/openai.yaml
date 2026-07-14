@@ -1,0 +1,4 @@
+interface:
+  display_name: "David Cmux"
+  short_description: "MUST be read ANY time you interact with cmux in ANY way —..."
+  default_prompt: "Use $david-cmux to mUST be read ANY time you interact with cmux in ANY way — listing/inspecting/creating/closing cmux workspaces, panes, or surfaces; reading or capturing pane/screen output; sending input or keys to a pane/surface; delegating to, polling, or checking on other agents running in cmux panes/surfaces; building or rearranging terminal layout; cmux browser automation; sending notifications/flashes/status/progress to the sidebar; editing cmux settings; or integrating an agent with cmux hooks. If your command starts with `cmux ` or touches a cmux workspace/pane/surface/agent, read this FIRST. Triggers on \"cmux\", \"in this workspace\", \"this pane\", \"the other agent\", \"delegate to\", \"check on the agent\", \"send to the pane\". macOS only (14.0+)."

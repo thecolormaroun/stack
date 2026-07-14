@@ -1,0 +1,4 @@
+interface:
+  display_name: "David Push Skill To Github"
+  short_description: "Commit and push agent-skill changes to the user's private..."
+  default_prompt: "Use $david-push-skill-to-github to commit and push agent-skill changes to the user's private skills GitHub repo (rooted at ~/.agents). Use after creating or updating any skill, when the user says \"push the skill\", \"push skills to github\", \"save the skill to my repo\", or \"update the skills repo\". Handles staging, committing, pushing, and cleaning up the cmux pane used to do it."

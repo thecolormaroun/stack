@@ -1,0 +1,4 @@
+interface:
+  display_name: "David Brain To Docs"
+  short_description: "Use when the user wants to extract project vision,..."
+  default_prompt: "Use $david-brain-to-docs to use when the user wants to extract project vision, decisions, and preferences from his head into clear documentation (README + ADRs) through a back-and-forth Q&A loop. Triggers on \"brain-to-docs\", \"build out the docs\", \"extract the vision\", \"let's document this project\"."

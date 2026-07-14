@@ -19,3 +19,10 @@ Motion defaults:
 
 Anti-slop guardrails:
 - `skills/studio/_graph/design/system/studio.design.system.anti-slop.md`
+
+## Agent Operating Stack
+
+When a request is broad, multi-step, agent-orchestration-heavy, based on an external workflow source, or asks how Hermes/Mookie should leverage Stack, consult:
+- `skills/agent-operating-stack/SKILL.md`
+
+Use it to choose the product/design, engineering, `/goal`, subagent, Hermes-native migration, and verification lane before acting.

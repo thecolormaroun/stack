@@ -1,0 +1,4 @@
+interface:
+  display_name: "Matt Writing Great Skills"
+  short_description: "Reference for writing and editing skills well — the..."
+  default_prompt: "Use $matt-writing-great-skills to reference for writing and editing skills well — the vocabulary and principles that make a skill predictable."

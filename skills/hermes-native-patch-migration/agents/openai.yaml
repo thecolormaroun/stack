@@ -1,0 +1,4 @@
+interface:
+  display_name: "Hermes Native Patch Migration"
+  short_description: "Move local Hermes patches into native surfaces"
+  default_prompt: "Use $hermes-native-patch-migration to plan or audit moving Mookie/Hermes local patches into native plugins, hooks, tests, and update-safe runtime surfaces."

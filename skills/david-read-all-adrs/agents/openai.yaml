@@ -1,0 +1,4 @@
+interface:
+  display_name: "David Read All Adrs"
+  short_description: "Read every ADR markdown file in the project's docs/adr/..."
+  default_prompt: "Use $david-read-all-adrs to read every ADR markdown file in the project's docs/adr/ folder so you have full context on past decisions. Use only when the user explicitly calls it."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "David Agent Self Scheduling"
+  short_description: "Make an AI agent run on a schedule, loop, or interval —..."
+  default_prompt: "Use $david-agent-self-scheduling to make an AI agent run on a schedule, loop, or interval — cron, heartbeats, recurring autonomous checks. Use for \"run every N minutes\", \"schedule a task\", \"run on a loop\", \"heartbeat\". Covers external clocks (Claude Code, Codex, Pi) vs Hermes' built-in scheduler."

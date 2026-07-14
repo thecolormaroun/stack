@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Verification Ladder"
+  short_description: "Escalate agent proof before completion"
+  default_prompt: "Use $agent-verification-ladder to turn this agent workflow into a proof-backed verification plan."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Local Tracker Dashboard"
+  short_description: "Build local checklist dashboards."
+  default_prompt: "Use $local-tracker-dashboard to create or update a local HTML tracker dashboard with browser verification."

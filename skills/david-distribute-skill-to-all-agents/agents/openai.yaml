@@ -1,0 +1,4 @@
+interface:
+  display_name: "David Distribute Skill To All Agents"
+  short_description: "Distribute a skill across the 4 agent skill folders (Codex,..."
+  default_prompt: "Use $david-distribute-skill-to-all-agents to distribute a skill across the 4 agent skill folders (Codex, Claude Code, Pi, Hermes) so all agents see it. Use when the user says \"distribute this skill\", \"sync skills across agents\", or after creating/updating a skill that should be global. Covers the symlink layout and the ~/.pi/agent/skills trap."

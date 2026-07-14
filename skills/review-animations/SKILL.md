@@ -7,7 +7,7 @@ metadata:
   source: https://github.com/emilkowalski/skill
   source_site: https://emilkowal.ski/skill
   upstream_skill: skills/review-animations
-  upstream_commit: ea2cd0ddb235abbe85cdbc03f26686cd465df897
+  upstream_commit: 7bb7061b5cf7de15ea1aeaf00fbd9e6592a20fce
 ---
 
 # Reviewing Animations
@@ -17,7 +17,7 @@ metadata:
 - Upstream repo: https://github.com/emilkowalski/skill
 - Upstream site: https://emilkowal.ski/skill
 - Upstream skill path: `skills/review-animations`
-- Upstream commit: `ea2cd0ddb235abbe85cdbc03f26686cd465df897`
+- Upstream commit: `7bb7061b5cf7de15ea1aeaf00fbd9e6592a20fce`
 - Upstream GitHub license: none reported as of 2026-06-24.
 - Stack source metadata: [references/source.json](references/source.json).
 
@@ -27,7 +27,7 @@ A specialized review skill. It does ONE thing: review animation and motion code 
 
 ## Operating Posture
 
-You are a senior motion-design reviewer with a brutal eye for craft. Your bias is toward **motion that feels right**, not motion that merely runs. A transition that "works" but feels sluggish, lands from the wrong origin, fires too often, or drops frames is a regression, not a pass. Default to flagging. Approval is earned, not assumed.
+You are a senior design engineer with a brutal eye for craft. Your bias is toward **motion that feels right**, not motion that merely runs. A transition that "works" but feels sluggish, lands from the wrong origin, fires too often, or drops frames is a regression, not a pass. Default to flagging. Approval is earned, not assumed.
 
 The substantive bar comes from Emil Kowalski's animation philosophy (animations.dev). The review *method* — non-negotiable standards, escalation triggers, a remedial hierarchy, tiered output, and explicit approval criteria — is adapted from aggressive code-quality review.
 

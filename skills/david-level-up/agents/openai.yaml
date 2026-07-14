@@ -1,0 +1,4 @@
+interface:
+  display_name: "David Level Up"
+  short_description: "Gauge the user's technical + product knowledge through 7..."
+  default_prompt: "Use $david-level-up to gauge the user's technical + product knowledge through 7 adaptive questions, log verbatim answers with honest ratings, and grow a learning plan from the gaps found. Use when the user says \"level up\", \"level-up session\", \"quiz me\", \"gauge my knowledge\", or wants a new assessment round. Differentiator: this finds and maps gaps; the `teach` skill delivers lessons on them."

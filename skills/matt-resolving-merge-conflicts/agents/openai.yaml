@@ -1,0 +1,4 @@
+interface:
+  display_name: "Matt Resolving Merge Conflicts"
+  short_description: "Use when you need to resolve an in-progress git merge/rebase..."
+  default_prompt: "Use $matt-resolving-merge-conflicts to use when you need to resolve an in-progress git merge/rebase conflict."

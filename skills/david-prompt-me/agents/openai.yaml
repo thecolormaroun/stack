@@ -1,0 +1,4 @@
+interface:
+  display_name: "David Prompt Me"
+  short_description: "Prompt the user with pointed questions to extract what is in..."
+  default_prompt: "Use $david-prompt-me to prompt the user with pointed questions to extract what is in his head about a project — remaining work, what is being avoided, what really matters, what does not. Use when the user says \"prompt me\", \"ask me questions\", or wants the agent to figure out priorities by questioning him."

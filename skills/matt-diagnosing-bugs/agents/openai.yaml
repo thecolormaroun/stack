@@ -1,0 +1,4 @@
+interface:
+  display_name: "Matt Diagnosing Bugs"
+  short_description: "Diagnosis loop for hard bugs and performance regressions...."
+  default_prompt: "Use $matt-diagnosing-bugs to diagnosis loop for hard bugs and performance regressions. Use when the user says \"diagnose\"/\"debug this\", or reports something broken/throwing/failing/slow."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Matt Implement"
+  short_description: "Implement a piece of work based on a spec or set of tickets."
+  default_prompt: "Use $matt-implement to implement a piece of work based on a spec or set of tickets."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Matt Ask Matt"
+  short_description: "Ask which skill or flow fits your situation. A router over..."
+  default_prompt: "Use $matt-ask-matt to ask which skill or flow fits your situation. A router over the skills in this repo."

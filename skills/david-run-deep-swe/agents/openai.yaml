@@ -1,0 +1,4 @@
+interface:
+  display_name: "David Run Deep Swe"
+  short_description: "Score any AI model on the DeepSWE coding-agent benchmark via..."
+  default_prompt: "Use $david-run-deep-swe to score any AI model on the DeepSWE coding-agent benchmark via the OpenRouter API. Use when the user wants an independent, reproducible coding-agent eval — \"run DeepSWE\", \"benchmark this model on DeepSWE\", \"score model X on the coding benchmark\", \"test a model via OpenRouter on DeepSWE\", or to verify vendor-reported coding scores. Covers setup, the OpenRouter wiring for mini-swe-agent, single-task / subset / full 113-task runs, and leaderboard submission."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "David Codex Subagent"
+  short_description: "Launch OpenAI Codex CLI as a subagent (ChatGPT subscription..."
+  default_prompt: "Use $david-codex-subagent to launch OpenAI Codex CLI as a subagent (ChatGPT subscription auth, no API key). Use when delegating a self-contained coding task to Codex from another agent — parallel implementation work, a second opinion, or an independent verification pass."

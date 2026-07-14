@@ -1,0 +1,4 @@
+interface:
+  display_name: "Matt Handoff"
+  short_description: "Compact the current conversation into a handoff document for..."
+  default_prompt: "Use $matt-handoff to compact the current conversation into a handoff document for another agent to pick up."

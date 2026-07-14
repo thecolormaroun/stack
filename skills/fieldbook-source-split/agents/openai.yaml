@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fieldbook Source Split"
+  short_description: "Split Fieldbook from Library safely."
+  default_prompt: "Use $fieldbook-source-split to plan or validate a Fieldbook, Obsidian, or GBrain source split with rollback gates."

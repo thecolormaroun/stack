@@ -1,0 +1,4 @@
+interface:
+  display_name: "David Pi Custom Model"
+  short_description: "Register a custom or variant model (e.g. an OpenRouter..."
+  default_prompt: "Use $david-pi-custom-model to register a custom or variant model (e.g. an OpenRouter \":nitro\" / \":floor\" / \":exacto\" slug) in the Pi Agent so it can be set as the global default. Use when Pi silently falls back to a different model (e.g. moonshotai/kimi-k2.6) after setting defaultModel, or when a model slug isn't in Pi's bundled list. Triggers on \"Pi reset my model\", \"Pi won't use this model\", \"add a model to Pi\", \"Pi default keeps reverting\"."

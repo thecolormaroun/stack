@@ -89,6 +89,7 @@ Runs:
 
 | Skill | Emoji | What it does |
 |-------|-------|-------------|
+| `agent-operating-stack/` | 🧭 | Routes broad work across product/design, engineering, agent orchestration, and Hermes-safe verification |
 | `mega-workflow/` | 🚀 | Full pipeline orchestrator — product → design → build → verify → ship |
 | `ideate/` | 💡 | Idea validation suite — YC pushback, scope review, design + eng feasibility |
 | `departments/` | 🏢 | Simpler pipeline — CPO → CDO → /lfg |
@@ -143,6 +144,16 @@ Run these after writing code to clean up before shipping.
 | `reclaude/` | Refactor bloated CLAUDE.md files using progressive disclosure |
 | `gemini-review/` | Read-only Google AI / Antigravity second-model review over a git diff |
 
+### Agent Workflow Skills
+
+| Skill | What it does | Source |
+|-------|-------------|--------|
+| `agent-operating-stack/` | Routes Emil design craft, imported upstream skills, Stack-native workflows, and Hermes/Mookie verification gates | [Meng To post](https://x.com/MengTo/status/2075221793925955897) |
+| `matt-*/` | 22 namespaced Matt Pocock engineering/productivity skill imports | [mattpocock/skills](https://github.com/mattpocock/skills) |
+| `david-*/` | 30 namespaced David Ondrej agent skill imports | [davidondrej/skills](https://github.com/davidondrej/skills) |
+| `agent-verification-ladder/` | Selects the right proof level before claiming agent work is complete | Stack/Hermes local workflow |
+| `goal-validation-threads/` | Validates candidate skills/workflows in fresh goal threads | Stack/Hermes local workflow |
+
 ---
 
 ## Studio Skill Graph
@@ -187,6 +198,9 @@ Entry point: `skills/studio/_graph/studio.moc.md`
 │   │   └── react-doctor/
 │   ├── studio/                # Studio Skill Graph (90+ files)
 │   │   └── _graph/
+│   ├── agent-operating-stack/
+│   ├── matt-*/                # Namespaced Matt Pocock skill imports
+│   ├── david-*/               # Namespaced David Ondrej skill imports
 │   ├── emil-design-eng/
 │   ├── review-animations/
 │   ├── make-interfaces-feel-better/

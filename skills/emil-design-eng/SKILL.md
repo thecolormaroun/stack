@@ -6,7 +6,7 @@ metadata:
   source: https://github.com/emilkowalski/skill
   source_site: https://emilkowal.ski/skill
   upstream_skill: skills/emil-design-eng
-  upstream_commit: ea2cd0ddb235abbe85cdbc03f26686cd465df897
+  upstream_commit: 7bb7061b5cf7de15ea1aeaf00fbd9e6592a20fce
 ---
 
 # Design Engineering
@@ -16,7 +16,7 @@ metadata:
 - Upstream repo: https://github.com/emilkowalski/skill
 - Upstream site: https://emilkowal.ski/skill
 - Upstream skill path: `skills/emil-design-eng`
-- Upstream commit: `ea2cd0ddb235abbe85cdbc03f26686cd465df897`
+- Upstream commit: `7bb7061b5cf7de15ea1aeaf00fbd9e6592a20fce`
 - Upstream GitHub license: none reported as of 2026-06-24.
 - Stack source metadata: [references/source.json](references/source.json).
 

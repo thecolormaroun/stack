@@ -17,6 +17,7 @@ depends_on:
   - "CSS/animation code to review"
 complements:
   - "[[studio.design.emil-design-eng]] — Emil's skill covers animation philosophy; this covers implementation rules"
+  - "[[studio.design.review-animations]] — sharper animation-only review for motion PRs"
   - "[[studio.design.checklist.visual-qa]] — visual QA is manual; this is rule-based automated review"
 ---
 

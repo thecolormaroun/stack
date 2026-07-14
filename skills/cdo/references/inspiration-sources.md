@@ -9,6 +9,12 @@ Curated by Maroun. These are the galleries, collections, and channels Studio sho
   - Curated by former GitHub/Meta designer. High bar. Real shipping products.
   - Best for: Overall site quality, navigation, layout, polish
 
+- **Recent — Design Inspiration** — https://recent.design/
+  - Daily-updated gallery of strong recent design found around the internet.
+  - Best for: fresh visual references, current product/site patterns, quick taste-mining before a design pass.
+  - Use when Studio/CDO needs contemporary examples without falling into stale Dribbble/Pinterest sludge.
+  - Added from Maroun's design inspo request, 2026-06-21.
+
 ### Micro-Interactions & Delight
 - **Design Spells** — https://www.designspells.com/
   - "Design details that feel like magic" by Chester & Duncan
@@ -24,6 +30,13 @@ Curated by Maroun. These are the galleries, collections, and channels Studio sho
 - **Featured Mobile** — https://featuredmobile.com/
   - Mobile app showcase
   - Best for: Mobile UI patterns, app design trends
+
+### Interaction Design Essays & Playgrounds
+- **Aresluna — Show your hands honor for the strange power they bring you** — https://aresluna.org/show-your-hands-honor/
+  - Marcin Wichary essay on designing finger-friendly interactions, with 38 playgrounds.
+  - Best for: touch ergonomics, motor memory, keyboard/finger interaction details, perceived speed, and explaining why tiny interaction choices matter.
+  - Use when Studio/CDO needs principled backing for mobile gestures, physical affordances, latency polish, or “this detail feels small but changes the whole interaction” arguments.
+  - Added from Maroun's design inspo request, 2026-06-20.
 
 ## Tier 2 — Deep Aesthetic Research
 
@@ -59,6 +72,10 @@ Another curated platform — higher signal than Dribbble.
 - **Mobbin** — https://mobbin.com/ — Mobile UI pattern library
 - **Refero** — https://refero.design/ — Real product screenshots
 - **Product Hunt** — Design quality of new launches
+
+### Product Presentation & Mockup Tooling
+
+- **Ultramock** — https://ultramock.io/ — Turns product screens into premium customizable visuals, videos, and 3D mockups. Use when portfolio/case-study/launch assets need more polish than raw screenshots or stock device frames. Added from Maroun's saved-link request, 2026-06-19.
 
 ## How to Use These
 

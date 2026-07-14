@@ -48,7 +48,8 @@ Entry point for design work. Load sub-nodes progressively — don't load everyth
 | Pre-ship copy QA | [[studio.design.copy.checklist]] |
 | Quick UI critique | [[studio.design.checklist.ui-critique]] |
 | Visual QA before shipping | [[studio.design.checklist.visual-qa]] |
-| Animation/transition review, easing, polish | [[studio.design.emil-design-eng]] |
+| Animation/transition philosophy, easing, polish | [[studio.design.emil-design-eng]] |
+| Hard-nosed animation code review | [[studio.design.review-animations]] |
 | Concrete app transition pattern | [[studio.design.patterns.transitions-dev-motion]] |
 | Full UI/UX rules audit (152 rules) | [[studio.design.userinterface-wiki]] |
 | Animation implementation review | [[studio.design.userinterface-wiki]] → `timing-*`, `physics-*`, `spring-*` rules |
@@ -64,6 +65,7 @@ Entry point for design work. Load sub-nodes progressively — don't load everyth
 
 ## Design Engineering
 - [[studio.design.emil-design-eng]] — animation decisions, easing, spring physics, component polish (Emil Kowalski / Vercel / Sonner)
+- [[studio.design.review-animations]] — aggressive animation review: purpose, frequency, easing, duration, origin, interruptibility, performance, a11y
 - [[studio.design.userinterface-wiki]] — 152 implementation rules: animation, timing, UX laws, typography, prefetch, visual polish (Raphael Salaja)
 
 ## System

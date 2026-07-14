@@ -117,6 +117,7 @@ Community skills for UI craft. Claude consults these automatically during UI wor
 | Skill | What it does | Source |
 |-------|-------------|--------|
 | `emil-design-eng/` | Animation craft — easing curves, spring physics, polish | [emilkowalski/skill](https://github.com/emilkowalski/skill) |
+| `review-animations/` | Hard-nosed motion review — flags easing, duration, origin, interruptibility, performance, and a11y | [emilkowalski/skill](https://github.com/emilkowalski/skill) |
 | `make-interfaces-feel-better/` | 16 UI detail principles (optical alignment, shadows, stagger, hit areas) | [jakubkrehel](https://github.com/jakubkrehel/make-interfaces-feel-better) |
 | `taste-skill-suite/` | Anti-LLM-bias, typography calibration, color correction, layout diversification | [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) |
 | `impeccable/` | 17 design commands — dark mode mastery, polish, audit | [impeccable.style](https://impeccable.style) |
@@ -140,6 +141,7 @@ Run these after writing code to clean up before shipping.
 | `tdd/` | Test-driven development — red/green/refactor loop |
 | `fix-sentry-issues/` | Discover, triage, and fix production errors from Sentry |
 | `reclaude/` | Refactor bloated CLAUDE.md files using progressive disclosure |
+| `gemini-review/` | Read-only Google AI / Antigravity second-model review over a git diff |
 
 ---
 
@@ -186,6 +188,7 @@ Entry point: `skills/studio/_graph/studio.moc.md`
 │   ├── studio/                # Studio Skill Graph (90+ files)
 │   │   └── _graph/
 │   ├── emil-design-eng/
+│   ├── review-animations/
 │   ├── make-interfaces-feel-better/
 │   ├── taste-skill-suite/
 │   ├── impeccable/
@@ -201,7 +204,8 @@ Entry point: `skills/studio/_graph/studio.moc.md`
 │   ├── knip/
 │   ├── tdd/
 │   ├── fix-sentry-issues/
-│   └── reclaude/
+│   ├── reclaude/
+│   └── gemini-review/
 └── docs/
     └── setup-guide.md
 ```

@@ -1,6 +1,6 @@
 ---
 name: stack-refresh-pr-mode
-description: "Run Maroun's review-safe Claude/Codex skill stack refresh from ~/Codex. Use when asked to update, refresh, verify, or diagnose the local skill stack, the update-last30days-skill automation, gstack/compound-engineering pins, Impeccable, last30days, illo, transitions-dev-motion, or Stack repo PR-mode behavior without pushing directly to main."
+description: "Run Maroun's review-safe Claude/Codex skill stack refresh from ~/Codex. Use when asked to update, refresh, verify, or diagnose the local skill stack, the update-last30days-skill automation, gstack/compound-engineering pins, Emil design skills, Impeccable, last30days, illo, transitions-dev-motion, or Stack repo PR-mode behavior without pushing directly to main."
 ---
 
 # Stack Refresh PR Mode
@@ -11,8 +11,9 @@ Use this skill for the recurring skill-stack update loop. The goal is a verified
 
 1. Read `~/Codex/README.md`.
 2. Read `~/Codex/upstreams.lock.json`.
-3. Read `~/.codex/automations/update-last30days-skill/memory.md` if it exists.
-4. Check `~/Projects/stack` branch and status before running anything that might sync or push.
+3. Read `~/Projects/stack/skills/emil-design-eng/references/source.json` and `~/Projects/stack/skills/review-animations/references/source.json` when Emil/design skills are in scope.
+4. Read `~/.codex/automations/update-last30days-skill/memory.md` if it exists.
+5. Check `~/Projects/stack` branch and status before running anything that might sync or push.
 
 Do not inspect, print, or modify `~/.config/last30days/.env` or `~/.config/illo/config.yaml`. It is OK to report whether protected config files exist when the run asks for that.
 
@@ -41,11 +42,14 @@ Verify every requested installed skill path. The usual set is:
 ~/.codex/skills/teach-impeccable/SKILL.md
 ~/.codex/skills/impeccable/SKILL.md
 ~/.codex/skills/transitions-dev-motion/SKILL.md
+~/.codex/skills/emil-design-eng/SKILL.md
+~/.codex/skills/review-animations/SKILL.md
+~/.codex/skills/review-animations/references/STANDARDS.md
 ~/.codex/skills/illo/SKILL.md
 ```
 
 Also report:
-- the resolved gstack ref and Compound Engineering version from `upstreams.lock.json`;
+- the resolved gstack ref, Compound Engineering version, and Emil design-skill upstream commit from `upstreams.lock.json` plus Stack `source.json`;
 - Stack repo branch and dirty/untracked status;
 - the pre-run branch name, whether PR mode pushed, opened a PR, or left local changes unpushed, and the exact gate: do not push directly to main;
 - warnings such as missing `gbrain`, missing plan-tune hooks, runtime restart requirements, or branch-not-main.

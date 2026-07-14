@@ -34,6 +34,7 @@ Send this formatted menu to you:
   /assets — AI-generated visuals (Nano Banana Pro)
 
 🔬 RESEARCH
+  /design-intelligence — Weekly design digest + taste compounding loop
   /tastemining — Design inspiration from web + bookmarks
   /competitive — Market analysis, gap analysis
 

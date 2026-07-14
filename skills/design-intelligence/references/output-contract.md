@@ -13,7 +13,7 @@ Every run creates a reviewable packet. A good packet proves what was read, what 
 Recommended run folder:
 
 ```text
-/Users/maroun/Codex/tmp/design-intelligence/runs/YYYY-MM-DD/
+~/Codex/tmp/design-intelligence/runs/YYYY-MM-DD/
 ```
 
 Required files:
@@ -27,7 +27,7 @@ promotion-packet.md
 Historical backfills should use one folder per weekly chunk:
 
 ```text
-/Users/maroun/hermes/tmp/design-intelligence-backfill/YYYY-MM-DD..YYYY-MM-DD/YYYY-MM-DD..YYYY-MM-DD/
+~/hermes/tmp/design-intelligence-backfill/YYYY-MM-DD..YYYY-MM-DD/YYYY-MM-DD..YYYY-MM-DD/
 ```
 
 ## Weekly Digest

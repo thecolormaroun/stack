@@ -45,25 +45,25 @@ Use Hermes tmp or another review staging area for generated packets until promot
 Read-only source manifest:
 
 ```bash
-/Users/maroun/Codex/scripts/design-intelligence-source-manifest.sh \
+~/Codex/scripts/design-intelligence-source-manifest.sh \
   --since 2026-04-01 \
   --until 2026-06-15 \
-  --out /Users/maroun/hermes/tmp/design-intelligence-backfill/source-manifest.json
+  --out ~/hermes/tmp/design-intelligence-backfill/source-manifest.json
 ```
 
 Historical backfill packet:
 
 ```bash
-/Users/maroun/Codex/scripts/run-design-intelligence-backfill.sh \
+~/Codex/scripts/run-design-intelligence-backfill.sh \
   --since 2026-04-01 \
   --until 2026-06-15 \
-  --out-root /Users/maroun/hermes/tmp/design-intelligence-backfill
+  --out-root ~/hermes/tmp/design-intelligence-backfill
 ```
 
 Eval bundle dry run:
 
 ```bash
-cd /Users/maroun/Codex
+cd ~/Codex
 DRY_RUN=1 FINAL_HTML_ONLY=1 IGNORE_USER_CONFIG=1 \
   scripts/evaluate-design-skills.sh run-one design-intelligence-v1 001-operational-dashboard
 ```
@@ -71,7 +71,7 @@ DRY_RUN=1 FINAL_HTML_ONLY=1 IGNORE_USER_CONFIG=1 \
 Promotion gate:
 
 ```bash
-cd /Users/maroun/Codex
+cd ~/Codex
 EVAL_BUNDLES="codex-current design-intelligence-v1" \
 EVAL_PROMPTS="001-operational-dashboard 002-productivity-app 003-landing-page-with-assets 004-existing-page-redesign 005-data-workflow" \
 FINAL_HTML_ONLY=1 IGNORE_USER_CONFIG=1 RUN_ID=design-intelligence-gate \
@@ -91,10 +91,10 @@ Recommended live cadence:
 Latest verified gate: `2026-06-17`.
 
 Baseline run:
-`/Users/maroun/Codex/eval/design-skills/runs/design-intelligence-gate-20260615T223548Z`
+`~/Codex/eval/design-skills/runs/design-intelligence-gate-20260615T223548Z`
 
 Candidate run:
-`/Users/maroun/Codex/eval/design-skills/runs/design-intelligence-gate-final2-20260615T232621Z`
+`~/Codex/eval/design-skills/runs/design-intelligence-gate-final2-20260615T232621Z`
 
 Result: `design-intelligence-v1` beat `codex-current` on 5 of 5 fixtures with no candidate hard fails.
 

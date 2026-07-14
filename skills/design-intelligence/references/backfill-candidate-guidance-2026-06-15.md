@@ -15,7 +15,7 @@ This reference turns the historical backfill packets into reviewable taste/skill
 Backfill window: `2026-04-01..2026-06-15`.
 
 Source packet root:
-`/Users/maroun/hermes/tmp/design-intelligence-backfill/2026-04-01..2026-06-15`
+`~/hermes/tmp/design-intelligence-backfill/2026-04-01..2026-06-15`
 
 Normalized candidate counts:
 

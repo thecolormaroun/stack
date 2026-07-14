@@ -1,0 +1,23 @@
+title = "Stack secret scanning"
+minVersion = "v8.25.0"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "stack-local-maroun-path"
+description = "Local Maroun machine paths should not be published in the stack repo."
+regex = '''/Users/maroun/[A-Za-z0-9._~/%+-]+'''
+keywords = ["/Users/maroun"]
+
+[[rules]]
+id = "stack-codex-private-artifact"
+description = "Codex session, memory, and rollout artifacts can contain private context."
+regex = '''(?i)(?:\.codex/(?:sessions|archived_sessions|memories)|rollout-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9-]+-[0-9a-f-]+\.jsonl)'''
+keywords = [".codex", "rollout-"]
+
+[[rules]]
+id = "stack-config-secret-assignment"
+description = "Agent or tool config appears to contain a concrete secret value."
+regex = '''(?i)(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|private[_-]?key)\s*[:=]\s*['"]?[A-Za-z0-9_./+=-]{16,}'''
+keywords = ["api", "key", "token", "secret", "password"]

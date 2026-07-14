@@ -47,7 +47,7 @@ Scope the gate to the actual candidate bundle and `codex-current`; do not run un
 Recommended scoped command:
 
 ```bash
-cd /Users/maroun/Codex
+cd ~/Codex
 EVAL_BUNDLES="codex-current design-intelligence-v1" \
 EVAL_PROMPTS="001-operational-dashboard 002-productivity-app 003-landing-page-with-assets 004-existing-page-redesign 005-data-workflow" \
 FINAL_HTML_ONLY=1 IGNORE_USER_CONFIG=1 RUN_ID=design-intelligence-gate \

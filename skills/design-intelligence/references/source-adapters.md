@@ -36,7 +36,7 @@ Use the sidebar as the canonical bookmark-like source. Use History only to enric
 Safe read-only scan:
 
 ```bash
-python3 /Users/maroun/hermes/scripts/mookie_link_inbox.py arc scan \
+python3 ~/hermes/scripts/mookie_link_inbox.py arc scan \
   --path "$HOME/Library/Application Support/Arc/StorableSidebar.json" \
   --dry-run
 ```
@@ -77,7 +77,7 @@ Design relevance signals:
 Syncing through Arc cookies is a separate guarded operation. Do not run it from the digest unless the operator explicitly approves account sync:
 
 ```bash
-/Users/maroun/hermes/scripts/field-theory-sync-from-arc.py --max-minutes 30
+~/hermes/scripts/field-theory-sync-from-arc.py --max-minutes 30
 ```
 
 ## GBrain

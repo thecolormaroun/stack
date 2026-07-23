@@ -101,6 +101,50 @@ def test_enable_requires_receipts_then_uses_exact_cron_argv(tmp_path):
     assert curation == "cron create 23 9 * * 1 --name stack-bookmark-curation --script stack-bookmark-curation.sh --no-agent"
 
 
+def test_enable_accepts_operational_collection_with_an_inaccessible_link(tmp_path):
+    bin_dir, argv = _fake_hermes(tmp_path)
+    receipts = _receipts(tmp_path / "receipts")
+    collection = receipts / "collection-proof.json"
+    collection.write_text(
+        json.dumps(
+            {
+                "receipt_type": "partial",
+                "phase": "collection",
+                "complete": False,
+                "manual_run": True,
+                "mode": "apply",
+                "sources": [
+                    {"source_id": "github-stars", "status": "ok"},
+                    {"source_id": "github-linked", "status": "partial_repository_inaccessible"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    collection.chmod(0o600)
+    env = _env(tmp_path, bin_dir, argv, receipts)
+
+    installed = subprocess.run([str(INSTALLER), "--install-wrappers"], cwd=ROOT, env=env, text=True, capture_output=True)
+    assert installed.returncode == 0, installed.stderr
+    result = subprocess.run([str(INSTALLER), "--enable", "--approval-token", "I_APPROVE_HERMES_STACK_CURATION"], cwd=ROOT, env=env, text=True, capture_output=True)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_installs_wrappers_under_explicit_hermes_home(tmp_path):
+    bin_dir, argv = _fake_hermes(tmp_path)
+    receipts = _receipts(tmp_path / "receipts")
+    env = _env(tmp_path, bin_dir, argv, receipts)
+    hermes_home = tmp_path / "running-hermes"
+    env["HERMES_HOME"] = str(hermes_home)
+
+    result = subprocess.run([str(INSTALLER), "--install-wrappers"], cwd=ROOT, env=env, text=True, capture_output=True)
+
+    assert result.returncode == 0, result.stderr
+    assert (hermes_home / "scripts/stack-bookmark-collection.sh").is_file()
+    assert (hermes_home / "scripts/stack-bookmark-curation.sh").is_file()
+
+
 def test_second_create_failure_compensates_first_job(tmp_path):
     bin_dir, argv = _fake_hermes(tmp_path)
     receipts = _receipts(tmp_path / "receipts")

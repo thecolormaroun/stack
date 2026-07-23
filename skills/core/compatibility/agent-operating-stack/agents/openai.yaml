@@ -1,0 +1,4 @@
+interface:
+  display_name: "Stack (legacy)"
+  short_description: "Compatibility route to the Stack root command"
+  default_prompt: "Use $agent-operating-stack as a compatibility alias for the canonical stack router."

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "overlay_id": "private-overlay:reference-pack",
+  "public_link": {
+    "catalog_overlay_id": "private-overlay:reference-pack",
+    "policy_id": "private-policy:owner-local"
+  },
+  "authorized_runtime_targets": {"codex-local": "local-target:codex-main"},
+  "target_authorization": {
+    "manifest_path": "TARGET_MANIFEST_PATH",
+    "owner_identity": "local-owner:primary"
+  },
+  "owner_only": {"overlay_directory_mode": "0700", "file_mode": "0600"},
+  "retention": {
+    "payload_retention": "owner-managed-local-only",
+    "delete_on_authorization_removal": true,
+    "delete_on_payload_removal": true,
+    "delete_on_validation_failure": true
+  },
+  "payload": {"path": "PAYLOAD_PATH"}
+}

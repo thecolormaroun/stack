@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stack.maroun.co/registry/capabilities.schema.json",
+  "title": "Stack capability-local manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "canonical_name", "purpose", "domain", "family", "role", "visibility", "commands", "ownership", "context", "trust_class", "validation_class", "artifact_type", "lifecycle", "audit_status", "source", "provenance", "overlaps", "validation", "runtimes", "disposition"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "canonical_name": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "purpose": {"type": "string", "minLength": 1},
+    "domain": {"enum": ["core", "product", "planning", "design", "engineering", "orchestration", "review", "qa", "delivery", "knowledge", "platform"]},
+    "family": {"enum": ["core", "product", "planning", "design", "engineering", "orchestration", "review", "qa", "delivery", "knowledge", "platform"]},
+    "role": {"enum": ["router", "workflow", "leaf", "adapter", "reference-pack", "package", "alias"]},
+    "visibility": {"enum": ["primary", "extended", "internal", "compatibility", "reference-only", "external"]},
+    "commands": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^stack(?:\\.[a-z][a-z0-9-]*)*$"}},
+    "ownership": {"type": "object", "additionalProperties": false, "required": ["provider", "package", "source_path"], "properties": {"provider": {"type": "string", "minLength": 1}, "package": {"type": "string", "minLength": 1}, "source_path": {"type": "string", "minLength": 1}}},
+    "context": {"type": "object", "additionalProperties": false, "required": ["inputs", "outputs"], "properties": {"inputs": {"type": "array", "items": {"type": "string"}}, "outputs": {"type": "array", "items": {"type": "string"}}}},
+    "trust_class": {"enum": ["read-only", "local-mutation", "external-mutation"]},
+    "validation_class": {"enum": ["structural", "representative-route", "high-risk"]},
+    "artifact_type": {"enum": ["skill", "reference-pack", "router", "upstream-package", "private-overlay"]},
+    "lifecycle": {"enum": ["candidate", "active", "deprecated", "archived", "external"]},
+    "audit_status": {"enum": ["pending", "reviewed"]},
+    "source": {"oneOf": [{"type": "object", "additionalProperties": false, "required": ["skill_path"], "properties": {"skill_path": {"type": "string", "pattern": "^(?!/)(?!.*\\.\\.)skills/.+/SKILL\\.md$"}}}, {"type": "object", "additionalProperties": false, "required": ["overlay_id"], "properties": {"overlay_id": {"type": "string", "pattern": "^private-overlay:[a-z0-9][a-z0-9-]*$"}}}]},
+    "provenance": {"type": "object", "additionalProperties": false, "required": ["posture", "source_identity", "license"], "properties": {"posture": {"enum": ["repository-local", "imported-upstream", "private-overlay"]}, "source_identity": {"type": "string", "minLength": 1}, "license": {"type": "string", "minLength": 1}}},
+    "overlaps": {"type": "array", "items": {"type": "string"}},
+    "compatibility_aliases": {"type": "array", "uniqueItems": true, "maxItems": 10, "items": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"}},
+    "alias_of": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "validation": {"type": "object", "additionalProperties": false, "required": ["status", "evidence"], "properties": {"status": {"enum": ["pending", "validated", "blocked"]}, "evidence": {"type": "array", "items": {"type": "string"}}}},
+    "runtimes": {"type": "object", "additionalProperties": false, "required": ["supported", "publish_targets"], "properties": {"supported": {"type": "array", "items": {"type": "string"}}, "publish_targets": {"type": "array", "items": {"type": "string"}}}},
+    "disposition": {"type": "object", "additionalProperties": false, "required": ["status", "evidence_gap", "next_review_trigger"], "properties": {"status": {"enum": ["keep", "merge", "demote", "move", "archive", "hold-pending-evidence"]}, "evidence_gap": {"type": ["string", "null"]}, "next_review_trigger": {"type": ["string", "null"]}}}
+  }
+}

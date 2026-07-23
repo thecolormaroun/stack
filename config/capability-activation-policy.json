@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "decision_cap": 3,
+  "dispositions": [
+    "no-action",
+    "evidence-attachment",
+    "reference-update",
+    "skill-update",
+    "new-candidate-skill",
+    "upstream-import-update"
+  ],
+  "accepted_licenses": ["Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "MIT", "MPL-2.0"],
+  "review_gates": ["provenance-review", "evaluation-review", "publication-review"],
+  "evaluation": {
+    "immutable_source_pin_required": true,
+    "network": "deny",
+    "ambient_credentials": "deny",
+    "private_corpus_mounts": "deny",
+    "writes": "temporary-workspace-only",
+    "artifact_output_only": true
+  },
+  "allowed_evaluation_dependencies": []
+}

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Agent Operating Stack"
-  short_description: "Route design, code, and agent loops"
-  default_prompt: "Use $agent-operating-stack to choose the right Stack/Hermes operating loop and verification gate."

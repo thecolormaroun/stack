@@ -1,0 +1,1 @@
+{"schema_version":1,"provider":"compound-engineering","registry":"registry/upstreams.json","source_mode":"external-pinned-package","copy_upstream_source":false,"exports":["ce-plan","ce-brainstorm","ce-work","lfg","ce-worktree","ce-code-review","ce-commit"],"stack_adapters":["stack.plan","stack.build","stack.orchestrate","stack.review","stack.ship"]}

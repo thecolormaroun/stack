@@ -1,0 +1,42 @@
+{
+  "name": "stack-codex",
+  "version": "0.1.0",
+  "description": "Local Codex overlay that keeps Maroun's build workflows aligned with official gstack and compound-engineering upstreams.",
+  "author": {
+    "name": "Maroun",
+    "email": "noreply@local.invalid",
+    "url": "https://github.com/thecolormaroun"
+  },
+  "homepage": "https://github.com/thecolormaroun/stack",
+  "repository": "https://github.com/thecolormaroun/stack",
+  "license": "UNLICENSED",
+  "keywords": [
+    "codex",
+    "workflow",
+    "gstack",
+    "compound-engineering",
+    "migration"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Stack Codex",
+    "shortDescription": "Shared workflow overlay for Maroun's Codex stack",
+    "longDescription": "Adds Codex-native workflow skills that orchestrate the official gstack and compound-engineering upstreams while keeping the Claude and Codex stacks in sync from one local workspace.",
+    "developerName": "Maroun",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/thecolormaroun/stack",
+    "privacyPolicyURL": "https://github.com/thecolormaroun/stack",
+    "termsOfServiceURL": "https://github.com/thecolormaroun/stack",
+    "defaultPrompt": [
+      "Use the stack-lfg workflow to take a scoped feature from plan to review-ready",
+      "Run stack-review with gstack and compound-engineering heuristics on this branch",
+      "Sync my Claude Code and Codex workflow stack from the official upstreams"
+    ],
+    "brandColor": "#0F4C81",
+    "screenshots": []
+  }
+}

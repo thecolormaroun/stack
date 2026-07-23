@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "collection": {
+    "fetch_page_bodies": false,
+    "allowed_schemes": ["https"],
+    "github_visibility": "public-only",
+    "network_adapters": ["github_stars", "github_links"]
+  },
+  "future_fetch_constraints": {
+    "max_redirects": 3,
+    "max_response_bytes": 1048576,
+    "timeout_seconds": 10,
+    "private_network_targets": "deny"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stack.maroun.co/registry/upstreams.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "providers"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "providers": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "canonical_source", "pin", "license", "exports", "install", "adapters", "compatibility", "last_known_good"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z]+(?:-[a-z]+)*$"},
+          "kind": {"enum": ["package", "repository-package", "imported-collection"]},
+          "canonical_source": {"type": "string", "pattern": "^https://"},
+          "pin": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "value"],
+            "properties": {
+              "type": {"enum": ["git-commit", "sha256"]},
+              "value": {"type": "string", "pattern": "^[a-f0-9]{40,64}$"}
+            }
+          },
+          "license": {"type": "string", "minLength": 1},
+          "exports": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+          "export_paths": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+/SKILL\\.md$"}},
+          "install": {"enum": ["pinned-git-checkout", "pinned-import", "repository-bundle"]},
+          "bundle_path": {"type": "string", "pattern": "^packages/[a-z0-9-]+/content$"},
+          "adapters": {"type": "array", "items": {"type": "string"}},
+          "compatibility": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+          "last_known_good": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["pin", "metadata_digest"],
+            "properties": {
+              "pin": {"type": "string", "pattern": "^[a-f0-9]{40,64}$"},
+              "metadata_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

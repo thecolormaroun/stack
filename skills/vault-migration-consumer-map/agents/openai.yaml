@@ -1,4 +1,0 @@
-interface:
-  display_name: "Vault Migration Consumer Map"
-  short_description: "Plan safe Obsidian vault migrations"
-  default_prompt: "Use $vault-migration-consumer-map to inventory consumers and plan a safe Obsidian vault split."

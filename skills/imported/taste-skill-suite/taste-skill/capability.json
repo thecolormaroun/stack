@@ -1,0 +1,65 @@
+{
+  "alias_of": "cdo-taste-skill",
+  "artifact_type": "skill",
+  "audit_status": "reviewed",
+  "canonical_name": "taste-skill-suite-taste-skill",
+  "commands": [
+    "stack.build"
+  ],
+  "context": {
+    "inputs": [
+      "request",
+      "workspace-context"
+    ],
+    "outputs": [
+      "capability-result"
+    ]
+  },
+  "disposition": {
+    "evidence_gap": null,
+    "next_review_trigger": "Remove only after compatibility retirement review.",
+    "status": "merge"
+  },
+  "domain": "engineering",
+  "family": "engineering",
+  "lifecycle": "deprecated",
+  "overlaps": [
+    "cdo-taste-skill"
+  ],
+  "ownership": {
+    "package": "imported-skills",
+    "provider": "taste-skill-suite",
+    "source_path": "skills/imported/taste-skill-suite/taste-skill/SKILL.md"
+  },
+  "provenance": {
+    "license": "unknown",
+    "posture": "repository-local",
+    "source_identity": "stack:skills/taste-skill-suite/taste-skill"
+  },
+  "purpose": "Senior UI/UX Engineer. Architect digital interfaces overriding default LLM biases. Enforces metric-based rules, strict component architecture, CSS hardware acceleration, and balanced design engineering.",
+  "role": "alias",
+  "runtimes": {
+    "publish_targets": [
+      "claude",
+      "codex"
+    ],
+    "supported": [
+      "claude",
+      "codex"
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "skill_path": "skills/imported/taste-skill-suite/taste-skill/SKILL.md"
+  },
+  "trust_class": "local-mutation",
+  "validation": {
+    "evidence": [
+      "reviewed-estate-refactor",
+      "structural-classification"
+    ],
+    "status": "validated"
+  },
+  "validation_class": "representative-route",
+  "visibility": "compatibility"
+}

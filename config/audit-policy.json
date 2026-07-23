@@ -1,0 +1,24 @@
+{
+  "version": "1.0",
+  "revision": "2026-07-19-native-owner-integration",
+  "capability_roots": ["skills"],
+  "review_packet_cap": 20,
+  "calibration_samples": [
+    {"case": "keep", "expected_disposition": "keep", "reason": "A design/build skill with runtime and validation evidence."},
+    {"case": "merge", "expected_disposition": "merge", "reason": "Overlapping callable workflows need a reviewed canonical target."},
+    {"case": "demote", "expected_disposition": "demote", "reason": "A reference collection is useful but is not independently callable."},
+    {"case": "move", "expected_disposition": "move", "reason": "Useful personal or finance work is outside the Stack design/build identity."},
+    {"case": "archive", "expected_disposition": "archive", "reason": "An obsolete artifact requires item-level confirmation."},
+    {"case": "imported-package", "expected_disposition": "hold", "reason": "An imported package needs provenance and license review."},
+    {"case": "orchestration", "expected_disposition": "hold", "reason": "Orchestration must name a design/build workflow it supports."}
+  ],
+  "out_of_scope_keywords": ["arc sidebar", "finance", "shopping", "gbrain zk", "gemini zk", "mookie bookmark taxonomy", "personal file", "vault migration", "zettelkasten plan", "household"],
+  "out_of_scope_destination": "existing native owner workflow",
+  "router_keywords": ["router", "routing", "menu", "route broad"],
+  "overlap_groups": [
+    ["skills/react-doctor/SKILL.md", "skills/cdo/react-doctor/SKILL.md"],
+    ["skills/rams/SKILL.md", "skills/cdo/rams/SKILL.md"],
+    ["skills/deslop/SKILL.md", "skills/cdo/deslop/SKILL.md"],
+    ["skills/taste-skill-suite/taste-skill/SKILL.md", "skills/cdo/taste-skill/SKILL.md"]
+  ]
+}

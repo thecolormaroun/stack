@@ -1,0 +1,416 @@
+# Capability estate audit
+
+Policy revision: `2026-07-18-identity-header-calibration`
+Policy digest: `d5ca3c96639aaf04036f15c5acbb75e3dff92beb46f60aec9aa30895150440cd`
+
+This is a non-mutating inventory. Every disposition below is a proposal and is
+**unreviewed**; it neither moves nor deletes a capability and does not grant
+human approval.
+
+## Coverage
+
+- Tracked capability artifacts: 810
+- Discovered artifacts: 810
+- Coverage: 100%
+- Callable capabilities: 145
+- Callable entrypoints: 145
+- Nested callable entrypoints: 52
+- Collections: 97
+
+## Calibration sample
+
+- `keep` -> `keep` — A design/build skill with runtime and validation evidence.
+- `merge` -> `merge` — Overlapping callable workflows need a reviewed canonical target.
+- `demote` -> `demote` — A reference collection is useful but is not independently callable.
+- `move` -> `move` — Useful personal or finance work is outside the Stack design/build identity.
+- `archive` -> `archive` — An obsolete artifact requires item-level confirmation.
+- `imported-package` -> `hold` — An imported package needs provenance and license review.
+- `orchestration` -> `hold` — Orchestration must name a design/build workflow it supports.
+
+## Proposed review packets
+
+- `agent-operating-stack` (`skills/agent-operating-stack/SKILL.md`) -> **hold** (router needs supported design/build workflow review); unreviewed
+- `arc-sidebar-guarded-migration` (`skills/arc-sidebar-guarded-migration/SKILL.md`) -> **move** (useful but outside design/build identity keyword match); unreviewed
+- `cdo-deslop` (`skills/cdo/deslop/SKILL.md`) -> **merge** (policy overlap cluster: skills/deslop/SKILL.md); unreviewed
+- `cdo-rams` (`skills/cdo/rams/SKILL.md`) -> **merge** (policy overlap cluster: skills/rams/SKILL.md); unreviewed
+- `cdo-react-doctor` (`skills/cdo/react-doctor/SKILL.md`) -> **merge** (policy overlap cluster: skills/react-doctor/SKILL.md); unreviewed
+- `cdo-taste-skill` (`skills/cdo/taste-skill/SKILL.md`) -> **merge** (policy overlap cluster: skills/taste-skill-suite/taste-skill/SKILL.md); unreviewed
+- `david-online-shopping` (`skills/david-online-shopping/SKILL.md`) -> **move** (useful but outside design/build identity keyword match); unreviewed
+- `david-pi-custom-model` (`skills/david-pi-custom-model/SKILL.md`) -> **hold** (router needs supported design/build workflow review); unreviewed
+- `david-run-deep-swe` (`skills/david-run-deep-swe/SKILL.md`) -> **hold** (router needs supported design/build workflow review); unreviewed
+- `deslop` (`skills/deslop/SKILL.md`) -> **merge** (policy overlap cluster: skills/cdo/deslop/SKILL.md); unreviewed
+- `gbrain-zk-operating-system` (`skills/gbrain-zk-operating-system/SKILL.md`) -> **move** (useful but outside design/build identity keyword match); unreviewed
+- `gemini-zk-orchestrator` (`skills/gemini-zk-orchestrator/SKILL.md`) -> **move** (useful but outside design/build identity keyword match); unreviewed
+- `illo` (`skills/illo/SKILL.md`) -> **hold** (router needs supported design/build workflow review); unreviewed
+- `local-finance-interface` (`skills/local-finance-interface/SKILL.md`) -> **move** (useful but outside design/build identity keyword match); unreviewed
+- `matt-ask-matt` (`skills/matt-ask-matt/SKILL.md`) -> **hold** (router needs supported design/build workflow review); unreviewed
+- `menu` (`skills/studio/menu/SKILL.md`) -> **hold** (router needs supported design/build workflow review); unreviewed
+- `mookie-bookmark-taxonomy` (`skills/mookie-bookmark-taxonomy/SKILL.md`) -> **move** (useful but outside design/build identity keyword match); unreviewed
+- `personal-file-organization-review` (`skills/personal-file-organization-review/SKILL.md`) -> **move** (useful but outside design/build identity keyword match); unreviewed
+- `rams` (`skills/rams/SKILL.md`) -> **merge** (policy overlap cluster: skills/cdo/rams/SKILL.md); unreviewed
+- `react-doctor` (`skills/react-doctor/SKILL.md`) -> **merge** (policy overlap cluster: skills/cdo/react-doctor/SKILL.md); unreviewed
+
+## Evidence gaps
+
+- `adapt`: missing-license-evidence
+- `adapt`: missing-validation-evidence
+- `adapt`: missing-runtime-evidence
+- `agent-operating-stack`: missing-license-evidence
+- `agent-operating-stack`: missing-validation-evidence
+- `agent-verification-ladder`: missing-license-evidence
+- `agent-verification-ladder`: missing-validation-evidence
+- `animate`: missing-license-evidence
+- `animate`: missing-validation-evidence
+- `animate`: missing-runtime-evidence
+- `arc-sidebar-guarded-migration`: missing-license-evidence
+- `arc-sidebar-guarded-migration`: missing-validation-evidence
+- `arrange`: missing-license-evidence
+- `arrange`: missing-validation-evidence
+- `arrange`: missing-runtime-evidence
+- `assets`: missing-license-evidence
+- `assets`: missing-validation-evidence
+- `assets`: missing-runtime-evidence
+- `audit`: missing-license-evidence
+- `audit`: missing-validation-evidence
+- `audit`: missing-runtime-evidence
+- `baseline-ui`: missing-license-evidence
+- `baseline-ui`: missing-validation-evidence
+- `baseline-ui`: missing-runtime-evidence
+- `better-icons`: missing-license-evidence
+- `better-icons`: missing-validation-evidence
+- `better-icons`: missing-runtime-evidence
+- `bolder`: missing-license-evidence
+- `bolder`: missing-validation-evidence
+- `bolder`: missing-runtime-evidence
+- `braindump`: missing-license-evidence
+- `braindump`: missing-validation-evidence
+- `braindump`: missing-runtime-evidence
+- `cdo`: missing-license-evidence
+- `cdo`: missing-runtime-evidence
+- `cdo-deslop`: missing-license-evidence
+- `cdo-deslop`: missing-validation-evidence
+- `cdo-deslop`: missing-runtime-evidence
+- `cdo-rams`: missing-license-evidence
+- `cdo-rams`: missing-validation-evidence
+- `cdo-rams`: missing-runtime-evidence
+- `cdo-react-doctor`: missing-license-evidence
+- `cdo-react-doctor`: missing-validation-evidence
+- `cdo-react-doctor`: missing-runtime-evidence
+- `cdo-simplify`: missing-license-evidence
+- `cdo-simplify`: missing-validation-evidence
+- `cdo-simplify`: missing-runtime-evidence
+- `cdo-taste-skill`: missing-license-evidence
+- `cdo-taste-skill`: missing-validation-evidence
+- `cdo-taste-skill`: missing-runtime-evidence
+- `clarify`: missing-license-evidence
+- `clarify`: missing-validation-evidence
+- `clarify`: missing-runtime-evidence
+- `colorize`: missing-license-evidence
+- `colorize`: missing-validation-evidence
+- `colorize`: missing-runtime-evidence
+- `commercialization`: missing-license-evidence
+- `commercialization`: missing-validation-evidence
+- `commercialization`: missing-runtime-evidence
+- `competitive`: missing-license-evidence
+- `competitive`: missing-validation-evidence
+- `competitive`: missing-runtime-evidence
+- `cpo`: missing-license-evidence
+- `cpo`: missing-runtime-evidence
+- `critique`: missing-license-evidence
+- `critique`: missing-validation-evidence
+- `critique`: missing-runtime-evidence
+- `david-agent-self-scheduling`: missing-license-evidence
+- `david-agent-self-scheduling`: missing-validation-evidence
+- `david-anti-sleep`: missing-license-evidence
+- `david-anti-sleep`: missing-validation-evidence
+- `david-brain-to-docs`: missing-license-evidence
+- `david-brain-to-docs`: missing-validation-evidence
+- `david-browser-harness`: missing-license-evidence
+- `david-browser-harness`: missing-validation-evidence
+- `david-cmux`: missing-license-evidence
+- `david-cmux`: missing-validation-evidence
+- `david-codex-subagent`: missing-license-evidence
+- `david-codex-subagent`: missing-validation-evidence
+- `david-create-readonly-db-role`: missing-license-evidence
+- `david-create-readonly-db-role`: missing-validation-evidence
+- `david-cyber-audit`: missing-license-evidence
+- `david-cyber-audit`: missing-validation-evidence
+- `david-deep-research`: missing-license-evidence
+- `david-deep-research`: missing-validation-evidence
+- `david-deepapi`: missing-license-evidence
+- `david-deepapi`: missing-validation-evidence
+- `david-distribute-skill-to-all-agents`: missing-license-evidence
+- `david-distribute-skill-to-all-agents`: missing-validation-evidence
+- `david-effective-agent-skills`: missing-license-evidence
+- `david-effective-agent-skills`: missing-validation-evidence
+- `david-fable-safe-prompt`: missing-license-evidence
+- `david-fable-safe-prompt`: missing-validation-evidence
+- `david-folder-specific-claude-and-agents-md`: missing-license-evidence
+- `david-folder-specific-claude-and-agents-md`: missing-validation-evidence
+- `david-goal-loop`: missing-license-evidence
+- `david-goal-loop`: missing-validation-evidence
+- `david-google-safe-browsing`: missing-license-evidence
+- `david-google-safe-browsing`: missing-validation-evidence
+- `david-handoff`: missing-license-evidence
+- `david-handoff`: missing-validation-evidence
+- `david-level-up`: missing-license-evidence
+- `david-level-up`: missing-validation-evidence
+- `david-online-shopping`: missing-license-evidence
+- `david-online-shopping`: missing-validation-evidence
+- `david-pi-custom-model`: missing-license-evidence
+- `david-pi-custom-model`: missing-validation-evidence
+- `david-pi-web-search`: missing-license-evidence
+- `david-pi-web-search`: missing-validation-evidence
+- `david-prompt-me`: missing-license-evidence
+- `david-prompt-me`: missing-validation-evidence
+- `david-push-skill-to-github`: missing-license-evidence
+- `david-push-skill-to-github`: missing-validation-evidence
+- `david-read-all-adrs`: missing-license-evidence
+- `david-read-all-adrs`: missing-validation-evidence
+- `david-research-prompt`: missing-license-evidence
+- `david-research-prompt`: missing-validation-evidence
+- `david-run-deep-swe`: missing-license-evidence
+- `david-run-deep-swe`: missing-validation-evidence
+- `david-setup-help`: missing-license-evidence
+- `david-setup-help`: missing-validation-evidence
+- `david-short`: missing-license-evidence
+- `david-short`: missing-validation-evidence
+- `david-teach`: missing-license-evidence
+- `david-teach`: missing-validation-evidence
+- `david-youtube-transcript`: missing-license-evidence
+- `david-youtube-transcript`: missing-validation-evidence
+- `delight`: missing-license-evidence
+- `delight`: missing-validation-evidence
+- `delight`: missing-runtime-evidence
+- `departments`: missing-license-evidence
+- `departments`: missing-validation-evidence
+- `departments`: missing-runtime-evidence
+- `design-intelligence`: missing-license-evidence
+- `design-intelligence`: missing-runtime-evidence
+- `designsystem`: missing-license-evidence
+- `designsystem`: missing-validation-evidence
+- `designsystem`: missing-runtime-evidence
+- `deslop`: missing-license-evidence
+- `deslop`: missing-validation-evidence
+- `deslop`: missing-runtime-evidence
+- `distill`: missing-license-evidence
+- `distill`: missing-validation-evidence
+- `distill`: missing-runtime-evidence
+- `emil-design-eng`: missing-license-evidence
+- `emil-design-eng`: missing-validation-evidence
+- `emil-design-eng`: missing-runtime-evidence
+- `extract`: missing-license-evidence
+- `extract`: missing-validation-evidence
+- `extract`: missing-runtime-evidence
+- `favicon`: missing-license-evidence
+- `favicon`: missing-validation-evidence
+- `favicon`: missing-runtime-evidence
+- `field-theory-bookmark-synthesis`: missing-license-evidence
+- `field-theory-bookmark-synthesis`: missing-validation-evidence
+- `fieldbook-source-split`: missing-license-evidence
+- `fieldbook-source-split`: missing-validation-evidence
+- `fix-sentry-issues`: missing-license-evidence
+- `fix-sentry-issues`: missing-validation-evidence
+- `fix-sentry-issues`: missing-runtime-evidence
+- `fixing-accessibility`: missing-license-evidence
+- `fixing-accessibility`: missing-validation-evidence
+- `fixing-accessibility`: missing-runtime-evidence
+- `fixing-metadata`: missing-license-evidence
+- `fixing-metadata`: missing-validation-evidence
+- `fixing-metadata`: missing-runtime-evidence
+- `fixing-motion-performance`: missing-license-evidence
+- `fixing-motion-performance`: missing-validation-evidence
+- `fixing-motion-performance`: missing-runtime-evidence
+- `frontend-design`: missing-license-evidence
+- `frontend-design`: missing-validation-evidence
+- `frontend-design`: missing-runtime-evidence
+- `full-output-enforcement`: missing-license-evidence
+- `full-output-enforcement`: missing-validation-evidence
+- `full-output-enforcement`: missing-runtime-evidence
+- `gbrain-zk-operating-system`: missing-license-evidence
+- `gbrain-zk-operating-system`: missing-validation-evidence
+- `gemini-review`: missing-license-evidence
+- `gemini-review`: missing-validation-evidence
+- `gemini-review`: missing-runtime-evidence
+- `gemini-zk-orchestrator`: missing-license-evidence
+- `gemini-zk-orchestrator`: missing-validation-evidence
+- `goal-validation-threads`: missing-license-evidence
+- `goal-validation-threads`: missing-validation-evidence
+- `harden`: missing-license-evidence
+- `harden`: missing-validation-evidence
+- `harden`: missing-runtime-evidence
+- `hermes-native-patch-migration`: missing-license-evidence
+- `hermes-native-patch-migration`: missing-validation-evidence
+- `high-end-visual-design`: missing-license-evidence
+- `high-end-visual-design`: missing-validation-evidence
+- `high-end-visual-design`: missing-runtime-evidence
+- `ideate`: missing-license-evidence
+- `ideate`: missing-validation-evidence
+- `ideate`: missing-runtime-evidence
+- `illo`: missing-license-evidence
+- `illo`: missing-validation-evidence
+- `illo`: missing-runtime-evidence
+- `knip`: missing-license-evidence
+- `knip`: missing-validation-evidence
+- `knip`: missing-runtime-evidence
+- `layout`: missing-license-evidence
+- `layout`: missing-validation-evidence
+- `layout`: missing-runtime-evidence
+- `live-site-health-check`: missing-license-evidence
+- `live-site-health-check`: missing-validation-evidence
+- `live-site-health-check`: missing-runtime-evidence
+- `local-finance-interface`: missing-license-evidence
+- `local-finance-interface`: missing-validation-evidence
+- `local-tracker-dashboard`: missing-license-evidence
+- `local-tracker-dashboard`: missing-validation-evidence
+- `make-interfaces-feel-better`: missing-license-evidence
+- `make-interfaces-feel-better`: missing-validation-evidence
+- `make-interfaces-feel-better`: missing-runtime-evidence
+- `matt-ask-matt`: missing-license-evidence
+- `matt-ask-matt`: missing-validation-evidence
+- `matt-code-review`: missing-license-evidence
+- `matt-code-review`: missing-validation-evidence
+- `matt-codebase-design`: missing-license-evidence
+- `matt-codebase-design`: missing-validation-evidence
+- `matt-diagnosing-bugs`: missing-license-evidence
+- `matt-diagnosing-bugs`: missing-validation-evidence
+- `matt-domain-modeling`: missing-license-evidence
+- `matt-domain-modeling`: missing-validation-evidence
+- `matt-grill-me`: missing-license-evidence
+- `matt-grill-me`: missing-validation-evidence
+- `matt-grill-with-docs`: missing-license-evidence
+- `matt-grill-with-docs`: missing-validation-evidence
+- `matt-grilling`: missing-license-evidence
+- `matt-grilling`: missing-validation-evidence
+- `matt-handoff`: missing-license-evidence
+- `matt-handoff`: missing-validation-evidence
+- `matt-implement`: missing-license-evidence
+- `matt-implement`: missing-validation-evidence
+- `matt-improve-codebase-architecture`: missing-license-evidence
+- `matt-improve-codebase-architecture`: missing-validation-evidence
+- `matt-prototype`: missing-license-evidence
+- `matt-prototype`: missing-validation-evidence
+- `matt-research`: missing-license-evidence
+- `matt-research`: missing-validation-evidence
+- `matt-resolving-merge-conflicts`: missing-license-evidence
+- `matt-resolving-merge-conflicts`: missing-validation-evidence
+- `matt-setup-matt-pocock-skills`: missing-license-evidence
+- `matt-setup-matt-pocock-skills`: missing-validation-evidence
+- `matt-tdd`: missing-license-evidence
+- `matt-teach`: missing-license-evidence
+- `matt-teach`: missing-validation-evidence
+- `matt-to-spec`: missing-license-evidence
+- `matt-to-spec`: missing-validation-evidence
+- `matt-to-tickets`: missing-license-evidence
+- `matt-to-tickets`: missing-validation-evidence
+- `matt-triage`: missing-license-evidence
+- `matt-triage`: missing-validation-evidence
+- `matt-wayfinder`: missing-license-evidence
+- `matt-wayfinder`: missing-validation-evidence
+- `matt-writing-great-skills`: missing-license-evidence
+- `matt-writing-great-skills`: missing-validation-evidence
+- `mega-workflow`: missing-license-evidence
+- `mega-workflow`: missing-validation-evidence
+- `mega-workflow`: missing-runtime-evidence
+- `menu`: missing-license-evidence
+- `menu`: missing-validation-evidence
+- `menu`: missing-runtime-evidence
+- `mookie-bookmark-taxonomy`: missing-license-evidence
+- `mookie-bookmark-taxonomy`: missing-validation-evidence
+- `muller-brockmann-grid-systems`: missing-license-evidence
+- `muller-brockmann-grid-systems`: missing-validation-evidence
+- `muller-brockmann-grid-systems`: missing-runtime-evidence
+- `normalize`: missing-license-evidence
+- `normalize`: missing-validation-evidence
+- `normalize`: missing-runtime-evidence
+- `onboard`: missing-license-evidence
+- `onboard`: missing-validation-evidence
+- `onboard`: missing-runtime-evidence
+- `optimize`: missing-license-evidence
+- `optimize`: missing-validation-evidence
+- `optimize`: missing-runtime-evidence
+- `overdrive`: missing-license-evidence
+- `overdrive`: missing-validation-evidence
+- `overdrive`: missing-runtime-evidence
+- `personal-file-organization-review`: missing-license-evidence
+- `personal-file-organization-review`: missing-validation-evidence
+- `polish`: missing-license-evidence
+- `polish`: missing-validation-evidence
+- `polish`: missing-runtime-evidence
+- `prd`: missing-license-evidence
+- `prd`: missing-validation-evidence
+- `prd`: missing-runtime-evidence
+- `quieter`: missing-license-evidence
+- `quieter`: missing-validation-evidence
+- `quieter`: missing-runtime-evidence
+- `rams`: missing-license-evidence
+- `rams`: missing-runtime-evidence
+- `react-doctor`: missing-license-evidence
+- `react-doctor`: missing-validation-evidence
+- `react-doctor`: missing-runtime-evidence
+- `reclaude`: missing-license-evidence
+- `reclaude`: missing-validation-evidence
+- `reclaude`: missing-runtime-evidence
+- `redesign-existing-projects`: missing-license-evidence
+- `redesign-existing-projects`: missing-validation-evidence
+- `redesign-existing-projects`: missing-runtime-evidence
+- `review-animations`: missing-license-evidence
+- `review-animations`: missing-validation-evidence
+- `review-animations`: missing-runtime-evidence
+- `rice`: missing-license-evidence
+- `rice`: missing-validation-evidence
+- `rice`: missing-runtime-evidence
+- `roadmap`: missing-license-evidence
+- `roadmap`: missing-validation-evidence
+- `roadmap`: missing-runtime-evidence
+- `scratch-eval-promotion-gate`: missing-license-evidence
+- `scratch-eval-promotion-gate`: missing-validation-evidence
+- `scratch-eval-promotion-gate`: missing-runtime-evidence
+- `ship`: missing-license-evidence
+- `ship`: missing-validation-evidence
+- `ship`: missing-runtime-evidence
+- `simplify`: missing-license-evidence
+- `simplify`: missing-validation-evidence
+- `simplify`: missing-runtime-evidence
+- `stack-refresh-pr-mode`: missing-license-evidence
+- `stack-refresh-pr-mode`: missing-validation-evidence
+- `taste-skill-suite-taste-skill`: missing-license-evidence
+- `taste-skill-suite-taste-skill`: missing-validation-evidence
+- `taste-skill-suite-taste-skill`: missing-runtime-evidence
+- `tastemining`: missing-license-evidence
+- `tastemining`: missing-validation-evidence
+- `tastemining`: missing-runtime-evidence
+- `tdd`: missing-license-evidence
+- `tdd`: missing-runtime-evidence
+- `teach-impeccable`: missing-license-evidence
+- `teach-impeccable`: missing-validation-evidence
+- `teach-impeccable`: missing-runtime-evidence
+- `transitions-dev-motion`: missing-license-evidence
+- `transitions-dev-motion`: missing-validation-evidence
+- `transitions-dev-motion`: missing-runtime-evidence
+- `typeset`: missing-license-evidence
+- `typeset`: missing-validation-evidence
+- `typeset`: missing-runtime-evidence
+- `typography`: missing-license-evidence
+- `typography`: missing-validation-evidence
+- `typography`: missing-runtime-evidence
+- `ui-design-brain`: missing-license-evidence
+- `ui-design-brain`: missing-validation-evidence
+- `ui-design-brain`: missing-runtime-evidence
+- `ui-ux-pro-max`: missing-license-evidence
+- `ui-ux-pro-max`: missing-validation-evidence
+- `ui-ux-pro-max`: missing-runtime-evidence
+- `userinterface-wiki`: missing-license-evidence
+- `userinterface-wiki`: missing-validation-evidence
+- `userinterface-wiki`: missing-runtime-evidence
+- `ux`: missing-license-evidence
+- `ux`: missing-validation-evidence
+- `ux`: missing-runtime-evidence
+- `vault-migration-consumer-map`: missing-license-evidence
+- `vault-migration-consumer-map`: missing-validation-evidence
+- `visual-direction`: missing-license-evidence
+- `visual-direction`: missing-validation-evidence
+- `visual-direction`: missing-runtime-evidence
+- `zettelkasten-plan-review-gate`: missing-license-evidence
+- `zettelkasten-plan-review-gate`: missing-validation-evidence
+- `zettelkasten-plan-review-gate`: missing-runtime-evidence

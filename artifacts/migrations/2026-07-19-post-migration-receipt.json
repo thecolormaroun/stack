@@ -1,0 +1,25 @@
+{
+  "schema_version": "capability-migration-apply-receipt/v1",
+  "migration_id": "2026-07-18-estate-refactor",
+  "status": "verified",
+  "applied_at": "2026-07-19",
+  "migration_digest": "b18359ea819da5babfa1b81aa0fa3a07a08a43aa9aaf233f8324e8f6dc1e3394",
+  "post_catalog": {
+    "capability_count": 136,
+    "digest": "e7a8514ad024c86fe2658acbf72065546feed5150808305cb2f1c72a36b97ee9"
+  },
+  "post_audit": {
+    "artifact_count": 783,
+    "callable_entrypoint_count": 136,
+    "capability_count": 136,
+    "coverage_percent": 100,
+    "digest": "deff88d51ece6a8b497f43fec213f29a05896be7231318221d9dbcc867bb0a2f"
+  },
+  "results": {
+    "native_integrated_and_removed": 9,
+    "merged_to_deprecated_compatibility_sources": 4,
+    "kept_without_implicit_activation": 132,
+    "remaining_migration_actions": 0
+  },
+  "activation_boundary": "Estate keep decisions preserve candidate lifecycle. Validation, target declaration, publication, installation, and scheduling remain separate gates."
+}

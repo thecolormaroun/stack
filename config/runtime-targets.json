@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "catalog_digest": "01ef7912a58c24371892ff754c5a06f0e89635368c6e45d429c13842dd946d5b",
+  "targets": [
+    {
+      "name": "claude",
+      "runtime": "claude",
+      "destination": ".claude/skills/stack",
+      "post_switch_verifier": ["python3", "-c", "import json; from pathlib import Path; m=json.loads(Path('runtime-manifest.json').read_text()); assert len(m['command_adapters']) == 12; assert all(Path(x['path']).is_file() for x in m['command_adapters']); assert all((Path('skills') / x['alias'] / 'SKILL.md').is_file() for x in m['command_aliases'])"]
+    },
+    {
+      "name": "codex",
+      "runtime": "codex",
+      "destination": ".codex/skills/stack",
+      "post_switch_verifier": ["python3", "-c", "import json; from pathlib import Path; m=json.loads(Path('runtime-manifest.json').read_text()); assert len(m['command_adapters']) == 12; assert all(Path(x['path']).is_file() for x in m['command_adapters']); assert all((Path('skills') / x['alias'] / 'SKILL.md').is_file() for x in m['command_aliases'])"]
+    }
+  ]
+}

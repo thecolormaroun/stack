@@ -1,0 +1,65 @@
+{
+  "alias_of": "react-doctor",
+  "artifact_type": "skill",
+  "audit_status": "reviewed",
+  "canonical_name": "cdo-react-doctor",
+  "commands": [
+    "stack.design"
+  ],
+  "context": {
+    "inputs": [
+      "request",
+      "workspace-context"
+    ],
+    "outputs": [
+      "capability-result"
+    ]
+  },
+  "disposition": {
+    "evidence_gap": null,
+    "next_review_trigger": "Remove only after compatibility retirement review.",
+    "status": "merge"
+  },
+  "domain": "design",
+  "family": "design",
+  "lifecycle": "deprecated",
+  "overlaps": [
+    "react-doctor"
+  ],
+  "ownership": {
+    "package": "stack",
+    "provider": "stack",
+    "source_path": "skills/design/cdo/react-doctor/SKILL.md"
+  },
+  "provenance": {
+    "license": "unknown",
+    "posture": "repository-local",
+    "source_identity": "stack:skills/cdo/react-doctor"
+  },
+  "purpose": "Diagnose and fix React codebase health issues. Use when reviewing React code, fixing performance problems, auditing security, or improving code quality.",
+  "role": "alias",
+  "runtimes": {
+    "publish_targets": [
+      "claude",
+      "codex"
+    ],
+    "supported": [
+      "claude",
+      "codex"
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "skill_path": "skills/design/cdo/react-doctor/SKILL.md"
+  },
+  "trust_class": "read-only",
+  "validation": {
+    "evidence": [
+      "reviewed-estate-refactor",
+      "structural-classification"
+    ],
+    "status": "validated"
+  },
+  "validation_class": "representative-route",
+  "visibility": "compatibility"
+}

@@ -1,0 +1,20 @@
+{
+  "approval_statement": "Approve all",
+  "audit_digest": "cccf8c5b2d5867fd0c85c09e31b76857abccf4a264a568b5bc047a5cf9abcc4e",
+  "decision_counts": {
+    "keep": 132,
+    "merge": 4,
+    "move": 9
+  },
+  "migration_digest": "145963ac31700845fe6e985553a326703b9e8297034ec03b745494d03c2bfe8f",
+  "migration_id": "2026-07-18-estate-refactor",
+  "next_gate": "destination-and-consumer-proof",
+  "reviewed_at": "2026-07-19",
+  "reviewed_by": "Maroun",
+  "runtime_publication_authorized": false,
+  "scheduler_enablement_authorized": false,
+  "schema_version": "capability-migration-review-receipt/v1",
+  "scope": "disposition-review-only",
+  "source_mutation_authorized": false,
+  "status": "recorded"
+}

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Mookie Bookmark Taxonomy"
-  short_description: "Classify bookmark batches into useful graph pages"
-  default_prompt: "Use $mookie-bookmark-taxonomy to classify a recent Hermes bookmark batch and recommend graph updates."

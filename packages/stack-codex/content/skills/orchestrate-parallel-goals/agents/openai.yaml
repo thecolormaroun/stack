@@ -1,0 +1,7 @@
+interface:
+  display_name: "Orchestrate Parallel Goals"
+  short_description: "Turn broad asks into goals and subgoals"
+  default_prompt: "Use $orchestrate-parallel-goals to turn this broad task into a concrete goal, split useful subgoals, and execute through verification."
+
+policy:
+  allow_implicit_invocation: true

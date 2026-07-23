@@ -1,259 +1,102 @@
 # Stack
 
-Skills, workflows, and a design knowledge graph for Claude Code. One command takes an idea from brain dump to shipped PR.
+Stack is a curated capability system for designing and building software. Its
+active capabilities are reusable skills and reference knowledge that improve
+product thinking, interface design, implementation, review, verification, or
+shipping. Orchestration belongs here only when it directly serves one of those
+design/build workflows.
 
-## Quick Start
+The repository is the versioned source of truth and the installer for its
+compiled runtime. It is not a general personal-operations library; Codex,
+Claude, and Hermes use only outputs that have passed review and validation.
 
-```bash
-# Clone into your Claude Code config
-git clone https://github.com/thecolormaroun/claude-code-stack.git ~/.claude/stack
+## Quick start
 
-# Link skills to your global config
-echo 'skills.load.extraDirs: ["~/.claude/stack/skills"]' >> ~/.claude/settings.json
+Stack publishes the same active local capabilities to isolated Claude and Codex
+namespaces. The repository-owned Stack-Codex skills, commands, agents, and
+references are staged alongside them; pinned Compound Engineering and GStack
+checkouts live only in the deployment root's package cache.
 
-# Install compound-engineering (powers /lfg)
-claude plugins install compound-engineering@every-marketplace
-
-# Install illo (editorial illustration skill/plugin)
-claude plugin marketplace add tmchow/illo-skill
-claude plugin install illo@illo-skill
+```sh
+python3 scripts/build-capability-registry.py --check
+python3 scripts/bootstrap-stack.py
 ```
 
-Or copy individual skills into any project's `skills/` directory.
+For a fresh-machine installation, make the deployment root explicit. Use your
+home directory to integrate the namespaced runtime with Claude and Codex; it
+must remain separate from the checkout:
 
----
-
-## Commands
-
-### `/mega` — The Full Pipeline
-
-One command runs everything. Drop a brain dump and `/mega` handles product, design, build, review, security, QA, and shipping.
-
-```
-/mega [your idea here]
+```sh
+python3 scripts/bootstrap-stack.py --install \
+  --deployment-root "$HOME" \
+  --staging-root "$HOME/.local/share/stack/stages" \
+  --receipts-dir "$HOME/.local/state/stack/runtime-receipts"
+python3 scripts/stack-doctor.py --deployment-root "$HOME"
 ```
 
-```
-Brain Dump → CPO (Product) → CDO (Design) → /lfg (Build) → /review → /cso → /qa → /ship
-```
+Real installation refuses a dirty checkout. Read-only bootstrap/doctor checks
+remain usable while developing in one. Runtime targets are atomically switched
+under `.claude/skills/stack` and `.codex/skills/stack` within the deployment
+root; no machine-specific workspace or pre-existing global vendor directory is
+used.
 
-| Phase | What happens | Output |
-|-------|-------------|--------|
-| **CPO** | Extracts requirements, RICE scores, sizes the work | Plan file in `docs/plans/` |
-| **CDO** | Adds visual direction, component specs, interaction patterns | Design spec appended to plan |
-| **/lfg** | Builds it (compound-engineering) | Working code |
-| **/review** | Staff engineer code review + auto-fixes | Clean code |
-| **/cso** | OWASP + STRIDE security audit | Security fixes |
-| **/qa** | Real browser testing, finds and fixes bugs | Verified features |
-| **/ship** | Sync, test, push, PR | Shipped PR |
+## What belongs
 
-### Pipeline Variants
+A capability belongs in active Stack only if it materially improves the design
+or construction of software. Use the inclusion test in
+[`docs/architecture.md`](docs/architecture.md) before adding or activating an
+entry. Useful personal operations, finance, household, shopping,
+file-organization, and general knowledge-management workflows remain outside
+the product unless they directly support a named design/build workflow.
 
-| Command | What it runs |
-|---------|-------------|
-| `/mega [idea]` | Full pipeline: product → design → build → verify → ship |
-| `/mega:spec [idea]` | CPO + CDO only — just the plan and design spec |
-| `/mega:build [plan]` | CDO → /lfg → verify — design through build |
-| `/mega:verify [branch]` | /review → /cso → /qa → /ship — verification suite only |
-| `/mega:qa [url]` | Just the gstack verification suite |
+## Operating model
 
-### `/ideate` — Idea Validation
+1. **Catalog and audit.** Each `skills/**/capability.json` manifest is the
+   authoritative local contract. The generated
+   [`registry/capabilities.json`](registry/capabilities.json) is a deterministic
+   aggregate, not a hand-edited source of truth. The read-only audit produces
+   evidence and proposed dispositions; it never moves or deletes content.
+2. **Curation.** Read-only bookmark collection records source observations in
+   an owner-local ledger. Triage compares candidates with the catalog and
+   prepares a bounded, redacted review packet. Capturing a link is not a
+   promotion.
+3. **Human gate.** Provenance, evaluation, activation, and publication require
+   review. Automation may collect evidence and prepare candidates, but may not
+   activate, merge, install, or publish a capability.
+4. **Publication and recovery.** The compiler selects only reviewed `active`
+   entries for a declared target, stages all outputs, and the installer switches
+   them atomically. Receipts preserve the catalog digest, source commit, and
+   prior target pointers for rollback without rewriting source history.
+5. **Reassessment.** Periodic review uses validation, overlap, upstream health,
+   maintenance, scope, and usage as separate signals. Low usage alone never
+   auto-archives a capability.
 
-Flesh out an idea before committing to build it.
+Read the detailed contracts:
 
-```
-/ideate [your idea]
-```
+- [`docs/skill-architecture.md`](docs/skill-architecture.md) — the current 141-capability estate, cuts, merges, families, packages, and routing model.
+- [`docs/architecture.md`](docs/architecture.md) — ownership, catalog, and inclusion boundary.
+- [`docs/capability-lifecycle.md`](docs/capability-lifecycle.md) — evidence, review, and lifecycle transitions.
+- [`docs/bookmark-curation.md`](docs/bookmark-curation.md) — safe intake through review packet.
+- [`docs/runtime-publication.md`](docs/runtime-publication.md) — staging, receipts, rollback, and scheduler boundary.
+- [`docs/private-overlay.md`](docs/private-overlay.md) — owner-only private reference packs.
+- [`templates/periodic-reassessment.md`](templates/periodic-reassessment.md) — recurring governance report.
 
-Runs:
-- `/office-hours` — YC-style forcing questions, pushback on weak ideas
-- `/plan-ceo-review` — Scope expansion, strategic fit, risk assessment
-- `/plan-design-review` — Visual feasibility, component audit (0–10 per dimension)
-- `/plan-eng-review` — Architecture diagrams, test strategy, complexity estimate
+## Verification
 
-### Other Entry Points
+Run the documented-command contract and the focused governance checks:
 
-| Command | What it does |
-|---------|-------------|
-| `/ship [idea]` | Same as `/mega` (alias) |
-| `"run it through the departments"` | Same as `/mega` |
-| `"departments: plan only"` | CPO only — just the plan file |
-| `"departments: design [plan]"` | CDO only — add design spec to existing plan |
-| `"departments: ship [plan]"` | Skip to /lfg — build from existing plan |
-
----
-
-## Skills Reference
-
-### Pipeline Skills
-
-| Skill | Emoji | What it does |
-|-------|-------|-------------|
-| `agent-operating-stack/` | 🧭 | Routes broad work across product/design, engineering, agent orchestration, and Hermes-safe verification |
-| `mega-workflow/` | 🚀 | Full pipeline orchestrator — product → design → build → verify → ship |
-| `ideate/` | 💡 | Idea validation suite — YC pushback, scope review, design + eng feasibility |
-| `departments/` | 🏢 | Simpler pipeline — CPO → CDO → /lfg |
-| `cpo/` | 🎯 | Chief Product Officer — brain dumps → structured plan files with RICE scoring |
-| `cdo/` | 🎨 | Chief Design Officer — enriches plans with design specs |
-
-### CDO Sub-Skills
-
-The CDO skill includes specialized modules that activate automatically during the design phase:
-
-| Sub-skill | What it does |
-|-----------|-------------|
-| `cdo/visual-direction/` | Color palettes, mood, aesthetic foundation, brand expression |
-| `cdo/ui-ux-pro-max/` | 67 styles, 96 palettes, 57 font pairings, 25 chart types, 13 tech stacks |
-| `cdo/taste-skill/` | Anti-LLM-bias rules — overrides default AI aesthetics with metric-based design |
-| `cdo/favicon/` | Generate full favicon sets from a source image |
-| `cdo/deslop/` | Design-aware slop removal |
-| `cdo/simplify/` | Design-aware code simplification |
-| `cdo/rams/` | Design-aware accessibility review |
-| `cdo/react-doctor/` | Design-aware React audit |
-
-### Design Quality Skills
-
-Community skills for UI craft. Claude consults these automatically during UI work.
-
-| Skill | What it does | Source |
-|-------|-------------|--------|
-| `emil-design-eng/` | Animation craft — easing curves, spring physics, polish | [emilkowalski/skill](https://github.com/emilkowalski/skill) |
-| `review-animations/` | Hard-nosed motion review — flags easing, duration, origin, interruptibility, performance, and a11y | [emilkowalski/skill](https://github.com/emilkowalski/skill) |
-| `make-interfaces-feel-better/` | 16 UI detail principles (optical alignment, shadows, stagger, hit areas) | [jakubkrehel](https://github.com/jakubkrehel/make-interfaces-feel-better) |
-| `taste-skill-suite/` | Anti-LLM-bias, typography calibration, color correction, layout diversification | [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) |
-| `impeccable/` | 17 design commands — dark mode mastery, polish, audit | [impeccable.style](https://impeccable.style) |
-| `ui-skills/` | Baseline UI accessibility, motion performance, 12 principles of animation | [ui-skills.com](https://www.ui-skills.com) |
-| `ui-design-brain/` | 60+ component patterns across 5 design styles | [carmahhawwari/ui-design-brain](https://github.com/carmahhawwari/ui-design-brain) |
-| `userinterface-wiki/` | 152 rules across 12 categories — animations, CSS, typography, UX patterns | [raphael-salaja](https://github.com/raphael-salaja) |
-| `better-icons/` | 200k+ icons via MCP | [better-auth/better-icons](https://github.com/better-auth/better-icons) |
-| `illo/` | Editorial illustrations with a recurring mascot, print-style looks, and Codex/OpenRouter backends | [tmchow/illo-skill](https://github.com/tmchow/illo-skill) |
-
-### Code Quality Skills
-
-Run these after writing code to clean up before shipping.
-
-| Skill | What it does |
-|-------|-------------|
-| `deslop/` | Remove AI slop — unnecessary comments, defensive checks, inconsistent style |
-| `simplify/` | Refine code for clarity without changing behavior |
-| `rams/` | Accessibility (WCAG 2.1 AA) + visual design review (Dieter Rams principles) |
-| `react-doctor/` | React health audit — security, performance, architecture (0–100 score) |
-| `knip/` | Find and remove dead code, unused files, unused exports |
-| `tdd/` | Test-driven development — red/green/refactor loop |
-| `fix-sentry-issues/` | Discover, triage, and fix production errors from Sentry |
-| `reclaude/` | Refactor bloated CLAUDE.md files using progressive disclosure |
-| `gemini-review/` | Read-only Google AI / Antigravity second-model review over a git diff |
-
-### Agent Workflow Skills
-
-| Skill | What it does | Source |
-|-------|-------------|--------|
-| `agent-operating-stack/` | Routes Emil design craft, imported upstream skills, Stack-native workflows, and Hermes/Mookie verification gates | [Meng To post](https://x.com/MengTo/status/2075221793925955897) |
-| `matt-*/` | 22 namespaced Matt Pocock engineering/productivity skill imports | [mattpocock/skills](https://github.com/mattpocock/skills) |
-| `david-*/` | 30 namespaced David Ondrej agent skill imports | [davidondrej/skills](https://github.com/davidondrej/skills) |
-| `agent-verification-ladder/` | Selects the right proof level before claiming agent work is complete | Stack/Hermes local workflow |
-| `goal-validation-threads/` | Validates candidate skills/workflows in fresh goal threads | Stack/Hermes local workflow |
-
----
-
-## Studio Skill Graph
-
-A structured knowledge graph (90+ files) that Claude navigates during product, design, and build work. You don't invoke it directly — it's reference material that other skills pull from.
-
-| Domain | What's in it |
-|--------|-------------|
-| **Design System** | Tokens, color system, motion tokens, buttons, cards, inputs, spacing, typography |
-| **Design Patterns** | Premium interaction patterns, motion design, "design with taste" guardrails |
-| **Design Heuristics** | Error prevention, irreversible actions, trust signals |
-| **Design Checklists** | Visual QA checklist, UI critique framework |
-| **Layout** | Grid system, responsive rules, spacing scale, touch targets, visual hierarchy |
-| **Research** | Competitive teardowns, gap analysis, landscape discovery, taste mining |
-| **Product** | PRD generation, product specs, feature prioritization |
-| **Ship** | Build handoff, QA, release workflow |
-
-Entry point: `skills/studio/_graph/studio.moc.md`
-
----
-
-## Directory Structure
-
-```
-├── config/
-│   └── CLAUDE.md              # Global config (Studio graph refs, plan settings)
-├── plugins/
-│   └── compound-engineering/  # Plugin config
-├── skills/
-│   ├── mega-workflow/         # 🚀 Full pipeline orchestrator
-│   ├── ideate/                # 💡 Idea validation suite
-│   ├── departments/           # 🏢 Simpler pipeline
-│   ├── cpo/                   # 🎯 Product — brain dump → plan file
-│   ├── cdo/                   # 🎨 Design — plan file → design spec
-│   │   ├── visual-direction/
-│   │   ├── ui-ux-pro-max/
-│   │   ├── taste-skill/
-│   │   ├── favicon/
-│   │   ├── deslop/
-│   │   ├── simplify/
-│   │   ├── rams/
-│   │   └── react-doctor/
-│   ├── studio/                # Studio Skill Graph (90+ files)
-│   │   └── _graph/
-│   ├── agent-operating-stack/
-│   ├── matt-*/                # Namespaced Matt Pocock skill imports
-│   ├── david-*/               # Namespaced David Ondrej skill imports
-│   ├── emil-design-eng/
-│   ├── review-animations/
-│   ├── make-interfaces-feel-better/
-│   ├── taste-skill-suite/
-│   ├── impeccable/
-│   ├── ui-skills/
-│   ├── ui-design-brain/
-│   ├── userinterface-wiki/
-│   ├── better-icons/
-│   ├── illo/
-│   ├── deslop/
-│   ├── simplify/
-│   ├── rams/
-│   ├── react-doctor/
-│   ├── knip/
-│   ├── tdd/
-│   ├── fix-sentry-issues/
-│   ├── reclaude/
-│   └── gemini-review/
-└── docs/
-    └── setup-guide.md
+```sh
+python3 -m unittest tests.test_documented_commands
+python3 -m unittest tests.test_capability_registry tests.test_audit_capabilities tests.test_compile_runtime tests.test_install_runtime
 ```
 
----
+The first test verifies that each documented repository reference resolves, the
+commands are recognized, and the safety wording remains present.
 
-## Requirements
+## Security and privacy
 
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)
-- [compound-engineering plugin](https://github.com/EveryInc/compound-engineering-plugin) — powers `/lfg`
-- [illo plugin](https://github.com/tmchow/illo-skill) — powers editorial illustration generation
-
-```bash
-claude plugins install compound-engineering@every-marketplace
-claude plugin marketplace add tmchow/illo-skill
-claude plugin install illo@illo-skill
-```
-
-## Security Guardrails
-
-Pull requests run a `Security scan` workflow before merge. The workflow combines
-Gitleaks with a stack-specific sensitive content scanner for local paths, private
-agent artifacts, credential-looking config values, and household or finance-lane
-references. See `docs/security/leak-prevention.md` for local hook setup and leak
-remediation guidance.
-
----
-
-## Philosophy
-
-**Boil the Lake** — When AI makes the marginal cost of review near-zero, do complete reviews instead of sampling. Run the full pipeline. Check everything. Ship with confidence.
-
----
-
-## License
-
-Skills are provided as-is. External skills (linked above) maintain their original licenses.
+Bookmark text and fetched pages are untrusted evidence, never instructions.
+Raw bookmarks, fetched evidence, private repository metadata, private URLs,
+titles, local paths, and proprietary payloads stay out of public Stack
+artifacts. See [`docs/private-overlay.md`](docs/private-overlay.md) for the
+local-only exception and its authorization boundary.

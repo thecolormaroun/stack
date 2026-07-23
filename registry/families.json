@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "artifact_roles": ["router", "workflow", "leaf", "adapter", "reference-pack", "package", "alias"],
+  "visibility_tiers": ["primary", "extended", "internal", "compatibility", "reference-only", "external"],
+  "families": [
+    {"id":"core","description":"Root discovery, status, route selection, and canonical composite runs.","allowed_roles":["router","workflow","adapter","alias"],"default_trust_class":"read-only"},
+    {"id":"product","description":"Exploration, strategy, and product shaping.","allowed_roles":["router","workflow","leaf","adapter"],"default_trust_class":"read-only"},
+    {"id":"planning","description":"Product and technical planning.","allowed_roles":["router","workflow","leaf","adapter"],"default_trust_class":"read-only"},
+    {"id":"design","description":"Direction, systems, UI, motion, and critique.","allowed_roles":["router","workflow","leaf","adapter","reference-pack"],"default_trust_class":"read-only"},
+    {"id":"engineering","description":"Implementation, testing, debugging, and optimization.","allowed_roles":["router","workflow","leaf","adapter"],"default_trust_class":"local-mutation"},
+    {"id":"orchestration","description":"Goals, worktrees, delegation, handoffs, and resume.","allowed_roles":["router","workflow","leaf","adapter"],"default_trust_class":"local-mutation"},
+    {"id":"review","description":"Code, architecture, security, data, and simplicity review.","allowed_roles":["router","workflow","leaf","adapter"],"default_trust_class":"read-only"},
+    {"id":"qa","description":"Browser, iOS, accessibility, health, and canary verification.","allowed_roles":["router","workflow","leaf","adapter"],"default_trust_class":"read-only"},
+    {"id":"delivery","description":"Commit, pull request, deploy, and release workflows.","allowed_roles":["router","workflow","leaf","adapter"],"default_trust_class":"external-mutation"},
+    {"id":"knowledge","description":"Research, documentation, learning, and reference packs.","allowed_roles":["router","workflow","leaf","adapter","reference-pack"],"default_trust_class":"read-only"},
+    {"id":"platform","description":"Stack installation, upstream health, and maintenance.","allowed_roles":["router","workflow","leaf","adapter","package"],"default_trust_class":"local-mutation"}
+  ]
+}

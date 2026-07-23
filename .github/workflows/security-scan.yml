@@ -1,4 +1,4 @@
-name: Security scan
+name: Stack verification
 
 on:
   pull_request:
@@ -15,6 +15,23 @@ env:
   GITLEAKS_VERSION: v8.30.1
 
 jobs:
+  stack-verification:
+    name: Stack architecture and runtime
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Verify registries and migration
+        run: |
+          python3 scripts/classify-capabilities.py --check
+          python3 scripts/build-capability-registry.py --check
+          python3 scripts/apply-skill-layout.py --dry-run
+          python3 scripts/sync-upstreams.py
+
+      - name: Run Stack test suite
+        run: python3 -m unittest discover -s tests
+
   gitleaks:
     name: Gitleaks
     runs-on: ubuntu-latest

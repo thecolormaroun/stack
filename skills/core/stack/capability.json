@@ -1,0 +1,66 @@
+{
+  "artifact_type": "skill",
+  "audit_status": "reviewed",
+  "canonical_name": "core-stack",
+  "commands": [
+    "stack"
+  ],
+  "compatibility_aliases": [
+    "agent-operating-stack"
+  ],
+  "context": {
+    "inputs": [
+      "request",
+      "workspace-context"
+    ],
+    "outputs": [
+      "capability-result"
+    ]
+  },
+  "disposition": {
+    "evidence_gap": null,
+    "next_review_trigger": "Reassess on source, export, or runtime-target change.",
+    "status": "keep"
+  },
+  "domain": "core",
+  "family": "core",
+  "lifecycle": "active",
+  "overlaps": [],
+  "ownership": {
+    "package": "stack",
+    "provider": "stack",
+    "source_path": "skills/core/stack/SKILL.md"
+  },
+  "provenance": {
+    "license": "unknown",
+    "posture": "repository-local",
+    "source_identity": "stack:skills/core/stack"
+  },
+  "purpose": "Canonical Stack root router for choosing a command, trust class, and owning workflow.",
+  "role": "router",
+  "runtimes": {
+    "publish_targets": [
+      "claude",
+      "codex"
+    ],
+    "supported": [
+      "claude",
+      "codex"
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "skill_path": "skills/core/stack/SKILL.md"
+  },
+  "trust_class": "read-only",
+  "validation": {
+    "evidence": [
+      "reviewed-estate-refactor",
+      "structural-classification",
+      "primary-runtime-parity"
+    ],
+    "status": "validated"
+  },
+  "validation_class": "representative-route",
+  "visibility": "primary"
+}

@@ -1,0 +1,449 @@
+{
+  "audit_policy_digest": "d5ca3c96639aaf04036f15c5acbb75e3dff92beb46f60aec9aa30895150440cd",
+  "batch_count": 2,
+  "batch_index": 1,
+  "consequential_decision_count": 20,
+  "decision_cap": 20,
+  "decisions": [
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "external"
+      },
+      "merge_target": null,
+      "proposed_destination": "external personal-operations system",
+      "proposed_disposition": "move",
+      "reason": "useful but outside design/build identity keyword match",
+      "review_decision": "move",
+      "review_rationale": "Private browser-profile maintenance belongs in a personal-operations capability system, not Stack.",
+      "review_state": "reviewed",
+      "source": {
+        "canonical_name": "arc-sidebar-guarded-migration",
+        "manifest_path": "skills/arc-sidebar-guarded-migration/capability.json",
+        "skill_path": "skills/arc-sidebar-guarded-migration/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "external"
+      },
+      "merge_target": null,
+      "proposed_destination": "external personal-operations system",
+      "proposed_disposition": "move",
+      "reason": "useful but outside design/build identity keyword match",
+      "review_decision": "move",
+      "review_rationale": "Purchasing research is useful but outside Stack's design/build identity.",
+      "review_state": "reviewed",
+      "source": {
+        "canonical_name": "david-online-shopping",
+        "manifest_path": "skills/david-online-shopping/capability.json",
+        "skill_path": "skills/david-online-shopping/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "external"
+      },
+      "merge_target": null,
+      "proposed_destination": "external personal-operations system",
+      "proposed_disposition": "move",
+      "reason": "useful but outside design/build identity keyword match",
+      "review_decision": "move",
+      "review_rationale": "This operates the personal knowledge substrate rather than designing or building software.",
+      "review_state": "reviewed",
+      "source": {
+        "canonical_name": "gbrain-zk-operating-system",
+        "manifest_path": "skills/gbrain-zk-operating-system/capability.json",
+        "skill_path": "skills/gbrain-zk-operating-system/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "external"
+      },
+      "merge_target": null,
+      "proposed_destination": "external personal-operations system",
+      "proposed_disposition": "move",
+      "reason": "useful but outside design/build identity keyword match",
+      "review_decision": "move",
+      "review_rationale": "Zettelkasten production and quota operations belong in the knowledge-operations system.",
+      "review_state": "reviewed",
+      "source": {
+        "canonical_name": "gemini-zk-orchestrator",
+        "manifest_path": "skills/gemini-zk-orchestrator/capability.json",
+        "skill_path": "skills/gemini-zk-orchestrator/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "external"
+      },
+      "merge_target": null,
+      "proposed_destination": "external personal-operations system",
+      "proposed_disposition": "move",
+      "reason": "useful but outside design/build identity keyword match",
+      "review_decision": "move",
+      "review_rationale": "The capability is tied to private household finance and belongs in the family-operations system.",
+      "review_state": "reviewed",
+      "source": {
+        "canonical_name": "local-finance-interface",
+        "manifest_path": "skills/local-finance-interface/capability.json",
+        "skill_path": "skills/local-finance-interface/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "external"
+      },
+      "merge_target": null,
+      "proposed_destination": "external personal-operations system",
+      "proposed_disposition": "move",
+      "reason": "useful but outside design/build identity keyword match",
+      "review_decision": "move",
+      "review_rationale": "This produces Mookie graph taxonomy rather than a reusable design/build capability.",
+      "review_state": "reviewed",
+      "source": {
+        "canonical_name": "mookie-bookmark-taxonomy",
+        "manifest_path": "skills/mookie-bookmark-taxonomy/capability.json",
+        "skill_path": "skills/mookie-bookmark-taxonomy/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "external"
+      },
+      "merge_target": null,
+      "proposed_destination": "external personal-operations system",
+      "proposed_disposition": "move",
+      "reason": "useful but outside design/build identity keyword match",
+      "review_decision": "move",
+      "review_rationale": "Personal storage and backup governance is outside Stack's product identity.",
+      "review_state": "reviewed",
+      "source": {
+        "canonical_name": "personal-file-organization-review",
+        "manifest_path": "skills/personal-file-organization-review/capability.json",
+        "skill_path": "skills/personal-file-organization-review/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "external"
+      },
+      "merge_target": null,
+      "proposed_destination": "external personal-operations system",
+      "proposed_disposition": "move",
+      "reason": "useful but outside design/build identity keyword match",
+      "review_decision": "move",
+      "review_rationale": "Vault source migration belongs in the knowledge-operations system.",
+      "review_state": "reviewed",
+      "source": {
+        "canonical_name": "vault-migration-consumer-map",
+        "manifest_path": "skills/vault-migration-consumer-map/capability.json",
+        "skill_path": "skills/vault-migration-consumer-map/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "external"
+      },
+      "merge_target": null,
+      "proposed_destination": "external personal-operations system",
+      "proposed_disposition": "move",
+      "reason": "useful but outside design/build identity keyword match",
+      "review_decision": "move",
+      "review_rationale": "This reviews personal knowledge-system migrations rather than product delivery.",
+      "review_state": "reviewed",
+      "source": {
+        "canonical_name": "zettelkasten-plan-review-gate",
+        "manifest_path": "skills/zettelkasten-plan-review-gate/capability.json",
+        "skill_path": "skills/zettelkasten-plan-review-gate/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": {
+        "alias": "cdo-deslop",
+        "canonical_target": "deslop"
+      },
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "deprecated"
+      },
+      "merge_target": "deslop",
+      "proposed_destination": "reviewed canonical capability",
+      "proposed_disposition": "merge",
+      "reason": "policy overlap cluster: skills/deslop/SKILL.md",
+      "review_decision": "merge",
+      "review_rationale": "Merge into the byte-identical top-level entrypoint currently consumed by Codex.",
+      "review_state": "reviewed",
+      "source": {
+        "canonical_name": "cdo-deslop",
+        "manifest_path": "skills/cdo/deslop/capability.json",
+        "skill_path": "skills/cdo/deslop/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": {
+        "alias": "cdo-rams",
+        "canonical_target": "rams"
+      },
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "deprecated"
+      },
+      "merge_target": "rams",
+      "proposed_destination": "reviewed canonical capability",
+      "proposed_disposition": "merge",
+      "reason": "policy overlap cluster: skills/rams/SKILL.md",
+      "review_decision": "merge",
+      "review_rationale": "Merge its useful checks and provenance into the canonical entrypoint that owns the supporting artifacts.",
+      "review_state": "reviewed",
+      "source": {
+        "canonical_name": "cdo-rams",
+        "manifest_path": "skills/cdo/rams/capability.json",
+        "skill_path": "skills/cdo/rams/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": {
+        "alias": "cdo-react-doctor",
+        "canonical_target": "react-doctor"
+      },
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "deprecated"
+      },
+      "merge_target": "react-doctor",
+      "proposed_destination": "reviewed canonical capability",
+      "proposed_disposition": "merge",
+      "reason": "policy overlap cluster: skills/react-doctor/SKILL.md",
+      "review_decision": "merge",
+      "review_rationale": "Merge into the byte-identical top-level entrypoint currently consumed by Codex.",
+      "review_state": "reviewed",
+      "source": {
+        "canonical_name": "cdo-react-doctor",
+        "manifest_path": "skills/cdo/react-doctor/capability.json",
+        "skill_path": "skills/cdo/react-doctor/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "active"
+      },
+      "merge_target": null,
+      "proposed_destination": "reviewed canonical capability",
+      "proposed_disposition": "merge",
+      "reason": "policy overlap cluster: skills/taste-skill-suite/taste-skill/SKILL.md",
+      "review_decision": "keep",
+      "review_rationale": "Keep the more complete version at the path currently consumed by Codex.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "cdo-taste-skill",
+        "manifest_path": "skills/cdo/taste-skill/capability.json",
+        "skill_path": "skills/cdo/taste-skill/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "active"
+      },
+      "merge_target": null,
+      "proposed_destination": "reviewed canonical capability",
+      "proposed_disposition": "merge",
+      "reason": "policy overlap cluster: skills/cdo/deslop/SKILL.md",
+      "review_decision": "keep",
+      "review_rationale": "Keep as the canonical installed entrypoint.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "deslop",
+        "manifest_path": "skills/deslop/capability.json",
+        "skill_path": "skills/deslop/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "active"
+      },
+      "merge_target": null,
+      "proposed_destination": "reviewed canonical capability",
+      "proposed_disposition": "merge",
+      "reason": "policy overlap cluster: skills/cdo/rams/SKILL.md",
+      "review_decision": "keep",
+      "review_rationale": "Keep as the canonical entrypoint with owned evaluation and instruction artifacts.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "rams",
+        "manifest_path": "skills/rams/capability.json",
+        "skill_path": "skills/rams/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "active"
+      },
+      "merge_target": null,
+      "proposed_destination": "reviewed canonical capability",
+      "proposed_disposition": "merge",
+      "reason": "policy overlap cluster: skills/cdo/react-doctor/SKILL.md",
+      "review_decision": "keep",
+      "review_rationale": "Keep as the canonical installed entrypoint.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "react-doctor",
+        "manifest_path": "skills/react-doctor/capability.json",
+        "skill_path": "skills/react-doctor/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": {
+        "alias": "taste-skill-suite-taste-skill",
+        "canonical_target": "cdo-taste-skill"
+      },
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "deprecated"
+      },
+      "merge_target": "cdo-taste-skill",
+      "proposed_destination": "reviewed canonical capability",
+      "proposed_disposition": "merge",
+      "reason": "policy overlap cluster: skills/cdo/taste-skill/SKILL.md",
+      "review_decision": "merge",
+      "review_rationale": "Merge provenance from the shorter overlapping suite version into the canonical CDO entrypoint.",
+      "review_state": "reviewed",
+      "source": {
+        "canonical_name": "taste-skill-suite-taste-skill",
+        "manifest_path": "skills/taste-skill-suite/taste-skill/capability.json",
+        "skill_path": "skills/taste-skill-suite/taste-skill/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "active"
+      },
+      "merge_target": null,
+      "proposed_destination": "pending evidence",
+      "proposed_disposition": "hold",
+      "reason": "router needs supported design/build workflow review",
+      "review_decision": "keep",
+      "review_rationale": "It directly routes design/build requests through planning, implementation, review, and verification.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "agent-operating-stack",
+        "manifest_path": "skills/agent-operating-stack/capability.json",
+        "skill_path": "skills/agent-operating-stack/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "active"
+      },
+      "merge_target": null,
+      "proposed_destination": "pending evidence",
+      "proposed_disposition": "hold",
+      "reason": "router needs supported design/build workflow review",
+      "review_decision": "keep",
+      "review_rationale": "It supports model selection for bounded software-building work.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-pi-custom-model",
+        "manifest_path": "skills/david-pi-custom-model/capability.json",
+        "skill_path": "skills/david-pi-custom-model/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "active"
+      },
+      "merge_target": null,
+      "proposed_destination": "pending evidence",
+      "proposed_disposition": "hold",
+      "reason": "router needs supported design/build workflow review",
+      "review_decision": "keep",
+      "review_rationale": "It directly orchestrates software-engineering execution.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-run-deep-swe",
+        "manifest_path": "skills/david-run-deep-swe/capability.json",
+        "skill_path": "skills/david-run-deep-swe/SKILL.md"
+      }
+    }
+  ],
+  "held_pending_evidence_count": 6,
+  "human_approval": "approved",
+  "migration_id": "2026-07-18-estate-refactor",
+  "remaining_consequential_decision_count": 3,
+  "schema_version": "capability-migration-review/v1",
+  "status": "review-recorded",
+  "total_consequential_decision_count": 23,
+  "unchanged_keep_count": 122
+}

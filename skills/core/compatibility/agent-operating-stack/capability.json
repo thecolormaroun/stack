@@ -1,0 +1,63 @@
+{
+  "alias_of": "core-stack",
+  "artifact_type": "skill",
+  "audit_status": "reviewed",
+  "canonical_name": "agent-operating-stack",
+  "commands": [
+    "stack"
+  ],
+  "context": {
+    "inputs": [
+      "request",
+      "workspace-context"
+    ],
+    "outputs": [
+      "capability-result"
+    ]
+  },
+  "disposition": {
+    "evidence_gap": null,
+    "next_review_trigger": "Remove only after compatibility retirement review.",
+    "status": "demote"
+  },
+  "domain": "core",
+  "family": "core",
+  "lifecycle": "deprecated",
+  "overlaps": [],
+  "ownership": {
+    "package": "stack",
+    "provider": "stack",
+    "source_path": "skills/core/compatibility/agent-operating-stack/SKILL.md"
+  },
+  "provenance": {
+    "license": "unknown",
+    "posture": "repository-local",
+    "source_identity": "stack:skills/agent-operating-stack"
+  },
+  "purpose": "Deprecated compatibility alias for the canonical Stack root router.",
+  "role": "alias",
+  "runtimes": {
+    "publish_targets": [
+      "claude",
+      "codex"
+    ],
+    "supported": [
+      "claude",
+      "codex"
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "skill_path": "skills/core/compatibility/agent-operating-stack/SKILL.md"
+  },
+  "trust_class": "read-only",
+  "validation": {
+    "evidence": [
+      "reviewed-estate-refactor",
+      "structural-classification"
+    ],
+    "status": "validated"
+  },
+  "validation_class": "representative-route",
+  "visibility": "compatibility"
+}

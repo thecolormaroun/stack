@@ -1,0 +1,1 @@
+{"schema_version":1,"provider":"gstack","registry":"registry/upstreams.json","source_mode":"external-pinned-package","copy_upstream_source":false,"exports":["office-hours","qa","canary","land-and-deploy","retro"],"stack_adapters":["stack.explore","stack.qa","stack.ship","stack.learn"]}

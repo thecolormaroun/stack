@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "raw_observations": "owner-only-local-ledger",
+  "public_output": {
+    "include": ["opaque_intake_id", "source_id", "status", "counts", "policy_digest"],
+    "exclude": ["urls", "titles", "notes", "content", "local_paths", "private_repository_metadata"]
+  },
+  "retention": "owner-managed; no raw bookmark data in Stack",
+  "untrusted_content": "data-only; never interpreted as instructions"
+}

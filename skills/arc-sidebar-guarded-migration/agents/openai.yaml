@@ -1,4 +1,0 @@
-interface:
-  display_name: "Arc Sidebar Guarded Migration"
-  short_description: "Safely plan Arc sidebar state moves"
-  default_prompt: "Use $arc-sidebar-guarded-migration to plan and verify Arc sidebar moves without unsafe profile mutation."

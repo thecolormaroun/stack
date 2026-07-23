@@ -1,0 +1,63 @@
+{
+  "artifact_type": "skill",
+  "audit_status": "reviewed",
+  "canonical_name": "optimize",
+  "commands": [
+    "stack.build"
+  ],
+  "context": {
+    "inputs": [
+      "request",
+      "workspace-context"
+    ],
+    "outputs": [
+      "capability-result"
+    ]
+  },
+  "disposition": {
+    "evidence_gap": null,
+    "next_review_trigger": "Reassess on source, export, or runtime-target change.",
+    "status": "keep"
+  },
+  "domain": "engineering",
+  "family": "engineering",
+  "lifecycle": "active",
+  "overlaps": [],
+  "ownership": {
+    "package": "imported-skills",
+    "provider": "impeccable",
+    "source_path": "skills/imported/impeccable/optimize/SKILL.md"
+  },
+  "provenance": {
+    "license": "unknown",
+    "posture": "repository-local",
+    "source_identity": "stack:skills/impeccable/optimize"
+  },
+  "purpose": "Improve interface performance across loading speed, rendering, animations, images, and bundle size. Makes experiences faster and smoother.",
+  "role": "leaf",
+  "runtimes": {
+    "publish_targets": [
+      "claude",
+      "codex"
+    ],
+    "supported": [
+      "claude",
+      "codex"
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "skill_path": "skills/imported/impeccable/optimize/SKILL.md"
+  },
+  "trust_class": "local-mutation",
+  "validation": {
+    "evidence": [
+      "reviewed-estate-refactor",
+      "structural-classification",
+      "primary-runtime-parity"
+    ],
+    "status": "validated"
+  },
+  "validation_class": "representative-route",
+  "visibility": "extended"
+}

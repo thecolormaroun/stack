@@ -1,0 +1,26 @@
+graph LR
+  SOURCES["Bookmarks, GitHub repos,<br/>threads, inspiration"]
+  INTAKE["Hermes and local intake<br/>collect, dedupe, distill"]
+  REVIEW["Stack candidate gate<br/>audit and batch validation"]
+  STACK["GitHub Stack<br/>versioned design/build truth"]
+  PRIVATE["Private overlay<br/>local or company-approved"]
+  COMPILE["Compiler<br/>active capabilities only"]
+  BUNDLE["Versioned runtime bundle<br/>manifest and receipt"]
+  CODEX["Codex"]
+  CLAUDE["Claude"]
+  HERMES["Hermes design/build tools"]
+  NATIVE["Existing native owners<br/>Hermes, ZK, Zouzou operations"]
+  WORK["Fresh work-machine clone<br/>one install command"]
+
+  SOURCES --> INTAKE
+  INTAKE --> REVIEW
+  REVIEW -->|"approved improvements"| STACK
+  NATIVE -->|"evidence, not ownership"| INTAKE
+  STACK --> COMPILE
+  PRIVATE -->|"authorized target only"| COMPILE
+  COMPILE --> BUNDLE
+  BUNDLE --> CODEX
+  BUNDLE --> CLAUDE
+  BUNDLE --> HERMES
+  STACK --> WORK
+  WORK -->|"compile, install, verify"| BUNDLE

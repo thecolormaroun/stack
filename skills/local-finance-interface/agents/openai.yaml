@@ -1,4 +1,0 @@
-interface:
-  display_name: "Local Finance Interface"
-  short_description: "Build local-only household finance interfaces"
-  default_prompt: "Use $local-finance-interface to build or audit a local-only household finance dashboard from sanitized source artifacts."

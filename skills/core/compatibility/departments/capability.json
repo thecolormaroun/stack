@@ -1,0 +1,63 @@
+{
+  "alias_of": "core-run",
+  "artifact_type": "skill",
+  "audit_status": "reviewed",
+  "canonical_name": "departments",
+  "commands": [
+    "stack.run"
+  ],
+  "context": {
+    "inputs": [
+      "request",
+      "workspace-context"
+    ],
+    "outputs": [
+      "capability-result"
+    ]
+  },
+  "disposition": {
+    "evidence_gap": null,
+    "next_review_trigger": "Remove only after compatibility retirement review.",
+    "status": "demote"
+  },
+  "domain": "core",
+  "family": "core",
+  "lifecycle": "deprecated",
+  "overlaps": [],
+  "ownership": {
+    "package": "stack",
+    "provider": "stack",
+    "source_path": "skills/core/compatibility/departments/SKILL.md"
+  },
+  "provenance": {
+    "license": "unknown",
+    "posture": "repository-local",
+    "source_identity": "stack:skills/departments"
+  },
+  "purpose": "Deprecated compatibility alias for the canonical Stack planning run.",
+  "role": "alias",
+  "runtimes": {
+    "publish_targets": [
+      "claude",
+      "codex"
+    ],
+    "supported": [
+      "claude",
+      "codex"
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "skill_path": "skills/core/compatibility/departments/SKILL.md"
+  },
+  "trust_class": "local-mutation",
+  "validation": {
+    "evidence": [
+      "reviewed-estate-refactor",
+      "structural-classification"
+    ],
+    "status": "validated"
+  },
+  "validation_class": "representative-route",
+  "visibility": "compatibility"
+}

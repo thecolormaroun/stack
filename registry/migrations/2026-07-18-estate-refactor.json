@@ -1,0 +1,3133 @@
+{
+  "approval": {
+    "approval_statement": "Approve all",
+    "review_artifact": "registry/migrations/2026-07-19-estate-refactor-review.json",
+    "reviewed_at": "2026-07-19",
+    "reviewed_by": "Maroun",
+    "scope": "disposition-review-only"
+  },
+  "capability_count": 145,
+  "decisions": [
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "adapt",
+        "manifest_path": "skills/impeccable/adapt/capability.json",
+        "skill_path": "skills/impeccable/adapt/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "pending evidence",
+      "proposed_disposition": "hold",
+      "reason": "router needs supported design/build workflow review",
+      "review_decision": "keep",
+      "review_rationale": "It directly routes design/build requests through planning, implementation, review, and verification.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "agent-operating-stack",
+        "manifest_path": "skills/agent-operating-stack/capability.json",
+        "skill_path": "skills/agent-operating-stack/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "agent-verification-ladder",
+        "manifest_path": "skills/agent-verification-ladder/capability.json",
+        "skill_path": "skills/agent-verification-ladder/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "animate",
+        "manifest_path": "skills/impeccable/animate/capability.json",
+        "skill_path": "skills/impeccable/animate/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": {
+        "consumer": "Codex weekly Arc automation and Hermes idea-ingest",
+        "receipt_id": "native-owner-arc-sidebar-v1",
+        "status": "verified"
+      },
+      "destination_target": "codex:automation/weekly-arc-sidebar-auto-tidy+hermes:idea-ingest/arc-bookmark-curated-import",
+      "lifecycle": {
+        "from": "candidate",
+        "to": "external"
+      },
+      "merge_target": null,
+      "proposed_destination": "external personal-operations system",
+      "proposed_disposition": "move",
+      "reason": "useful but outside design/build identity keyword match",
+      "review_decision": "move",
+      "review_rationale": "Private browser-profile maintenance is already owned by the weekly Codex automation and Hermes Arc ingestion workflow.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "arc-sidebar-guarded-migration",
+        "manifest_path": "skills/arc-sidebar-guarded-migration/capability.json",
+        "skill_path": "skills/arc-sidebar-guarded-migration/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "arrange",
+        "manifest_path": "skills/impeccable/arrange/capability.json",
+        "skill_path": "skills/impeccable/arrange/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "assets",
+        "manifest_path": "skills/studio/design/asset-generation/capability.json",
+        "skill_path": "skills/studio/design/asset-generation/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "audit",
+        "manifest_path": "skills/impeccable/audit/capability.json",
+        "skill_path": "skills/impeccable/audit/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "baseline-ui",
+        "manifest_path": "skills/ui-skills/baseline-ui/capability.json",
+        "skill_path": "skills/ui-skills/baseline-ui/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "better-icons",
+        "manifest_path": "skills/better-icons/capability.json",
+        "skill_path": "skills/better-icons/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "bolder",
+        "manifest_path": "skills/impeccable/bolder/capability.json",
+        "skill_path": "skills/impeccable/bolder/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "braindump",
+        "manifest_path": "skills/studio/product/brain-dump-processor/capability.json",
+        "skill_path": "skills/studio/product/brain-dump-processor/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "cdo",
+        "manifest_path": "skills/cdo/capability.json",
+        "skill_path": "skills/cdo/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": {
+        "alias": "cdo-deslop",
+        "canonical_target": "deslop"
+      },
+      "consumer_receipt": {
+        "consumer": "Stack runtime compiler compatibility alias contract",
+        "receipt_id": "compat-alias-cdo-deslop-v1",
+        "status": "verified"
+      },
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "deprecated"
+      },
+      "merge_target": "deslop",
+      "proposed_destination": "reviewed canonical capability",
+      "proposed_disposition": "merge",
+      "reason": "policy overlap cluster: skills/deslop/SKILL.md",
+      "review_decision": "merge",
+      "review_rationale": "Merge into the byte-identical top-level entrypoint currently consumed by Codex.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "cdo-deslop",
+        "manifest_path": "skills/cdo/deslop/capability.json",
+        "skill_path": "skills/cdo/deslop/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": {
+        "alias": "cdo-rams",
+        "canonical_target": "rams"
+      },
+      "consumer_receipt": {
+        "consumer": "Stack runtime compiler compatibility alias contract",
+        "receipt_id": "compat-alias-cdo-rams-v1",
+        "status": "verified"
+      },
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "deprecated"
+      },
+      "merge_target": "rams",
+      "proposed_destination": "reviewed canonical capability",
+      "proposed_disposition": "merge",
+      "reason": "policy overlap cluster: skills/rams/SKILL.md",
+      "review_decision": "merge",
+      "review_rationale": "Merge its useful checks and provenance into the canonical entrypoint that owns the supporting artifacts.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "cdo-rams",
+        "manifest_path": "skills/cdo/rams/capability.json",
+        "skill_path": "skills/cdo/rams/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": {
+        "alias": "cdo-react-doctor",
+        "canonical_target": "react-doctor"
+      },
+      "consumer_receipt": {
+        "consumer": "Stack runtime compiler compatibility alias contract",
+        "receipt_id": "compat-alias-cdo-react-doctor-v1",
+        "status": "verified"
+      },
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "deprecated"
+      },
+      "merge_target": "react-doctor",
+      "proposed_destination": "reviewed canonical capability",
+      "proposed_disposition": "merge",
+      "reason": "policy overlap cluster: skills/react-doctor/SKILL.md",
+      "review_decision": "merge",
+      "review_rationale": "Merge into the byte-identical top-level entrypoint currently consumed by Codex.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "cdo-react-doctor",
+        "manifest_path": "skills/cdo/react-doctor/capability.json",
+        "skill_path": "skills/cdo/react-doctor/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "cdo-simplify",
+        "manifest_path": "skills/cdo/simplify/capability.json",
+        "skill_path": "skills/cdo/simplify/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "reviewed canonical capability",
+      "proposed_disposition": "merge",
+      "reason": "policy overlap cluster: skills/taste-skill-suite/taste-skill/SKILL.md",
+      "review_decision": "keep",
+      "review_rationale": "Keep the more complete version at the path currently consumed by Codex.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "cdo-taste-skill",
+        "manifest_path": "skills/cdo/taste-skill/capability.json",
+        "skill_path": "skills/cdo/taste-skill/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "clarify",
+        "manifest_path": "skills/impeccable/clarify/capability.json",
+        "skill_path": "skills/impeccable/clarify/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "colorize",
+        "manifest_path": "skills/impeccable/colorize/capability.json",
+        "skill_path": "skills/impeccable/colorize/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "commercialization",
+        "manifest_path": "skills/studio/product/commercialization/capability.json",
+        "skill_path": "skills/studio/product/commercialization/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "competitive",
+        "manifest_path": "skills/studio/research/competitive-intel/capability.json",
+        "skill_path": "skills/studio/research/competitive-intel/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "cpo",
+        "manifest_path": "skills/cpo/capability.json",
+        "skill_path": "skills/cpo/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "critique",
+        "manifest_path": "skills/impeccable/critique/capability.json",
+        "skill_path": "skills/impeccable/critique/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-agent-self-scheduling",
+        "manifest_path": "skills/david-agent-self-scheduling/capability.json",
+        "skill_path": "skills/david-agent-self-scheduling/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-anti-sleep",
+        "manifest_path": "skills/david-anti-sleep/capability.json",
+        "skill_path": "skills/david-anti-sleep/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-brain-to-docs",
+        "manifest_path": "skills/david-brain-to-docs/capability.json",
+        "skill_path": "skills/david-brain-to-docs/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-browser-harness",
+        "manifest_path": "skills/david-browser-harness/capability.json",
+        "skill_path": "skills/david-browser-harness/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-cmux",
+        "manifest_path": "skills/david-cmux/capability.json",
+        "skill_path": "skills/david-cmux/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-codex-subagent",
+        "manifest_path": "skills/david-codex-subagent/capability.json",
+        "skill_path": "skills/david-codex-subagent/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-create-readonly-db-role",
+        "manifest_path": "skills/david-create-readonly-db-role/capability.json",
+        "skill_path": "skills/david-create-readonly-db-role/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-cyber-audit",
+        "manifest_path": "skills/david-cyber-audit/capability.json",
+        "skill_path": "skills/david-cyber-audit/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-deep-research",
+        "manifest_path": "skills/david-deep-research/capability.json",
+        "skill_path": "skills/david-deep-research/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-deepapi",
+        "manifest_path": "skills/david-deepapi/capability.json",
+        "skill_path": "skills/david-deepapi/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-distribute-skill-to-all-agents",
+        "manifest_path": "skills/david-distribute-skill-to-all-agents/capability.json",
+        "skill_path": "skills/david-distribute-skill-to-all-agents/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-effective-agent-skills",
+        "manifest_path": "skills/david-effective-agent-skills/capability.json",
+        "skill_path": "skills/david-effective-agent-skills/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-fable-safe-prompt",
+        "manifest_path": "skills/david-fable-safe-prompt/capability.json",
+        "skill_path": "skills/david-fable-safe-prompt/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-folder-specific-claude-and-agents-md",
+        "manifest_path": "skills/david-folder-specific-claude-and-agents-md/capability.json",
+        "skill_path": "skills/david-folder-specific-claude-and-agents-md/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-goal-loop",
+        "manifest_path": "skills/david-goal-loop/capability.json",
+        "skill_path": "skills/david-goal-loop/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-google-safe-browsing",
+        "manifest_path": "skills/david-google-safe-browsing/capability.json",
+        "skill_path": "skills/david-google-safe-browsing/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-handoff",
+        "manifest_path": "skills/david-handoff/capability.json",
+        "skill_path": "skills/david-handoff/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-level-up",
+        "manifest_path": "skills/david-level-up/capability.json",
+        "skill_path": "skills/david-level-up/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": {
+        "consumer": "Hermes personal-item-research",
+        "receipt_id": "native-owner-shopping-v1",
+        "status": "verified"
+      },
+      "destination_target": "hermes:skill/research/personal-item-research",
+      "lifecycle": {
+        "from": "candidate",
+        "to": "external"
+      },
+      "merge_target": null,
+      "proposed_destination": "external personal-operations system",
+      "proposed_disposition": "move",
+      "reason": "useful but outside design/build identity keyword match",
+      "review_decision": "move",
+      "review_rationale": "Hermes personal-item-research is the richer native owner; the imported Stack wrapper is redundant.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-online-shopping",
+        "manifest_path": "skills/david-online-shopping/capability.json",
+        "skill_path": "skills/david-online-shopping/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "pending evidence",
+      "proposed_disposition": "hold",
+      "reason": "router needs supported design/build workflow review",
+      "review_decision": "keep",
+      "review_rationale": "It supports model selection for bounded software-building work.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-pi-custom-model",
+        "manifest_path": "skills/david-pi-custom-model/capability.json",
+        "skill_path": "skills/david-pi-custom-model/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-pi-web-search",
+        "manifest_path": "skills/david-pi-web-search/capability.json",
+        "skill_path": "skills/david-pi-web-search/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-prompt-me",
+        "manifest_path": "skills/david-prompt-me/capability.json",
+        "skill_path": "skills/david-prompt-me/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-push-skill-to-github",
+        "manifest_path": "skills/david-push-skill-to-github/capability.json",
+        "skill_path": "skills/david-push-skill-to-github/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-read-all-adrs",
+        "manifest_path": "skills/david-read-all-adrs/capability.json",
+        "skill_path": "skills/david-read-all-adrs/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-research-prompt",
+        "manifest_path": "skills/david-research-prompt/capability.json",
+        "skill_path": "skills/david-research-prompt/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "pending evidence",
+      "proposed_disposition": "hold",
+      "reason": "router needs supported design/build workflow review",
+      "review_decision": "keep",
+      "review_rationale": "It directly orchestrates software-engineering execution.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-run-deep-swe",
+        "manifest_path": "skills/david-run-deep-swe/capability.json",
+        "skill_path": "skills/david-run-deep-swe/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-setup-help",
+        "manifest_path": "skills/david-setup-help/capability.json",
+        "skill_path": "skills/david-setup-help/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-short",
+        "manifest_path": "skills/david-short/capability.json",
+        "skill_path": "skills/david-short/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-teach",
+        "manifest_path": "skills/david-teach/capability.json",
+        "skill_path": "skills/david-teach/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "david-youtube-transcript",
+        "manifest_path": "skills/david-youtube-transcript/capability.json",
+        "skill_path": "skills/david-youtube-transcript/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "delight",
+        "manifest_path": "skills/impeccable/delight/capability.json",
+        "skill_path": "skills/impeccable/delight/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "departments",
+        "manifest_path": "skills/departments/capability.json",
+        "skill_path": "skills/departments/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "design-intelligence",
+        "manifest_path": "skills/design-intelligence/capability.json",
+        "skill_path": "skills/design-intelligence/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "designsystem",
+        "manifest_path": "skills/studio/design/design-system/capability.json",
+        "skill_path": "skills/studio/design/design-system/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "reviewed canonical capability",
+      "proposed_disposition": "merge",
+      "reason": "policy overlap cluster: skills/cdo/deslop/SKILL.md",
+      "review_decision": "keep",
+      "review_rationale": "Keep as the canonical installed entrypoint.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "deslop",
+        "manifest_path": "skills/deslop/capability.json",
+        "skill_path": "skills/deslop/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "distill",
+        "manifest_path": "skills/impeccable/distill/capability.json",
+        "skill_path": "skills/impeccable/distill/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "emil-design-eng",
+        "manifest_path": "skills/emil-design-eng/capability.json",
+        "skill_path": "skills/emil-design-eng/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "extract",
+        "manifest_path": "skills/impeccable/extract/capability.json",
+        "skill_path": "skills/impeccable/extract/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "favicon",
+        "manifest_path": "skills/cdo/favicon/capability.json",
+        "skill_path": "skills/cdo/favicon/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "field-theory-bookmark-synthesis",
+        "manifest_path": "skills/field-theory-bookmark-synthesis/capability.json",
+        "skill_path": "skills/field-theory-bookmark-synthesis/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "fieldbook-source-split",
+        "manifest_path": "skills/fieldbook-source-split/capability.json",
+        "skill_path": "skills/fieldbook-source-split/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "fix-sentry-issues",
+        "manifest_path": "skills/fix-sentry-issues/capability.json",
+        "skill_path": "skills/fix-sentry-issues/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "fixing-accessibility",
+        "manifest_path": "skills/ui-skills/fixing-accessibility/capability.json",
+        "skill_path": "skills/ui-skills/fixing-accessibility/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "fixing-metadata",
+        "manifest_path": "skills/ui-skills/fixing-metadata/capability.json",
+        "skill_path": "skills/ui-skills/fixing-metadata/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "fixing-motion-performance",
+        "manifest_path": "skills/ui-skills/fixing-motion-performance/capability.json",
+        "skill_path": "skills/ui-skills/fixing-motion-performance/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "frontend-design",
+        "manifest_path": "skills/impeccable/frontend-design/capability.json",
+        "skill_path": "skills/impeccable/frontend-design/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "full-output-enforcement",
+        "manifest_path": "skills/taste-skill-suite/output-skill/capability.json",
+        "skill_path": "skills/taste-skill-suite/output-skill/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": {
+        "consumer": "Hermes brain-ops",
+        "receipt_id": "native-owner-gbrain-zk-v1",
+        "status": "verified"
+      },
+      "destination_target": "hermes:skill/brain-ops/references/zettelkasten-gbrain-first",
+      "lifecycle": {
+        "from": "candidate",
+        "to": "external"
+      },
+      "merge_target": null,
+      "proposed_destination": "external personal-operations system",
+      "proposed_disposition": "move",
+      "reason": "useful but outside design/build identity keyword match",
+      "review_decision": "move",
+      "review_rationale": "The operating contract was absorbed into the native Hermes brain-ops Zettelkasten reference.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "gbrain-zk-operating-system",
+        "manifest_path": "skills/gbrain-zk-operating-system/capability.json",
+        "skill_path": "skills/gbrain-zk-operating-system/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "gemini-review",
+        "manifest_path": "skills/gemini-review/capability.json",
+        "skill_path": "skills/gemini-review/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": {
+        "consumer": "Zettelkasten Gemini factory workflow",
+        "receipt_id": "native-owner-gemini-zk-v1",
+        "status": "verified"
+      },
+      "destination_target": "zettelkasten:runbook/gemini-factory-recovery",
+      "lifecycle": {
+        "from": "candidate",
+        "to": "external"
+      },
+      "merge_target": null,
+      "proposed_destination": "external personal-operations system",
+      "proposed_disposition": "move",
+      "reason": "useful but outside design/build identity keyword match",
+      "review_decision": "move",
+      "review_rationale": "The orchestration contract was absorbed into the existing Zettelkasten factory runbook and control artifacts.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "gemini-zk-orchestrator",
+        "manifest_path": "skills/gemini-zk-orchestrator/capability.json",
+        "skill_path": "skills/gemini-zk-orchestrator/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "goal-validation-threads",
+        "manifest_path": "skills/goal-validation-threads/capability.json",
+        "skill_path": "skills/goal-validation-threads/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "harden",
+        "manifest_path": "skills/impeccable/harden/capability.json",
+        "skill_path": "skills/impeccable/harden/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "hermes-native-patch-migration",
+        "manifest_path": "skills/hermes-native-patch-migration/capability.json",
+        "skill_path": "skills/hermes-native-patch-migration/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "high-end-visual-design",
+        "manifest_path": "skills/taste-skill-suite/soft-skill/capability.json",
+        "skill_path": "skills/taste-skill-suite/soft-skill/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "ideate",
+        "manifest_path": "skills/ideate/capability.json",
+        "skill_path": "skills/ideate/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "pending evidence",
+      "proposed_disposition": "hold",
+      "reason": "router needs supported design/build workflow review",
+      "review_decision": "keep",
+      "review_rationale": "It routes asset generation in service of interface and product design.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "illo",
+        "manifest_path": "skills/illo/capability.json",
+        "skill_path": "skills/illo/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "knip",
+        "manifest_path": "skills/knip/capability.json",
+        "skill_path": "skills/knip/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "layout",
+        "manifest_path": "skills/studio/design/layout-strategy/capability.json",
+        "skill_path": "skills/studio/design/layout-strategy/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "live-site-health-check",
+        "manifest_path": "skills/live-site-health-check/capability.json",
+        "skill_path": "skills/live-site-health-check/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": {
+        "consumer": "Zouzou Finance Desk",
+        "receipt_id": "native-owner-local-finance-v1",
+        "status": "verified"
+      },
+      "destination_target": "zouzou:runbook/finance-desk",
+      "lifecycle": {
+        "from": "candidate",
+        "to": "external"
+      },
+      "merge_target": null,
+      "proposed_destination": "external personal-operations system",
+      "proposed_disposition": "move",
+      "reason": "useful but outside design/build identity keyword match",
+      "review_decision": "move",
+      "review_rationale": "The local-interface contract was absorbed into Zouzou's existing Finance Desk runbook.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "local-finance-interface",
+        "manifest_path": "skills/local-finance-interface/capability.json",
+        "skill_path": "skills/local-finance-interface/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "local-tracker-dashboard",
+        "manifest_path": "skills/local-tracker-dashboard/capability.json",
+        "skill_path": "skills/local-tracker-dashboard/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "make-interfaces-feel-better",
+        "manifest_path": "skills/make-interfaces-feel-better/capability.json",
+        "skill_path": "skills/make-interfaces-feel-better/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "pending evidence",
+      "proposed_disposition": "hold",
+      "reason": "router needs supported design/build workflow review",
+      "review_decision": "keep",
+      "review_rationale": "It routes software architecture and TypeScript implementation guidance.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-ask-matt",
+        "manifest_path": "skills/matt-ask-matt/capability.json",
+        "skill_path": "skills/matt-ask-matt/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-code-review",
+        "manifest_path": "skills/matt-code-review/capability.json",
+        "skill_path": "skills/matt-code-review/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-codebase-design",
+        "manifest_path": "skills/matt-codebase-design/capability.json",
+        "skill_path": "skills/matt-codebase-design/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-diagnosing-bugs",
+        "manifest_path": "skills/matt-diagnosing-bugs/capability.json",
+        "skill_path": "skills/matt-diagnosing-bugs/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-domain-modeling",
+        "manifest_path": "skills/matt-domain-modeling/capability.json",
+        "skill_path": "skills/matt-domain-modeling/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-grill-me",
+        "manifest_path": "skills/matt-grill-me/capability.json",
+        "skill_path": "skills/matt-grill-me/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-grill-with-docs",
+        "manifest_path": "skills/matt-grill-with-docs/capability.json",
+        "skill_path": "skills/matt-grill-with-docs/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-grilling",
+        "manifest_path": "skills/matt-grilling/capability.json",
+        "skill_path": "skills/matt-grilling/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-handoff",
+        "manifest_path": "skills/matt-handoff/capability.json",
+        "skill_path": "skills/matt-handoff/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-implement",
+        "manifest_path": "skills/matt-implement/capability.json",
+        "skill_path": "skills/matt-implement/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-improve-codebase-architecture",
+        "manifest_path": "skills/matt-improve-codebase-architecture/capability.json",
+        "skill_path": "skills/matt-improve-codebase-architecture/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-prototype",
+        "manifest_path": "skills/matt-prototype/capability.json",
+        "skill_path": "skills/matt-prototype/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-research",
+        "manifest_path": "skills/matt-research/capability.json",
+        "skill_path": "skills/matt-research/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-resolving-merge-conflicts",
+        "manifest_path": "skills/matt-resolving-merge-conflicts/capability.json",
+        "skill_path": "skills/matt-resolving-merge-conflicts/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-setup-matt-pocock-skills",
+        "manifest_path": "skills/matt-setup-matt-pocock-skills/capability.json",
+        "skill_path": "skills/matt-setup-matt-pocock-skills/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-tdd",
+        "manifest_path": "skills/matt-tdd/capability.json",
+        "skill_path": "skills/matt-tdd/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-teach",
+        "manifest_path": "skills/matt-teach/capability.json",
+        "skill_path": "skills/matt-teach/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-to-spec",
+        "manifest_path": "skills/matt-to-spec/capability.json",
+        "skill_path": "skills/matt-to-spec/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-to-tickets",
+        "manifest_path": "skills/matt-to-tickets/capability.json",
+        "skill_path": "skills/matt-to-tickets/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-triage",
+        "manifest_path": "skills/matt-triage/capability.json",
+        "skill_path": "skills/matt-triage/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-wayfinder",
+        "manifest_path": "skills/matt-wayfinder/capability.json",
+        "skill_path": "skills/matt-wayfinder/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-writing-great-skills",
+        "manifest_path": "skills/matt-writing-great-skills/capability.json",
+        "skill_path": "skills/matt-writing-great-skills/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "mega-workflow",
+        "manifest_path": "skills/mega-workflow/capability.json",
+        "skill_path": "skills/mega-workflow/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "pending evidence",
+      "proposed_disposition": "hold",
+      "reason": "router needs supported design/build workflow review",
+      "review_decision": "keep",
+      "review_rationale": "It routes Studio product, research, design, and shipping workflows.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "menu",
+        "manifest_path": "skills/studio/menu/capability.json",
+        "skill_path": "skills/studio/menu/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": {
+        "consumer": "Hermes idea-ingest",
+        "receipt_id": "native-owner-bookmark-taxonomy-v1",
+        "status": "verified"
+      },
+      "destination_target": "hermes:skill/idea-ingest/references/arc-bookmark-curated-import",
+      "lifecycle": {
+        "from": "candidate",
+        "to": "external"
+      },
+      "merge_target": null,
+      "proposed_destination": "external personal-operations system",
+      "proposed_disposition": "move",
+      "reason": "useful but outside design/build identity keyword match",
+      "review_decision": "move",
+      "review_rationale": "Taxonomy and adoption-candidate rules were absorbed into Hermes' native bookmark ingestion workflow.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "mookie-bookmark-taxonomy",
+        "manifest_path": "skills/mookie-bookmark-taxonomy/capability.json",
+        "skill_path": "skills/mookie-bookmark-taxonomy/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "muller-brockmann-grid-systems",
+        "manifest_path": "skills/muller-brockmann-grid-systems/capability.json",
+        "skill_path": "skills/muller-brockmann-grid-systems/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "normalize",
+        "manifest_path": "skills/impeccable/normalize/capability.json",
+        "skill_path": "skills/impeccable/normalize/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "onboard",
+        "manifest_path": "skills/impeccable/onboard/capability.json",
+        "skill_path": "skills/impeccable/onboard/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "optimize",
+        "manifest_path": "skills/impeccable/optimize/capability.json",
+        "skill_path": "skills/impeccable/optimize/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "overdrive",
+        "manifest_path": "skills/impeccable/overdrive/capability.json",
+        "skill_path": "skills/impeccable/overdrive/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": {
+        "consumer": "Codex installed skill and file-organization workflow",
+        "receipt_id": "native-owner-file-organization-v1",
+        "status": "verified"
+      },
+      "destination_target": "codex:installed-skill/personal-file-organization-review",
+      "lifecycle": {
+        "from": "candidate",
+        "to": "external"
+      },
+      "merge_target": null,
+      "proposed_destination": "external personal-operations system",
+      "proposed_disposition": "move",
+      "reason": "useful but outside design/build identity keyword match",
+      "review_decision": "move",
+      "review_rationale": "A byte-identical installed Codex skill and the current file-organization workflow already own this capability.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "personal-file-organization-review",
+        "manifest_path": "skills/personal-file-organization-review/capability.json",
+        "skill_path": "skills/personal-file-organization-review/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "polish",
+        "manifest_path": "skills/impeccable/polish/capability.json",
+        "skill_path": "skills/impeccable/polish/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "prd",
+        "manifest_path": "skills/studio/product/prd-writer/capability.json",
+        "skill_path": "skills/studio/product/prd-writer/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "quieter",
+        "manifest_path": "skills/impeccable/quieter/capability.json",
+        "skill_path": "skills/impeccable/quieter/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "reviewed canonical capability",
+      "proposed_disposition": "merge",
+      "reason": "policy overlap cluster: skills/cdo/rams/SKILL.md",
+      "review_decision": "keep",
+      "review_rationale": "Keep as the canonical entrypoint with owned evaluation and instruction artifacts.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "rams",
+        "manifest_path": "skills/rams/capability.json",
+        "skill_path": "skills/rams/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "reviewed canonical capability",
+      "proposed_disposition": "merge",
+      "reason": "policy overlap cluster: skills/cdo/react-doctor/SKILL.md",
+      "review_decision": "keep",
+      "review_rationale": "Keep as the canonical installed entrypoint.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "react-doctor",
+        "manifest_path": "skills/react-doctor/capability.json",
+        "skill_path": "skills/react-doctor/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "reclaude",
+        "manifest_path": "skills/reclaude/capability.json",
+        "skill_path": "skills/reclaude/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "redesign-existing-projects",
+        "manifest_path": "skills/taste-skill-suite/redesign-skill/capability.json",
+        "skill_path": "skills/taste-skill-suite/redesign-skill/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "review-animations",
+        "manifest_path": "skills/review-animations/capability.json",
+        "skill_path": "skills/review-animations/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "rice",
+        "manifest_path": "skills/studio/product/rice-prioritizer/capability.json",
+        "skill_path": "skills/studio/product/rice-prioritizer/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "roadmap",
+        "manifest_path": "skills/studio/product/roadmap-manager/capability.json",
+        "skill_path": "skills/studio/product/roadmap-manager/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "scratch-eval-promotion-gate",
+        "manifest_path": "skills/scratch-eval-promotion-gate/capability.json",
+        "skill_path": "skills/scratch-eval-promotion-gate/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "ship",
+        "manifest_path": "skills/studio/ship/capability.json",
+        "skill_path": "skills/studio/ship/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "simplify",
+        "manifest_path": "skills/simplify/capability.json",
+        "skill_path": "skills/simplify/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "stack-refresh-pr-mode",
+        "manifest_path": "skills/stack-refresh-pr-mode/capability.json",
+        "skill_path": "skills/stack-refresh-pr-mode/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": {
+        "alias": "taste-skill-suite-taste-skill",
+        "canonical_target": "cdo-taste-skill"
+      },
+      "consumer_receipt": {
+        "consumer": "Stack runtime compiler compatibility alias contract",
+        "receipt_id": "compat-alias-taste-suite-v1",
+        "status": "verified"
+      },
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "deprecated"
+      },
+      "merge_target": "cdo-taste-skill",
+      "proposed_destination": "reviewed canonical capability",
+      "proposed_disposition": "merge",
+      "reason": "policy overlap cluster: skills/cdo/taste-skill/SKILL.md",
+      "review_decision": "merge",
+      "review_rationale": "Merge provenance from the shorter overlapping suite version into the canonical CDO entrypoint.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "taste-skill-suite-taste-skill",
+        "manifest_path": "skills/taste-skill-suite/taste-skill/capability.json",
+        "skill_path": "skills/taste-skill-suite/taste-skill/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "tastemining",
+        "manifest_path": "skills/studio/research/taste-mining/capability.json",
+        "skill_path": "skills/studio/research/taste-mining/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "tdd",
+        "manifest_path": "skills/tdd/capability.json",
+        "skill_path": "skills/tdd/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "teach-impeccable",
+        "manifest_path": "skills/impeccable/teach-impeccable/capability.json",
+        "skill_path": "skills/impeccable/teach-impeccable/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "transitions-dev-motion",
+        "manifest_path": "skills/ui-skills/transitions-dev-motion/capability.json",
+        "skill_path": "skills/ui-skills/transitions-dev-motion/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "typeset",
+        "manifest_path": "skills/impeccable/typeset/capability.json",
+        "skill_path": "skills/impeccable/typeset/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "typography",
+        "manifest_path": "skills/studio/design/typography/capability.json",
+        "skill_path": "skills/studio/design/typography/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "ui-design-brain",
+        "manifest_path": "skills/ui-design-brain/capability.json",
+        "skill_path": "skills/ui-design-brain/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "ui-ux-pro-max",
+        "manifest_path": "skills/cdo/ui-ux-pro-max/capability.json",
+        "skill_path": "skills/cdo/ui-ux-pro-max/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "userinterface-wiki",
+        "manifest_path": "skills/userinterface-wiki/capability.json",
+        "skill_path": "skills/userinterface-wiki/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "ux",
+        "manifest_path": "skills/studio/design/ux-patterns/capability.json",
+        "skill_path": "skills/studio/design/ux-patterns/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": {
+        "consumer": "Zettelkasten vault split and reverse-split plans",
+        "receipt_id": "native-owner-vault-consumers-v1",
+        "status": "verified"
+      },
+      "destination_target": "zettelkasten:plans/vault-split-and-reverse-split",
+      "lifecycle": {
+        "from": "candidate",
+        "to": "external"
+      },
+      "merge_target": null,
+      "proposed_destination": "external personal-operations system",
+      "proposed_disposition": "move",
+      "reason": "useful but outside design/build identity keyword match",
+      "review_decision": "move",
+      "review_rationale": "The existing Zettelkasten migration plans already contain the full consumer, rollback, privacy, and cutover contract.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "vault-migration-consumer-map",
+        "manifest_path": "skills/vault-migration-consumer-map/capability.json",
+        "skill_path": "skills/vault-migration-consumer-map/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "candidate"
+      },
+      "merge_target": null,
+      "proposed_destination": "current collection",
+      "proposed_disposition": "keep",
+      "reason": "tracked callable/supporting capability artifact; policy review still required",
+      "review_decision": "keep",
+      "review_rationale": "Batch-confirmed unchanged keep under Maroun's Approve all review.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "visual-direction",
+        "manifest_path": "skills/cdo/visual-direction/capability.json",
+        "skill_path": "skills/cdo/visual-direction/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": {
+        "consumer": "Hermes writing-plans and Zettelkasten review workflow",
+        "receipt_id": "native-owner-zk-plan-review-v1",
+        "status": "verified"
+      },
+      "destination_target": "hermes:skill/writing-plans/references/zettelkasten-plan-review-gate",
+      "lifecycle": {
+        "from": "candidate",
+        "to": "external"
+      },
+      "merge_target": null,
+      "proposed_destination": "external personal-operations system",
+      "proposed_disposition": "move",
+      "reason": "useful but outside design/build identity keyword match",
+      "review_decision": "move",
+      "review_rationale": "The Zettelkasten-specific review gate was absorbed into Hermes' native writing-plans workflow.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "zettelkasten-plan-review-gate",
+        "manifest_path": "skills/zettelkasten-plan-review-gate/capability.json",
+        "skill_path": "skills/zettelkasten-plan-review-gate/SKILL.md"
+      }
+    }
+  ],
+  "human_approval": "approved",
+  "migration_id": "2026-07-18-estate-refactor",
+  "non_mutating": true,
+  "schema_version": "capability-migration/v1",
+  "source": {
+    "audit_digest": "cccf8c5b2d5867fd0c85c09e31b76857abccf4a264a568b5bc047a5cf9abcc4e",
+    "audit_path": "artifacts/audits/2026-07-18-u2/capability-audit.json",
+    "audit_policy_digest": "d5ca3c96639aaf04036f15c5acbb75e3dff92beb46f60aec9aa30895150440cd",
+    "catalog_digest": "cdc9bc41e792ea156fc0e7227c63e4d11743d2221978baabf8e2144c01f67968",
+    "catalog_path": "artifacts/migrations/2026-07-18-pre-migration-catalog.json"
+  },
+  "status": "approved"
+}

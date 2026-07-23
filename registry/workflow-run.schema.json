@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "stack://registry/workflow-run.schema.json",
+  "title": "Stack workflow run",
+  "type": "object",
+  "required": ["run_id", "project_identity", "owner", "workspace", "status", "max_children", "children", "gates"],
+  "properties": {
+    "run_id": {"type": "string", "minLength": 1},
+    "project_identity": {"type": "string", "minLength": 1, "description": "Canonical identity, not a machine-local path."},
+    "owner": {"type": "string", "minLength": 1},
+    "workspace": {"type": "string", "minLength": 1},
+    "worktree": {"type": ["string", "null"]},
+    "status": {"enum": ["planned", "dispatched", "implemented", "blocked", "reviewed", "verified", "awaiting_approval", "shipped", "cancelled", "receipted"]},
+    "max_children": {"type": "integer", "minimum": 1, "maximum": 16},
+    "approval_required": {"type": "boolean"},
+    "approval_state": {"enum": ["pending", "not_required", "approved", "declined"]},
+    "children": {"type": "array", "maxItems": 16, "items": {"$ref": "#/$defs/child"}},
+    "gates": {"type": "object", "required": ["review", "qa", "ship"], "properties": {"review": {"$ref": "#/$defs/gate"}, "qa": {"$ref": "#/$defs/gate"}, "ship": {"$ref": "#/$defs/gate"}}},
+    "receipt": {"type": ["object", "null"]}
+  },
+  "$defs": {
+    "child": {"type": "object", "required": ["child_id", "role", "model_role", "owner", "workspace", "status", "checkpoints"], "properties": {"child_id": {"type": "string"}, "role": {"type": "string"}, "model_role": {"type": "string"}, "owner": {"type": "string"}, "workspace": {"type": "string"}, "worktree": {"type": ["string", "null"]}, "status": {"enum": ["pending", "leased", "completed", "failed", "cancelled"]}, "checkpoints": {"type": "array", "items": {"type": "string"}}, "failure": {"type": ["string", "null"]}, "lease_owner": {"type": ["string", "null"]}, "lease_expires_at": {"type": ["number", "null"]}}},
+    "gate": {"type": "object", "required": ["status"], "properties": {"status": {"enum": ["pending", "passed", "failed"]}, "evidence": {"type": ["string", "null"]}}}
+  }
+}

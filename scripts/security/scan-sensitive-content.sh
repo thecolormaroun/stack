@@ -118,6 +118,9 @@ scan_file() {
   local file="$1"
 
   ignored_path "$file" && return 0
+  # Cached Git paths may have been deleted by an in-progress migration.
+  # Scan the prospective working tree, not nonexistent index entries.
+  [[ -f "$file" ]] || return 0
   binary_or_unreadable "$file" || return 0
 
   scan_path_name "$file"

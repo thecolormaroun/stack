@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "profiles": {
+    "skill-structure-v1": {
+      "artifact_type": "skill",
+      "required_paths": [
+        "SKILL.md",
+        "capability.json"
+      ],
+      "max_files": 200,
+      "max_total_bytes": 4194304,
+      "forbid_executable_files": true
+    }
+  }
+}

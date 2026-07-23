@@ -1,0 +1,80 @@
+{
+  "audit_policy_digest": "d5ca3c96639aaf04036f15c5acbb75e3dff92beb46f60aec9aa30895150440cd",
+  "batch_count": 2,
+  "batch_index": 2,
+  "consequential_decision_count": 3,
+  "decision_cap": 20,
+  "decisions": [
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "active"
+      },
+      "merge_target": null,
+      "proposed_destination": "pending evidence",
+      "proposed_disposition": "hold",
+      "reason": "router needs supported design/build workflow review",
+      "review_decision": "keep",
+      "review_rationale": "It routes asset generation in service of interface and product design.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "illo",
+        "manifest_path": "skills/illo/capability.json",
+        "skill_path": "skills/illo/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "active"
+      },
+      "merge_target": null,
+      "proposed_destination": "pending evidence",
+      "proposed_disposition": "hold",
+      "reason": "router needs supported design/build workflow review",
+      "review_decision": "keep",
+      "review_rationale": "It routes software architecture and TypeScript implementation guidance.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "matt-ask-matt",
+        "manifest_path": "skills/matt-ask-matt/capability.json",
+        "skill_path": "skills/matt-ask-matt/SKILL.md"
+      }
+    },
+    {
+      "compatibility_alias": null,
+      "consumer_receipt": null,
+      "destination_target": null,
+      "lifecycle": {
+        "from": "candidate",
+        "to": "active"
+      },
+      "merge_target": null,
+      "proposed_destination": "pending evidence",
+      "proposed_disposition": "hold",
+      "reason": "router needs supported design/build workflow review",
+      "review_decision": "keep",
+      "review_rationale": "It routes Studio product, research, design, and shipping workflows.",
+      "review_state": "approved",
+      "source": {
+        "canonical_name": "menu",
+        "manifest_path": "skills/studio/menu/capability.json",
+        "skill_path": "skills/studio/menu/SKILL.md"
+      }
+    }
+  ],
+  "held_pending_evidence_count": 6,
+  "human_approval": "approved",
+  "migration_id": "2026-07-18-estate-refactor",
+  "remaining_consequential_decision_count": 0,
+  "schema_version": "capability-migration-review/v1",
+  "status": "review-recorded",
+  "total_consequential_decision_count": 23,
+  "unchanged_keep_count": 122
+}

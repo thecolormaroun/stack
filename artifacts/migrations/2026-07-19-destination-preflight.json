@@ -1,0 +1,75 @@
+{
+  "schema_version": "capability-native-integration/v1",
+  "migration_id": "2026-07-18-estate-refactor",
+  "status": "verified",
+  "architecture_decision": "integrate-into-existing-native-owners",
+  "new_repository_created": false,
+  "capabilities": [
+    {
+      "canonical_name": "arc-sidebar-guarded-migration",
+      "destination_target": "codex:automation/weekly-arc-sidebar-auto-tidy+hermes:idea-ingest/arc-bookmark-curated-import",
+      "integration": "existing-equivalent",
+      "receipt_id": "native-owner-arc-sidebar-v1",
+      "status": "verified"
+    },
+    {
+      "canonical_name": "david-online-shopping",
+      "destination_target": "hermes:skill/research/personal-item-research",
+      "integration": "retire-redundant-import",
+      "receipt_id": "native-owner-shopping-v1",
+      "status": "verified"
+    },
+    {
+      "canonical_name": "gbrain-zk-operating-system",
+      "destination_target": "hermes:skill/brain-ops/references/zettelkasten-gbrain-first",
+      "integration": "absorbed-reference",
+      "receipt_id": "native-owner-gbrain-zk-v1",
+      "status": "verified"
+    },
+    {
+      "canonical_name": "gemini-zk-orchestrator",
+      "destination_target": "zettelkasten:runbook/gemini-factory-recovery",
+      "integration": "absorbed-runbook",
+      "receipt_id": "native-owner-gemini-zk-v1",
+      "status": "verified"
+    },
+    {
+      "canonical_name": "local-finance-interface",
+      "destination_target": "zouzou:runbook/finance-desk",
+      "integration": "absorbed-runbook",
+      "receipt_id": "native-owner-local-finance-v1",
+      "status": "verified"
+    },
+    {
+      "canonical_name": "mookie-bookmark-taxonomy",
+      "destination_target": "hermes:skill/idea-ingest/references/arc-bookmark-curated-import",
+      "integration": "absorbed-reference",
+      "receipt_id": "native-owner-bookmark-taxonomy-v1",
+      "status": "verified"
+    },
+    {
+      "canonical_name": "personal-file-organization-review",
+      "destination_target": "codex:installed-skill/personal-file-organization-review",
+      "integration": "exact-existing-equivalent",
+      "receipt_id": "native-owner-file-organization-v1",
+      "status": "verified"
+    },
+    {
+      "canonical_name": "vault-migration-consumer-map",
+      "destination_target": "zettelkasten:plans/vault-split-and-reverse-split",
+      "integration": "existing-equivalent",
+      "receipt_id": "native-owner-vault-consumers-v1",
+      "status": "verified"
+    },
+    {
+      "canonical_name": "zettelkasten-plan-review-gate",
+      "destination_target": "hermes:skill/writing-plans/references/zettelkasten-plan-review-gate",
+      "integration": "absorbed-reference",
+      "receipt_id": "native-owner-zk-plan-review-v1",
+      "status": "verified"
+    }
+  ],
+  "source_removed": true,
+  "destination_receipts_present": true,
+  "next_gate": "select-and-validate-first-active-design-build-capability"
+}

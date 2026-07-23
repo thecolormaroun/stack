@@ -1,0 +1,63 @@
+{
+  "artifact_type": "skill",
+  "audit_status": "reviewed",
+  "canonical_name": "stack-refresh-pr-mode",
+  "commands": [
+    "stack.ship"
+  ],
+  "context": {
+    "inputs": [
+      "request",
+      "workspace-context"
+    ],
+    "outputs": [
+      "capability-result"
+    ]
+  },
+  "disposition": {
+    "evidence_gap": null,
+    "next_review_trigger": "Reassess on source, export, or runtime-target change.",
+    "status": "keep"
+  },
+  "domain": "delivery",
+  "family": "delivery",
+  "lifecycle": "active",
+  "overlaps": [],
+  "ownership": {
+    "package": "stack",
+    "provider": "stack",
+    "source_path": "skills/delivery/stack-refresh-pr-mode/SKILL.md"
+  },
+  "provenance": {
+    "license": "unknown",
+    "posture": "repository-local",
+    "source_identity": "stack:skills/stack-refresh-pr-mode"
+  },
+  "purpose": "Refresh, verify, and publish the versioned Stack capability runtime through a review-safe branch or pull request without writing directly to main.",
+  "role": "workflow",
+  "runtimes": {
+    "publish_targets": [
+      "claude",
+      "codex"
+    ],
+    "supported": [
+      "claude",
+      "codex"
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "skill_path": "skills/delivery/stack-refresh-pr-mode/SKILL.md"
+  },
+  "trust_class": "external-mutation",
+  "validation": {
+    "evidence": [
+      "reviewed-estate-refactor",
+      "structural-classification",
+      "primary-runtime-parity"
+    ],
+    "status": "validated"
+  },
+  "validation_class": "high-risk",
+  "visibility": "extended"
+}

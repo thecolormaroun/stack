@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stack.maroun.co/registry/private-overlay.schema.json",
+  "title": "Stack local private overlay",
+  "description": "This schema describes a local-only file. It must never be committed or copied into a public runtime output.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "overlay_id", "public_link", "authorized_runtime_targets", "target_authorization", "owner_only", "retention", "payload"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "overlay_id": {"type": "string", "pattern": "^private-overlay:[a-z0-9][a-z0-9-]*$"},
+    "public_link": {
+      "type": "object", "additionalProperties": false,
+      "required": ["catalog_overlay_id", "policy_id"],
+      "properties": {
+        "catalog_overlay_id": {"type": "string", "pattern": "^private-overlay:[a-z0-9][a-z0-9-]*$"},
+        "policy_id": {"type": "string", "pattern": "^private-policy:[a-z0-9][a-z0-9-]*$"}
+      }
+    },
+    "authorized_runtime_targets": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"type": "string", "pattern": "^local-target:[a-z0-9][a-z0-9-]*$"},
+      "propertyNames": {"pattern": "^[a-z0-9][a-z0-9-]*$"}
+    },
+    "target_authorization": {
+      "type": "object", "additionalProperties": false,
+      "required": ["manifest_path", "owner_identity"],
+      "properties": {
+        "manifest_path": {"type": "string", "minLength": 1},
+        "owner_identity": {"type": "string", "pattern": "^local-owner:[a-z0-9][a-z0-9-]*$"}
+      }
+    },
+    "owner_only": {
+      "type": "object", "additionalProperties": false,
+      "required": ["overlay_directory_mode", "file_mode"],
+      "properties": {
+        "overlay_directory_mode": {"const": "0700"},
+        "file_mode": {"const": "0600"}
+      }
+    },
+    "retention": {
+      "type": "object", "additionalProperties": false,
+      "required": ["payload_retention", "delete_on_authorization_removal", "delete_on_payload_removal", "delete_on_validation_failure"],
+      "properties": {
+        "payload_retention": {"enum": ["owner-managed-local-only"]},
+        "delete_on_authorization_removal": {"const": true},
+        "delete_on_payload_removal": {"const": true},
+        "delete_on_validation_failure": {"const": true}
+      }
+    },
+    "payload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path"],
+      "properties": {"path": {"type": "string", "minLength": 1}}
+    }
+  }
+}

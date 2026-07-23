@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "allowlisted_roots": ["skills", "packages", "config/runtime-targets.json", "registry/commands.json", "registry/upstreams.json"],
+  "reviewed_exclusions": [
+    {"path": "artifacts/audits", "reason": "Historical audit receipts are evidence, not callable capability sources."},
+    {"path": "references", "reason": "Reference material is reached through its owning capability and is not independently callable."},
+    {"path": "templates", "reason": "Templates are supporting artifacts, not callable capability sources."}
+  ]
+}

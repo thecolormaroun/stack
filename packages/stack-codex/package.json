@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "provider": "stack-codex",
+  "registry": "registry/upstreams.json",
+  "source_mode": "repository-bundle",
+  "canonical_source": "https://github.com/thecolormaroun/stack.git",
+  "bundled_content": "packages/stack-codex/content",
+  "content_sha256": "483015638591618e884d4c21f1fa037b645bb872e33acf063fa7a5f802c80df3",
+  "bundled_stack_owned_source": true,
+  "copy_upstream_source": false,
+  "exports": [
+    "orchestrate-parallel-goals",
+    "stack-gemini-review",
+    "stack-ideate",
+    "stack-lfg",
+    "stack-mega",
+    "stack-review",
+    "stack-ship",
+    "stack-sync"
+  ],
+  "stack_adapters": [
+    "stack.explore",
+    "stack.build",
+    "stack.orchestrate",
+    "stack.review",
+    "stack.ship",
+    "stack.maintain",
+    "stack.run"
+  ]
+}

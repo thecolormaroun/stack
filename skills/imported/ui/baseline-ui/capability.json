@@ -1,0 +1,63 @@
+{
+  "artifact_type": "skill",
+  "audit_status": "reviewed",
+  "canonical_name": "baseline-ui",
+  "commands": [
+    "stack.build"
+  ],
+  "context": {
+    "inputs": [
+      "request",
+      "workspace-context"
+    ],
+    "outputs": [
+      "capability-result"
+    ]
+  },
+  "disposition": {
+    "evidence_gap": null,
+    "next_review_trigger": "Reassess on source, export, or runtime-target change.",
+    "status": "keep"
+  },
+  "domain": "engineering",
+  "family": "engineering",
+  "lifecycle": "active",
+  "overlaps": [],
+  "ownership": {
+    "package": "imported-skills",
+    "provider": "ui",
+    "source_path": "skills/imported/ui/baseline-ui/SKILL.md"
+  },
+  "provenance": {
+    "license": "unknown",
+    "posture": "repository-local",
+    "source_identity": "stack:skills/ui-skills/baseline-ui"
+  },
+  "purpose": "Validates animation durations, enforces typography scale, checks component accessibility, and prevents layout anti-patterns in Tailwind CSS projects. Use when building UI components, reviewing CSS utilities, styling React views, or enforcing design consistency.",
+  "role": "leaf",
+  "runtimes": {
+    "publish_targets": [
+      "claude",
+      "codex"
+    ],
+    "supported": [
+      "claude",
+      "codex"
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "skill_path": "skills/imported/ui/baseline-ui/SKILL.md"
+  },
+  "trust_class": "local-mutation",
+  "validation": {
+    "evidence": [
+      "reviewed-estate-refactor",
+      "structural-classification",
+      "primary-runtime-parity"
+    ],
+    "status": "validated"
+  },
+  "validation_class": "representative-route",
+  "visibility": "extended"
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "verification_id": "private-overlay-verification:2026-07-18",
+  "verified_at": "2026-07-18T18:14:11Z",
+  "overlay_id": "private-overlay:dod-fixture",
+  "authorized_runtime": {
+    "target": "codex-local",
+    "status": "compiled-and-resolved",
+    "manifest_mode": "0600",
+    "output_directory_mode": "0700",
+    "private_manifest_digest": "0c7394ae38c5d35aa80c4265a2475db7c5e312f9a5c7ed21f7dfc7717d5cdffc"
+  },
+  "unauthorized_runtime": {
+    "target": "public-runtime",
+    "status": "excluded",
+    "payload_metadata_exposed": false,
+    "output_present": false
+  },
+  "fixture_payload": {
+    "kind": "synthetic-private-reference",
+    "resolved_by_authorized_runtime": true,
+    "content_recorded_publicly": false,
+    "path_recorded_publicly": false
+  },
+  "status": "passed"
+}

@@ -1,0 +1,130 @@
+{
+  "schema_version": "capability-migration-review-decision/v1",
+  "migration_id": "2026-07-18-estate-refactor",
+  "reviewed_by": "Maroun",
+  "reviewed_at": "2026-07-19",
+  "approval_statement": "Approve all",
+  "scope": "disposition-review-only",
+  "batch_confirm_unchanged_keeps": true,
+  "decisions": [
+    {
+      "canonical_name": "arc-sidebar-guarded-migration",
+      "decision": "move",
+      "rationale": "Private browser-profile maintenance belongs in a personal-operations capability system, not Stack."
+    },
+    {
+      "canonical_name": "david-online-shopping",
+      "decision": "move",
+      "rationale": "Purchasing research is useful but outside Stack's design/build identity."
+    },
+    {
+      "canonical_name": "gbrain-zk-operating-system",
+      "decision": "move",
+      "rationale": "This operates the personal knowledge substrate rather than designing or building software."
+    },
+    {
+      "canonical_name": "gemini-zk-orchestrator",
+      "decision": "move",
+      "rationale": "Zettelkasten production and quota operations belong in the knowledge-operations system."
+    },
+    {
+      "canonical_name": "local-finance-interface",
+      "decision": "move",
+      "rationale": "The capability is tied to private household finance and belongs in the family-operations system."
+    },
+    {
+      "canonical_name": "mookie-bookmark-taxonomy",
+      "decision": "move",
+      "rationale": "This produces Mookie graph taxonomy rather than a reusable design/build capability."
+    },
+    {
+      "canonical_name": "personal-file-organization-review",
+      "decision": "move",
+      "rationale": "Personal storage and backup governance is outside Stack's product identity."
+    },
+    {
+      "canonical_name": "vault-migration-consumer-map",
+      "decision": "move",
+      "rationale": "Vault source migration belongs in the knowledge-operations system."
+    },
+    {
+      "canonical_name": "zettelkasten-plan-review-gate",
+      "decision": "move",
+      "rationale": "This reviews personal knowledge-system migrations rather than product delivery."
+    },
+    {
+      "canonical_name": "cdo-deslop",
+      "decision": "merge",
+      "merge_target": "deslop",
+      "rationale": "Merge into the byte-identical top-level entrypoint currently consumed by Codex."
+    },
+    {
+      "canonical_name": "deslop",
+      "decision": "keep",
+      "rationale": "Keep as the canonical installed entrypoint."
+    },
+    {
+      "canonical_name": "cdo-react-doctor",
+      "decision": "merge",
+      "merge_target": "react-doctor",
+      "rationale": "Merge into the byte-identical top-level entrypoint currently consumed by Codex."
+    },
+    {
+      "canonical_name": "react-doctor",
+      "decision": "keep",
+      "rationale": "Keep as the canonical installed entrypoint."
+    },
+    {
+      "canonical_name": "cdo-rams",
+      "decision": "merge",
+      "merge_target": "rams",
+      "rationale": "Merge its useful checks and provenance into the canonical entrypoint that owns the supporting artifacts."
+    },
+    {
+      "canonical_name": "rams",
+      "decision": "keep",
+      "rationale": "Keep as the canonical entrypoint with owned evaluation and instruction artifacts."
+    },
+    {
+      "canonical_name": "cdo-taste-skill",
+      "decision": "keep",
+      "rationale": "Keep the more complete version at the path currently consumed by Codex."
+    },
+    {
+      "canonical_name": "taste-skill-suite-taste-skill",
+      "decision": "merge",
+      "merge_target": "cdo-taste-skill",
+      "rationale": "Merge provenance from the shorter overlapping suite version into the canonical CDO entrypoint."
+    },
+    {
+      "canonical_name": "agent-operating-stack",
+      "decision": "keep",
+      "rationale": "It directly routes design/build requests through planning, implementation, review, and verification."
+    },
+    {
+      "canonical_name": "david-pi-custom-model",
+      "decision": "keep",
+      "rationale": "It supports model selection for bounded software-building work."
+    },
+    {
+      "canonical_name": "david-run-deep-swe",
+      "decision": "keep",
+      "rationale": "It directly orchestrates software-engineering execution."
+    },
+    {
+      "canonical_name": "illo",
+      "decision": "keep",
+      "rationale": "It routes asset generation in service of interface and product design."
+    },
+    {
+      "canonical_name": "matt-ask-matt",
+      "decision": "keep",
+      "rationale": "It routes software architecture and TypeScript implementation guidance."
+    },
+    {
+      "canonical_name": "menu",
+      "decision": "keep",
+      "rationale": "It routes Studio product, research, design, and shipping workflows."
+    }
+  ]
+}

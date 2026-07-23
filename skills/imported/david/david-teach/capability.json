@@ -1,0 +1,63 @@
+{
+  "artifact_type": "skill",
+  "audit_status": "reviewed",
+  "canonical_name": "david-teach",
+  "commands": [
+    "stack.build"
+  ],
+  "context": {
+    "inputs": [
+      "request",
+      "workspace-context"
+    ],
+    "outputs": [
+      "capability-result"
+    ]
+  },
+  "disposition": {
+    "evidence_gap": null,
+    "next_review_trigger": "Reassess on source, export, or runtime-target change.",
+    "status": "keep"
+  },
+  "domain": "engineering",
+  "family": "engineering",
+  "lifecycle": "active",
+  "overlaps": [],
+  "ownership": {
+    "package": "imported-skills",
+    "provider": "david",
+    "source_path": "skills/imported/david/david-teach/SKILL.md"
+  },
+  "provenance": {
+    "license": "unknown",
+    "posture": "imported-upstream",
+    "source_identity": "upstream:skills/david-teach"
+  },
+  "purpose": "Namespaced import of David Ondrej agent skills: Teach the user a new",
+  "role": "leaf",
+  "runtimes": {
+    "publish_targets": [
+      "claude",
+      "codex"
+    ],
+    "supported": [
+      "claude",
+      "codex"
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "skill_path": "skills/imported/david/david-teach/SKILL.md"
+  },
+  "trust_class": "local-mutation",
+  "validation": {
+    "evidence": [
+      "reviewed-estate-refactor",
+      "structural-classification",
+      "primary-runtime-parity"
+    ],
+    "status": "validated"
+  },
+  "validation_class": "representative-route",
+  "visibility": "extended"
+}

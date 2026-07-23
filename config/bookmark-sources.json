@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "sources": [
+    {"id": "field-theory", "adapter": "field_theory", "enabled": true, "paths": ["~/.ft-bookmarks/bookmarks.db"]},
+    {"id": "arc-sidebar", "adapter": "arc_snapshot", "enabled": true, "paths": ["~/Library/Application Support/Arc/StorableSidebar.json"]},
+    {"id": "github-stars", "adapter": "github_stars", "enabled": true},
+    {"id": "github-linked", "adapter": "github_links", "enabled": true, "max_items": 25},
+    {"id": "hermes-links", "adapter": "hermes_link_inbox", "enabled": true, "db_env": "STACK_HERMES_LINK_INBOX_DB"}
+  ]
+}

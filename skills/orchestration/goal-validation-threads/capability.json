@@ -1,0 +1,63 @@
+{
+  "artifact_type": "skill",
+  "audit_status": "reviewed",
+  "canonical_name": "goal-validation-threads",
+  "commands": [
+    "stack.orchestrate"
+  ],
+  "context": {
+    "inputs": [
+      "request",
+      "workspace-context"
+    ],
+    "outputs": [
+      "capability-result"
+    ]
+  },
+  "disposition": {
+    "evidence_gap": null,
+    "next_review_trigger": "Reassess on source, export, or runtime-target change.",
+    "status": "keep"
+  },
+  "domain": "orchestration",
+  "family": "orchestration",
+  "lifecycle": "active",
+  "overlaps": [],
+  "ownership": {
+    "package": "stack",
+    "provider": "stack",
+    "source_path": "skills/orchestration/goal-validation-threads/SKILL.md"
+  },
+  "provenance": {
+    "license": "unknown",
+    "posture": "repository-local",
+    "source_identity": "stack:skills/goal-validation-threads"
+  },
+  "purpose": "Create and inspect focused Codex validation threads for candidate skills, workflows, automation changes, or multi-agent plans. Use when a draft skill or workflow needs independent forward-testing with /goal prompts, project resolution, isolated worktrees for mutating tests, concrete pass/fail gates, and promotion/revision recommendations.",
+  "role": "workflow",
+  "runtimes": {
+    "publish_targets": [
+      "claude",
+      "codex"
+    ],
+    "supported": [
+      "claude",
+      "codex"
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "skill_path": "skills/orchestration/goal-validation-threads/SKILL.md"
+  },
+  "trust_class": "local-mutation",
+  "validation": {
+    "evidence": [
+      "reviewed-estate-refactor",
+      "structural-classification",
+      "primary-runtime-parity"
+    ],
+    "status": "validated"
+  },
+  "validation_class": "representative-route",
+  "visibility": "extended"
+}

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Gemini ZK Orchestrator"
-  short_description: "Run guarded Gemini Zettelkasten quota and promotion loops."
-  default_prompt: "Use gemini-zk-orchestrator to inspect the current Zettelkasten Gemini roadmap state and recommend the next safe gate."

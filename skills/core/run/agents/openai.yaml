@@ -1,0 +1,4 @@
+interface:
+  display_name: "Stack Run"
+  short_description: "Run the canonical gated Stack workflow"
+  default_prompt: "Use $stack-run to sequence canonical Stack stages with review, QA, and approval gates."

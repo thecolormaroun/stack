@@ -1,4 +1,0 @@
-interface:
-  display_name: "File Organization Review"
-  short_description: "Review direct file cleanup plans"
-  default_prompt: "Use $personal-file-organization-review to review a personal file organization plan for safety and usefulness."

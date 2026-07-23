@@ -1,0 +1,63 @@
+{
+  "artifact_type": "skill",
+  "audit_status": "reviewed",
+  "canonical_name": "muller-brockmann-grid-systems",
+  "commands": [
+    "stack.learn"
+  ],
+  "context": {
+    "inputs": [
+      "request",
+      "workspace-context"
+    ],
+    "outputs": [
+      "capability-result"
+    ]
+  },
+  "disposition": {
+    "evidence_gap": null,
+    "next_review_trigger": "Reassess on source, export, or runtime-target change.",
+    "status": "keep"
+  },
+  "domain": "knowledge",
+  "family": "knowledge",
+  "lifecycle": "active",
+  "overlaps": [],
+  "ownership": {
+    "package": "stack",
+    "provider": "stack",
+    "source_path": "skills/knowledge/muller-brockmann-grid-systems/SKILL.md"
+  },
+  "provenance": {
+    "license": "unknown",
+    "posture": "repository-local",
+    "source_identity": "stack:skills/muller-brockmann-grid-systems"
+  },
+  "purpose": "Build editorial, magazine, report, and longform webpages on a genuine Muller-Brockmann modular grid with CSS grid tokens, same-box overlay guides, subgrid bands, baseline rhythm, optical headline alignment, and Puppeteer verification.",
+  "role": "leaf",
+  "runtimes": {
+    "publish_targets": [
+      "claude",
+      "codex"
+    ],
+    "supported": [
+      "claude",
+      "codex"
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "skill_path": "skills/knowledge/muller-brockmann-grid-systems/SKILL.md"
+  },
+  "trust_class": "read-only",
+  "validation": {
+    "evidence": [
+      "reviewed-estate-refactor",
+      "structural-classification",
+      "primary-runtime-parity"
+    ],
+    "status": "validated"
+  },
+  "validation_class": "representative-route",
+  "visibility": "extended"
+}

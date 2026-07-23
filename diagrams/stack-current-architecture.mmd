@@ -1,0 +1,21 @@
+graph LR
+  GH["GitHub Stack<br/>older raw skill library"]
+  LOCAL["Local Stack worktree<br/>uncommitted redesign"]
+  RAW["Raw skills and references"]
+  CATALOG["Candidate catalog<br/>132 candidate, 4 deprecated"]
+  EMPTY["Compiler<br/>0 active, 0 targets"]
+  CODEX["Codex skill directories"]
+  CLAUDE["Claude direct skill loading"]
+  HERMES["Hermes native skills and jobs"]
+  SOURCES["Bookmarks, GitHub, Arc,<br/>Hermes links"]
+  LEDGER["Owner-local intake ledger<br/>manual, unscheduled"]
+
+  GH -->|"clone or copy directly"| RAW
+  RAW --> CODEX
+  RAW --> CLAUDE
+  LOCAL --> CATALOG
+  CATALOG --> EMPTY
+  EMPTY -->|"publishes nothing yet"| CODEX
+  SOURCES --> LEDGER
+  LEDGER -->|"candidate evidence"| CATALOG
+  HERMES -->|"separate native owner"| LEDGER

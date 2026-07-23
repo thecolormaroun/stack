@@ -1,0 +1,1021 @@
+{
+  "schema_version": 1,
+  "snapshot_role": "pre-migration-validation",
+  "capabilities": [
+    {
+      "canonical_name": "adapt",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/adapt/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "agent-operating-stack",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/agent-operating-stack/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "agent-verification-ladder",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/agent-verification-ladder/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "animate",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/animate/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "arc-sidebar-guarded-migration",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/arc-sidebar-guarded-migration/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "arrange",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/arrange/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "assets",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/studio/design/asset-generation/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "audit",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/audit/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "baseline-ui",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/ui-skills/baseline-ui/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "better-icons",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/better-icons/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "bolder",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/bolder/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "braindump",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/studio/product/brain-dump-processor/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "cdo",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/cdo/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "cdo-deslop",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/cdo/deslop/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "cdo-rams",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/cdo/rams/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "cdo-react-doctor",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/cdo/react-doctor/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "cdo-simplify",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/cdo/simplify/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "cdo-taste-skill",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/cdo/taste-skill/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "clarify",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/clarify/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "colorize",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/colorize/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "commercialization",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/studio/product/commercialization/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "competitive",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/studio/research/competitive-intel/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "cpo",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/cpo/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "critique",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/critique/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-agent-self-scheduling",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-agent-self-scheduling/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-anti-sleep",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-anti-sleep/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-brain-to-docs",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-brain-to-docs/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-browser-harness",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-browser-harness/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-cmux",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-cmux/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-codex-subagent",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-codex-subagent/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-create-readonly-db-role",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-create-readonly-db-role/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-cyber-audit",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-cyber-audit/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-deep-research",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-deep-research/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-deepapi",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-deepapi/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-distribute-skill-to-all-agents",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-distribute-skill-to-all-agents/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-effective-agent-skills",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-effective-agent-skills/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-fable-safe-prompt",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-fable-safe-prompt/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-folder-specific-claude-and-agents-md",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-folder-specific-claude-and-agents-md/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-goal-loop",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-goal-loop/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-google-safe-browsing",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-google-safe-browsing/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-handoff",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-handoff/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-level-up",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-level-up/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-online-shopping",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-online-shopping/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-pi-custom-model",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-pi-custom-model/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-pi-web-search",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-pi-web-search/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-prompt-me",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-prompt-me/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-push-skill-to-github",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-push-skill-to-github/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-read-all-adrs",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-read-all-adrs/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-research-prompt",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-research-prompt/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-run-deep-swe",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-run-deep-swe/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-setup-help",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-setup-help/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-short",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-short/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-teach",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-teach/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "david-youtube-transcript",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/david-youtube-transcript/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "delight",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/delight/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "departments",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/departments/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "design-intelligence",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/design-intelligence/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "designsystem",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/studio/design/design-system/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "deslop",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/deslop/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "distill",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/distill/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "emil-design-eng",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/emil-design-eng/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "extract",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/extract/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "favicon",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/cdo/favicon/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "field-theory-bookmark-synthesis",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/field-theory-bookmark-synthesis/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "fieldbook-source-split",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/fieldbook-source-split/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "fix-sentry-issues",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/fix-sentry-issues/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "fixing-accessibility",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/ui-skills/fixing-accessibility/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "fixing-metadata",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/ui-skills/fixing-metadata/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "fixing-motion-performance",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/ui-skills/fixing-motion-performance/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "frontend-design",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/frontend-design/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "full-output-enforcement",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/taste-skill-suite/output-skill/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "gbrain-zk-operating-system",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/gbrain-zk-operating-system/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "gemini-review",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/gemini-review/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "gemini-zk-orchestrator",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/gemini-zk-orchestrator/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "goal-validation-threads",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/goal-validation-threads/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "harden",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/harden/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "hermes-native-patch-migration",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/hermes-native-patch-migration/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "high-end-visual-design",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/taste-skill-suite/soft-skill/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "ideate",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/ideate/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "illo",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/illo/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "knip",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/knip/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "layout",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/studio/design/layout-strategy/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "live-site-health-check",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/live-site-health-check/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "local-finance-interface",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/local-finance-interface/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "local-tracker-dashboard",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/local-tracker-dashboard/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "make-interfaces-feel-better",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/make-interfaces-feel-better/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-ask-matt",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-ask-matt/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-code-review",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-code-review/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-codebase-design",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-codebase-design/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-diagnosing-bugs",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-diagnosing-bugs/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-domain-modeling",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-domain-modeling/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-grill-me",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-grill-me/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-grill-with-docs",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-grill-with-docs/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-grilling",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-grilling/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-handoff",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-handoff/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-implement",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-implement/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-improve-codebase-architecture",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-improve-codebase-architecture/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-prototype",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-prototype/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-research",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-research/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-resolving-merge-conflicts",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-resolving-merge-conflicts/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-setup-matt-pocock-skills",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-setup-matt-pocock-skills/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-tdd",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-tdd/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-teach",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-teach/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-to-spec",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-to-spec/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-to-tickets",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-to-tickets/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-triage",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-triage/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-wayfinder",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-wayfinder/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "matt-writing-great-skills",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/matt-writing-great-skills/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "mega-workflow",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/mega-workflow/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "menu",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/studio/menu/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "mookie-bookmark-taxonomy",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/mookie-bookmark-taxonomy/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "muller-brockmann-grid-systems",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/muller-brockmann-grid-systems/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "normalize",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/normalize/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "onboard",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/onboard/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "optimize",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/optimize/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "overdrive",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/overdrive/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "personal-file-organization-review",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/personal-file-organization-review/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "polish",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/polish/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "prd",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/studio/product/prd-writer/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "quieter",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/quieter/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "rams",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/rams/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "react-doctor",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/react-doctor/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "reclaude",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/reclaude/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "redesign-existing-projects",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/taste-skill-suite/redesign-skill/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "review-animations",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/review-animations/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "rice",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/studio/product/rice-prioritizer/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "roadmap",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/studio/product/roadmap-manager/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "scratch-eval-promotion-gate",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/scratch-eval-promotion-gate/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "ship",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/studio/ship/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "simplify",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/simplify/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "stack-refresh-pr-mode",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/stack-refresh-pr-mode/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "taste-skill-suite-taste-skill",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/taste-skill-suite/taste-skill/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "tastemining",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/studio/research/taste-mining/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "tdd",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/tdd/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "teach-impeccable",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/teach-impeccable/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "transitions-dev-motion",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/ui-skills/transitions-dev-motion/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "typeset",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/impeccable/typeset/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "typography",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/studio/design/typography/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "ui-design-brain",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/ui-design-brain/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "ui-ux-pro-max",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/cdo/ui-ux-pro-max/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "userinterface-wiki",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/userinterface-wiki/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "ux",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/studio/design/ux-patterns/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "vault-migration-consumer-map",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/vault-migration-consumer-map/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "visual-direction",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/cdo/visual-direction/SKILL.md"
+      }
+    },
+    {
+      "canonical_name": "zettelkasten-plan-review-gate",
+      "lifecycle": "candidate",
+      "source": {
+        "skill_path": "skills/zettelkasten-plan-review-gate/SKILL.md"
+      }
+    }
+  ]
+}

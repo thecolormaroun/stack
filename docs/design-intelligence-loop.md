@@ -2,11 +2,12 @@
 
 ## Recommendation
 
-Rebuild the old OpenClaw weekly design digest as a Codex-owned automation that uses Stack as the durable skill source.
+Rebuild the old OpenClaw weekly design digest as an operator-owned automation
+that uses Stack as the durable skill source.
 
 Ownership split:
 - Stack owns the design-intelligence skill, graph references, templates, and promotion rules.
-- Codex owns runner scripts, eval bundles, install wiring, and eventual recurring automation.
+- The local operator owns optional runner scripts, eval bundles, and eventual recurring automation.
 - Hermes and GBrain remain source/memory substrates: bookmark snapshots, imports, and backfill staging.
 - OpenClaw is historical evidence only; do not depend on its stale cron state for the rebuild.
 
@@ -42,28 +43,25 @@ Use Hermes tmp or another review staging area for generated packets until promot
 
 ## Commands
 
-Read-only source manifest:
+Stack's shipped bookmark collector is the portable intake surface. A dry-run
+does not advance cursors:
 
 ```bash
-~/Codex/scripts/design-intelligence-source-manifest.sh \
-  --since 2026-04-01 \
-  --until 2026-06-15 \
-  --out ~/hermes/tmp/design-intelligence-backfill/source-manifest.json
+python3 scripts/collect-bookmark-candidates.py \
+  --ledger /tmp/stack-design-intelligence-smoke.sqlite
 ```
 
-Historical backfill packet:
+For a reviewed owner-local collection/curation run:
 
 ```bash
-~/Codex/scripts/run-design-intelligence-backfill.sh \
-  --since 2026-04-01 \
-  --until 2026-06-15 \
-  --out-root ~/hermes/tmp/design-intelligence-backfill
+scripts/run-stack-bookmark-curation.sh collection --manual --apply
+scripts/run-stack-bookmark-curation.sh curation --manual --apply
 ```
 
-Eval bundle dry run:
+An optional external eval harness must be supplied explicitly:
 
 ```bash
-cd ~/Codex
+cd "$STACK_DESIGN_EVAL_ROOT"
 DRY_RUN=1 FINAL_HTML_ONLY=1 IGNORE_USER_CONFIG=1 \
   scripts/evaluate-design-skills.sh run-one design-intelligence-v1 001-operational-dashboard
 ```
@@ -71,7 +69,7 @@ DRY_RUN=1 FINAL_HTML_ONLY=1 IGNORE_USER_CONFIG=1 \
 Promotion gate:
 
 ```bash
-cd ~/Codex
+cd "$STACK_DESIGN_EVAL_ROOT"
 EVAL_BUNDLES="codex-current design-intelligence-v1" \
 EVAL_PROMPTS="001-operational-dashboard 002-productivity-app 003-landing-page-with-assets 004-existing-page-redesign 005-data-workflow" \
 FINAL_HTML_ONLY=1 IGNORE_USER_CONFIG=1 RUN_ID=design-intelligence-gate \
@@ -88,13 +86,13 @@ Recommended live cadence:
 
 ## Latest Candidate Eval
 
-Latest verified gate: `2026-06-17`.
+Latest historical verified gate: `2026-06-17`.
 
 Baseline run:
-`~/Codex/eval/design-skills/runs/design-intelligence-gate-20260615T223548Z`
+`design-intelligence-gate-20260615T223548Z`
 
 Candidate run:
-`~/Codex/eval/design-skills/runs/design-intelligence-gate-final2-20260615T232621Z`
+`design-intelligence-gate-final2-20260615T232621Z`
 
 Result: `design-intelligence-v1` beat `codex-current` on 5 of 5 fixtures with no candidate hard fails.
 

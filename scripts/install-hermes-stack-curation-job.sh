@@ -17,15 +17,17 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-scripts_dir="${HOME}/.hermes/scripts"
+hermes_home="${HERMES_HOME:-${HOME}/.hermes}"
+hermes_bin="${HERMES_BIN:-hermes}"
+scripts_dir="${hermes_home}/scripts"
 collection_wrapper="$scripts_dir/stack-bookmark-collection.sh"
 curation_wrapper="$scripts_dir/stack-bookmark-curation.sh"
 collection_script="$(basename "$collection_wrapper")"
 curation_script="$(basename "$curation_wrapper")"
 verification_dir="${STACK_HERMES_VERIFICATION_DIR:-${HOME}/.local/state/stack/receipts}"
 max_receipt_age="${STACK_HERMES_RECEIPT_MAX_AGE_SECONDS:-86400}"
-collection_command=(hermes cron create '17 1 * * *' --name stack-bookmark-collection --script "$collection_script" --no-agent)
-curation_command=(hermes cron create '23 9 * * 1' --name stack-bookmark-curation --script "$curation_script" --no-agent)
+collection_command=("$hermes_bin" cron create '17 1 * * *' --name stack-bookmark-collection --script "$collection_script" --no-agent)
+curation_command=("$hermes_bin" cron create '23 9 * * 1' --name stack-bookmark-curation --script "$curation_script" --no-agent)
 printf 'Dry-run only. Exact Hermes commands:\n'
 printf 'hermes cron create %q --name %q --script %q --no-agent\n' '17 1 * * *' stack-bookmark-collection "$collection_script"
 printf 'hermes cron create %q --name %q --script %q --no-agent\n' '23 9 * * 1' stack-bookmark-curation "$curation_script"
@@ -80,7 +82,20 @@ for phase in ("collection", "curation"):
             data = json.load(open(path, encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        if data.get("receipt_type") == phase and data.get("phase") == phase and data.get("complete") is True and data.get("manual_run") is True and data.get("mode") == "apply":
+        operational_collection = (
+            phase == "collection"
+            and data.get("receipt_type") in {"collection", "partial"}
+            and isinstance(data.get("sources"), list)
+            and bool(data["sources"])
+            and any(source.get("status") == "ok" for source in data["sources"])
+            and all(
+                source.get("status") in {"ok", "partial_repository_inaccessible"}
+                for source in data["sources"]
+                if isinstance(source, dict)
+            )
+        )
+        complete_phase = data.get("receipt_type") == phase and data.get("complete") is True
+        if data.get("phase") == phase and (complete_phase or operational_collection) and data.get("manual_run") is True and data.get("mode") == "apply":
             found = True
             break
     if not found:
@@ -106,12 +121,12 @@ then
   echo "Refusing enablement: Stack curation configuration is not ready." >&2
   exit 6
 fi
-gateway_status="$(hermes cron status 2>&1 || true)"
+gateway_status="$("$hermes_bin" cron status 2>&1 || true)"
 if [[ "$gateway_status" != *"Gateway is running"* || "$gateway_status" == *"not running"* ]]; then
   echo "Refusing enablement: Hermes gateway is not running." >&2
   exit 3
 fi
-existing_jobs="$(hermes cron list --all 2>&1 || true)"
+existing_jobs="$("$hermes_bin" cron list --all 2>&1 || true)"
 if [[ "$existing_jobs" == *"stack-bookmark-collection"* || "$existing_jobs" == *"stack-bookmark-curation"* ]]; then
   echo "Refusing enablement: a Stack bookmark cron name already exists." >&2
   exit 7
@@ -128,7 +143,7 @@ if [[ -z "$collection_id" ]]; then
 fi
 if ! curation_output="$("${curation_command[@]}" 2>&1)"; then
   printf '%s\n' "$curation_output" >&2
-  if ! hermes cron remove "$collection_id"; then
+  if ! "$hermes_bin" cron remove "$collection_id"; then
     echo "Failed to compensate the collection job; manual Hermes cron cleanup is required." >&2
   fi
   exit 8
@@ -137,6 +152,6 @@ printf '%s\n' "$curation_output"
 curation_id="$(printf '%s\n' "$curation_output" | sed -n 's/^.*Created job: \([^[:space:]]\{1,\}\).*$/\1/p' | tail -1)"
 if [[ -z "$curation_id" ]]; then
   echo "Curation job was created but its ID could not be verified; rolling back both jobs." >&2
-  hermes cron remove "$collection_id" || true
+  "$hermes_bin" cron remove "$collection_id" || true
   exit 8
 fi

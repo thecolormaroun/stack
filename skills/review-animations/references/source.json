@@ -1,0 +1,20 @@
+{
+  "source_site": "https://emilkowal.ski/skill",
+  "source_repo": "https://github.com/emilkowalski/skill",
+  "upstream_skill_path": "skills/review-animations",
+  "checked_at": "2026-08-01T16:01:48Z",
+  "license": {
+    "github_reported_spdx_id": null,
+    "note": "GitHub reports no explicit upstream license; keep attribution and review before publishing or relicensing the source text outside this repo."
+  },
+  "latest_commit": {
+    "sha": "70744e3816f1d93eafb697161a8b880a7384c5ff",
+    "date": "2026-07-27T13:31:08+02:00",
+    "message": "Add /prototype skill",
+    "author": "emilkowalski"
+  },
+  "files": [
+    "skills/review-animations/SKILL.md",
+    "skills/review-animations/references/STANDARDS.md"
+  ]
+}

@@ -60,6 +60,13 @@ all agree. A newer upstream commit is not automatically trusted. If the
 checkout is dirty, the origin differs, or an export moved, stop publication and
 retain the last-known-good pin.
 
+When the updater operates through the `/Users/maroun/Codex` workflow layer, a
+dirty vendor checkout can block an upstream fast-forward before Stack source
+changes begin. Preserve those local vendor changes with a dated, automation
+scoped stash before rerunning the updater; report the stash name in the
+closeout. Do not drop, overwrite, or normalize vendor changes just to complete
+the refresh.
+
 Repository-owned Stack-Codex exports are bundled under
 `packages/stack-codex/content`. Their sorted content digest must match the
 package manifest, upstream registry, lock, and tests.
@@ -76,7 +83,9 @@ package manifest, upstream registry, lock, and tests.
 
 Report the branch and commit, package pins changed, test result, installation
 receipt, both target discovery results, pull request or merge state, and any
-remaining live scheduler gate.
+remaining live scheduler gate. If GitHub labels such as `codex` or
+`codex-automation` are unavailable in the target repository, report that as
+label coverage rather than treating the refresh as failed.
 
 ## Hard stops
 

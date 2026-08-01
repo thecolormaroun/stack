@@ -43,6 +43,15 @@ Use the smallest ladder that proves the change:
 - Runtime proof: `hermes config check`, `hermes gateway status`, plugin list, and a quick Mookie/Zouzou or feature-specific smoke.
 - Update proof: daily maintenance latest report no longer names the old private patch stack as the blocker.
 
+For GBrain or daily-updater incidents, prove the local service layer before
+treating the issue as an upstream-update problem. Check launchd state,
+`pg_isready`, the configured database URL shape without printing secrets, recent
+GBrain incremental logs, and any `postmaster.pid` or local lock file. If a PID
+or lock exists, verify the command identity for that PID before touching it; PID
+reuse can make a stale-looking lock unsafe to remove. Only restart PostgreSQL,
+Hermes, or the gateway after the process identity, logs, and unsaved-work
+boundary are clear.
+
 For read-only audits, do not restart the gateway or mutate the checkout. Produce a migration-readiness report with the commands intentionally skipped.
 
 ## Read-Only Audit Checklist
@@ -54,6 +63,8 @@ git -C ~/hermes/hermes-agent status --short --branch
 git -C ~/hermes/hermes-agent rev-list --left-right --count HEAD...origin/main
 rg "pre_agent_dispatch|printed_cli" ~/hermes/hermes-agent ~/hermes/plugins ~/hermes/hooks ~/hermes/tests ~/hermes/config.yaml
 rg "pre_gateway_dispatch|pre_llm_call|command:|printed_cli" ~/hermes/plugins ~/hermes/hooks ~/hermes/tests
+pg_isready
+tail -80 ~/hermes/logs/gbrain-incremental.launchd.err
 ```
 
 Prefer `~/hermes/tmp/mookie-daily-maintenance/latest.md` and targeted `jq` over dumping full maintenance JSON. If a command could expose secrets or runtime-sensitive output, summarize only the safe status fields.

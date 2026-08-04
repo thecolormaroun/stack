@@ -1,0 +1,19 @@
+{
+  "source_site": "https://emilkowal.ski/skill",
+  "source_repo": "https://github.com/emilkowalski/skill",
+  "upstream_skill_path": "skills/emil-design-eng",
+  "checked_at": "2026-08-04T16:00:56Z",
+  "license": {
+    "github_reported_spdx_id": null,
+    "note": "GitHub reports no explicit upstream license; keep attribution and review before publishing or relicensing the source text outside this repo."
+  },
+  "latest_commit": {
+    "sha": "da80201b64de7d608a6dc5f723797ce6c65b692b",
+    "date": "2026-08-02T19:18:54+02:00",
+    "message": "Update README.md",
+    "author": "Emil Kowalski"
+  },
+  "files": [
+    "skills/emil-design-eng/SKILL.md"
+  ]
+}

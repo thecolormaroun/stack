@@ -1,0 +1,19 @@
+{
+  "source_site": "https://emilkowal.ski/skill",
+  "source_repo": "https://github.com/emilkowalski/skill",
+  "upstream_skill_path": "skills/emil-design-eng",
+  "checked_at": "2026-08-08T16:01:00Z",
+  "license": {
+    "github_reported_spdx_id": null,
+    "note": "GitHub reports no explicit upstream license; keep attribution and review before publishing or relicensing the source text outside this repo."
+  },
+  "latest_commit": {
+    "sha": "de33dbed000212b54400a33767d1e4d03654db2a",
+    "date": "2026-08-05T14:33:08+02:00",
+    "message": "Add /animate skill",
+    "author": "Emil"
+  },
+  "files": [
+    "skills/emil-design-eng/SKILL.md"
+  ]
+}

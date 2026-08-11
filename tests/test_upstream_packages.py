@@ -62,8 +62,23 @@ class UpstreamPackageTests(unittest.TestCase):
             {path.stem for path in (content / "commands").glob("*.md")},
             {"gemini-review", "ideate", "lfg", "mega", "review", "ship", "sync"},
         )
-        for relative in ("agents/explorer.toml", "agents/reviewer.toml", "agents/worker.toml", "references/agent-execution-policy.md", "references/frontend-libraries.md", "references/upstreams.md"):
+        for relative in (
+            "agents/explorer.toml",
+            "agents/luna-worker.toml",
+            "agents/reviewer.toml",
+            "agents/sol-reviewer.toml",
+            "agents/terra-complex-worker.toml",
+            "agents/worker.toml",
+            "references/agent-execution-policy.md",
+            "references/frontend-libraries.md",
+            "references/upstreams.md",
+        ):
             self.assertTrue((content / relative).is_file(), relative)
+
+        policy = (content / "references/agent-execution-policy.md").read_text()
+        self.assertIn("Use Terra as the default orchestrator", policy)
+        self.assertIn("Use `luna_worker` first", policy)
+        self.assertIn("Do not directly dispatch model-unpinned `ce-*`", policy)
 
     def test_stack_codex_content_digest_matches_pin(self) -> None:
         provider = next(item for item in self.registry["providers"] if item["id"] == "stack-codex")

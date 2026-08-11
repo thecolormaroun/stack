@@ -8,29 +8,53 @@ controls when and how the wrappers use external workflows; it does not modify
 
 | Role | Model | Reasoning | Use |
 |---|---|---|---|
-| Orchestrator | `gpt-5.6-sol` | `high` | Decomposition, architecture, conflict resolution, final synthesis |
+| Orchestrator | `gpt-5.6-terra` | `high` | Decomposition, architecture, conflict resolution, final synthesis |
+| Cost-effective worker | `gpt-5.6-luna` | `max` | Bounded, independently verifiable implementation or research units |
+| Complex worker | `gpt-5.6-terra` | `max` | Context-heavy, high-risk, or wider-blast-radius implementation after route justification |
 | Worker | `gpt-5.6-terra` | `medium` | Implementation, tests, general engineering work |
 | Reviewer | `gpt-5.6-terra` | `high` | Correctness, security, contracts, and risk review |
+| Commitment reviewer | `gpt-5.6-sol` | `high` | Fresh read-only judgment at consequential architecture or safety boundaries |
 | Explorer | `gpt-5.6-luna` | `medium` | Repository mapping, cataloging, extraction, summaries, and bounded research |
 
-Use Sol as an explicit orchestrator, not as an inherited executor default. Use
+Use Terra as the default orchestrator. Use Sol only through the explicit
+commitment-review role, never as an inherited executor default. Use
 `xhigh` only for an explicit escalation after a concrete hard problem survives
 Sol/high or Terra/high. Do not select a model through task wording alone.
 
-Codex role names are `worker`, `reviewer`, and `explorer`. When the active
-subagent primitive exposes a role selector, select one of those roles explicitly.
-When it does not, use a model-pinned, ephemeral `codex exec` process instead of
-silently inheriting Sol:
+Codex role names are `luna_worker`, `terra_complex_worker`, `worker`,
+`reviewer`, `sol_reviewer`, and `explorer`. When the active subagent primitive
+exposes a role selector, select one of those roles explicitly.
+When it does not, use a model-pinned, ephemeral `codex exec` process for the
+bounded Luna packet instead of silently inheriting Sol:
 
 ```bash
-codex exec --ephemeral --model gpt-5.6-terra \
-  --config 'model_reasoning_effort="medium"' \
+codex exec --ephemeral --model gpt-5.6-luna \
+  --config 'model_reasoning_effort="max"' \
   --sandbox workspace-write "<self-contained worker packet>" </dev/null
 ```
 
 Use Luna/`read-only` for explorer packets and Terra/`high`/`read-only` for
 review packets. A subprocess receives a complete packet and never resumes the
 orchestrator session.
+
+## Default cost-effective execution
+
+Apply cost-effective routing to every planning, implementation, and review run
+unless the user explicitly overrides the route for that run:
+
+- Prefer deterministic local tools before spending a model call.
+- Use `luna_worker` first for bounded packets with explicit ownership, scope,
+  and focused verification, including mechanical repository research,
+  extraction, classification, low- or medium-risk implementation, and tests.
+- Keep decomposition, architecture, ambiguity, cross-unit reconciliation,
+  canonical commits, and final verification in the primary orchestrator.
+- Route context-heavy, high-risk, or wider-blast-radius implementation to
+  `terra_complex_worker` only after explicit classification or one corrected
+  Luna attempt demonstrates the need.
+- Reserve `sol_reviewer` for a single consequential commitment boundary. Do
+  not add it as a routine final review wave.
+- Never weaken safety, quota, review, approval, backup, or verification gates
+  to obtain a cheaper route.
 
 ## Portable quota preflight
 
@@ -90,10 +114,21 @@ wrapper decides whether invoking the whole skill is proportionate.
 ### `ce-work`
 
 - Run trivial and small work inline.
+- Prefer `luna_worker` for well-specified, independently verifiable units.
+- Route context-heavy, high-risk, or wider-blast-radius units to
+  `terra_complex_worker` only when the classification or a corrected Luna
+  attempt justifies escalation.
 - Use Terra workers only for independent, bounded implementation units.
 - Dispatch at most the quota preflight's executor count.
 - Do not automatically chain implementation fan-out, three-way simplification,
   full review, and validator waves. The Stack wrapper owns that composition.
+
+### `ce-plan`
+
+- Use `luna_worker` for bounded repository mapping, pattern inventories,
+  extraction, and learnings research.
+- Keep scope, architecture, reconciliation, confidence judgment, and final
+  plan authoring in the primary planner unless the user selects another model.
 
 ### `ce-simplify-code`
 
@@ -109,6 +144,8 @@ wrapper decides whether invoking the whole skill is proportionate.
 
 - Default to a targeted/lite review: inline fast pass plus one Terra/high
   reviewer selected for the actual risk.
+- Seed selected Compound Engineering persona prompts into the pinned `reviewer`
+  role. Do not directly dispatch model-unpinned `ce-*` persona profiles.
 - Add a second reviewer only when the diff has a distinct high-risk surface.
 - Invoke the full upstream multi-reviewer workflow only in `normal` mode when
   the user explicitly requests deep review or the diff touches authentication,

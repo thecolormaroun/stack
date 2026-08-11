@@ -29,8 +29,9 @@ description: |
 4. Build the plan, implement the work, and keep artifacts in-repo when they help:
    - `docs/plans/`
    - `docs/solutions/`
-   - Sol/high owns planning and synthesis. Dispatch only bounded Terra workers
-     and Luna explorers, within the quota preflight result.
+   - Terra/high owns planning and synthesis. Dispatch bounded Luna workers
+     first and Terra workers only for justified complex units, within the quota
+     preflight result. Reserve Sol for one consequential commitment review.
 5. Review before close-out:
    - Run one findings-first review wave sized by risk and quota.
    - Use an inline fast pass plus one Terra/high reviewer by default.

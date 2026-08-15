@@ -15,6 +15,16 @@
   },
   "files": [
     "skills/review-animations/SKILL.md",
-    "skills/review-animations/references/STANDARDS.md"
+    "skills/review-animations/references/STANDARDS.md",
+    "skills/design/review-animations/references/12-principles-of-animation.md"
+  ],
+  "supplemental_sources": [
+    {
+      "url": "https://www.raphaelsalaja.com/library/12-principles-of-animation",
+      "title": "12 Principles of Animation",
+      "author": "Raphael Salaja",
+      "accessed_at": "2026-08-15",
+      "use": "Distilled product-UI reference for animation intent, sequencing, and proportionality; not copied source text."
+    }
   ]
 }

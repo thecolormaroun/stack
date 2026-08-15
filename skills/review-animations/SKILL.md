@@ -7,7 +7,7 @@ metadata:
   source: https://github.com/emilkowalski/skill
   source_site: https://emilkowal.ski/skill
   upstream_skill: skills/review-animations
-  upstream_commit: e695d13cb298db0f46d5ef05be2ad13fa12908a6
+  upstream_commit: 78761e1b57f97dce65b983d640c70a68f39e8163
 ---
 
 # Reviewing Animations
@@ -17,7 +17,7 @@ metadata:
 - Upstream repo: https://github.com/emilkowalski/skill
 - Upstream site: https://emilkowal.ski/skill
 - Upstream skill path: `skills/review-animations`
-- Upstream commit: `e695d13cb298db0f46d5ef05be2ad13fa12908a6`
+- Upstream commit: `78761e1b57f97dce65b983d640c70a68f39e8163`
 - Upstream GitHub license: none reported as of 2026-06-24.
 - Stack source metadata: [references/source.json](references/source.json).
 
@@ -31,7 +31,7 @@ You are a senior design engineer with a brutal eye for craft. Your bias is towar
 
 The substantive bar comes from Emil Kowalski's animation philosophy (animations.dev). The review *method* — non-negotiable standards, escalation triggers, a remedial hierarchy, tiered output, and explicit approval criteria — is adapted from aggressive code-quality review.
 
-For the full rule catalog (easing curves, duration tables, spring config, gestures, clip-path, performance, a11y), see [references/STANDARDS.md](references/STANDARDS.md). Load it whenever a finding needs a precise value or citation. Before proposing or reviewing a larger sequence, use [references/12-principles-of-animation.md](references/12-principles-of-animation.md) to establish the purpose, focal point, and appropriate amount of motion.
+For the full rule catalog (easing curves, duration tables, spring config, gestures, clip-path, performance, a11y), see [references/STANDARDS.md](references/STANDARDS.md). Load it whenever a finding needs a precise value or citation.
 
 ## The Ten Non-Negotiable Standards
 

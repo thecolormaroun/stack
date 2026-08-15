@@ -1,6 +1,6 @@
 # Animation Standards Reference
 
-The precise values, curves, and rules behind the review. Cite these in findings instead of approximating. Distilled from Emil Kowalski's design engineering philosophy. For animation intent, sequence, and focal-point planning, pair this with [12 Principles of Animation for Product UI](12-principles-of-animation.md).
+The precise values, curves, and rules behind the review. Cite these in findings instead of approximating. Distilled from Emil Kowalski's design engineering philosophy.
 
 ## Should it animate? (frequency table)
 

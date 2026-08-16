@@ -97,7 +97,18 @@ def package_health(root: Path, providers: dict[str, dict[str, Any]]) -> list[str
                     if actual_digest != pin:
                         errors.append(f"provider {provider_id} bundled content failed integrity verification")
                     elif provider_id == "stack-codex":
-                        required = [*(f"skills/{name}/SKILL.md" for name in provider.get("exports", [])), "agents/explorer.toml", "agents/reviewer.toml", "agents/worker.toml", "references/agent-execution-policy.md", "references/frontend-libraries.md", "references/upstreams.md"]
+                        required = [
+                            *(f"skills/{name}/SKILL.md" for name in provider.get("exports", [])),
+                            "agents/explorer.toml",
+                            "agents/luna-worker.toml",
+                            "agents/reviewer.toml",
+                            "agents/sol-reviewer.toml",
+                            "agents/terra-complex-worker.toml",
+                            "agents/worker.toml",
+                            "references/agent-execution-policy.md",
+                            "references/frontend-libraries.md",
+                            "references/upstreams.md",
+                        ]
                         if any(not (root / bundle_path / relative).is_file() for relative in required):
                             errors.append(f"provider {provider_id} bundle lacks expected resolvable exports")
         exports = package.get("exports")

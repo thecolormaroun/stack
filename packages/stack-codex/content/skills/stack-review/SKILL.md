@@ -27,18 +27,24 @@ below inline and report that the package-specific lenses were unavailable.
 1. Start with findings, not summary.
 2. Order by severity and user impact.
 3. Use concrete file and line references whenever possible.
-4. Run an inline fast pass, then select one Terra/high reviewer for the highest
-   actual risk. Add at most one second reviewer for a distinct high-risk surface
-   when quota mode permits it.
+4. Choose exactly one review owner for the run:
+   - Routine diff: run an inline fast pass plus one `reviewer` (Terra/high) for
+     the highest actual risk.
+   - Consequential diff: verify the accumulated diff in the primary, then use
+     one fresh `sol_reviewer` and require `ship`, `fix-first`, or `rethink`.
+     Rerun it after any implementation fix.
+   - Explicit deep, non-consequential review in `normal` quota mode: use the
+     full upstream `ce-code-review` roster instead of the routine reviewer.
 5. Cover both:
    - Code correctness and regressions
    - Operational, security, and deployment risks
 6. Treat these as protected artifacts, not cleanup targets:
    - `docs/plans/*.md`
    - `docs/solutions/*.md`
-7. Use the full upstream `ce-code-review` roster only for explicit deep review
-   or the high-risk conditions named in the local execution policy, and only in
-   `normal` quota mode unless the user explicitly overrides.
+7. Treat upstream review guides as inputs or fallbacks, not additional review
+   calls. Do not stack GStack `review`, `ce-code-review`, a routine reviewer,
+   and a consequential Sol gate. Add one distinct domain reviewer only when the
+   local execution policy explicitly justifies it and quota mode permits it.
 8. Validate P0/P1 findings independently. Do not launch validators for every
    weak P2/P3 observation.
 
@@ -47,5 +53,5 @@ below inline and report that the package-specific lenses were unavailable.
 - If there are findings, lead with them.
 - If there are no findings, say that plainly and then note residual risk or test gaps.
 - If the user wants fixes, implement them and re-run targeted validation.
-- Run one review wave. A second wave requires a validated P0/P1 finding or an
-  explicit request for deep review.
+- Run one risk-sized review wave. A fix invalidates a consequential Sol verdict
+  and requires a fresh verdict for the changed diff.

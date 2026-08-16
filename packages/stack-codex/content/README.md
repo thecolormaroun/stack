@@ -23,10 +23,13 @@ deployment root. No separate `Codex` workspace is required.
 ## Agent routing
 
 The local execution policy lives at
-`references/agent-execution-policy.md`. The safe fallback is a single executor
-when quota state is unavailable. The active runtime may select a stronger
-orchestrator explicitly; the bundle does not require a separate launcher.
+`references/agent-execution-policy.md`. The default primary is Sol/high, while
+bounded work routes to Luna Max first and justified complex work escalates to
+Terra Max. The safe fallback is a single Terra/Luna executor when quota state
+is unavailable. A fresh Sol/high review is the final gate for consequential
+deliveries, not routine work.
 
-Local `explorer`, `worker`, and `reviewer` roles pin Luna/Terra models, while
-quota preflight limits concurrency and review fan-out. External gstack and
-compound-engineering files remain untouched.
+Local `explorer`, `luna_worker`, `terra_complex_worker`, `worker`, `reviewer`,
+and `sol_reviewer` roles pin Luna/Terra/Sol models, while quota preflight limits
+concurrency and review fan-out. External gstack and compound-engineering files
+remain untouched.

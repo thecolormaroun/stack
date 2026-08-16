@@ -18,9 +18,11 @@ Resolve the Stack checkout from `STACK_REPO` or the current Git root. When
 for the run identifier, children, checkpoints, gates, resume, and receipt. If
 it is unavailable, continue serially with visible runtime task state and
 project-local artifacts, and report that durable resume was unavailable. Sol
-owns decomposition and final synthesis; use the configured `worker`,
+High owns decomposition, architecture, reconciliation, verification, and final
+synthesis; use the configured `luna_worker`, `terra_complex_worker`, `worker`,
 `reviewer`, and `explorer` roles for Terra/Luna execution. Never let a child
-inherit Sol accidentally.
+inherit Sol accidentally. After a consequential delivery, use a fresh
+`sol_reviewer` for the final acceptance gate.
 
 ## 1. Fill The Brief
 
@@ -125,10 +127,12 @@ Dispatch useful subagents concurrently only when the tool surface supports it an
 Use `fork_turns: "none"` for these self-contained packets. Use at most
 `fork_turns: "3"` when a child genuinely needs the latest exchange, and never
 use `fork_turns: "all"`. Allow one follow-up turn per child, then close it.
-Select `explorer` for read-only discovery, `worker` for implementation, and
-`reviewer` for risk review. If the dispatch primitive cannot select a role or
-model, use the explicit model-pinned `codex exec --ephemeral` fallback from the
-local execution policy.
+Select `explorer` for read-only discovery, `luna_worker` first for bounded
+implementation, `terra_complex_worker` only for a justified complex unit,
+`reviewer` for routine risk review, and `sol_reviewer` for a consequential
+final gate. If the dispatch primitive cannot select a role or model, follow the
+fail-closed rule in the local execution policy: keep the work in the primary or
+stop when native named-role dispatch and attestation are unavailable.
 
 Do not create extra agents just to look busy. The main agent owns the task, the edits, the truth checking, and the final answer.
 
@@ -148,8 +152,11 @@ Then implement the focused change, run the smallest reliable verification gate, 
 Before closeout, record the runtime quota result or portable `single` fallback
 and verify the child session metadata shows Terra/Luna at the intended
 reasoning levels, no full-history forks, no nested descendants, and no
-duplicate review wave. When `scripts/stack-run-state.py` was used, include its
-gate and receipt evidence.
+duplicate review wave. When `stack-lfg` already returned a valid fresh Sol/high
+`ship` verdict for the same verified diff, consume that verdict instead of
+launching another review. Otherwise, a consequential delivery requires the
+fresh verdict after parent verification and after any implementation fix. When
+`scripts/stack-run-state.py` was used, include its gate and receipt evidence.
 
 ## 7. Close Out
 

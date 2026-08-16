@@ -62,8 +62,39 @@ class UpstreamPackageTests(unittest.TestCase):
             {path.stem for path in (content / "commands").glob("*.md")},
             {"gemini-review", "ideate", "lfg", "mega", "review", "ship", "sync"},
         )
-        for relative in ("agents/explorer.toml", "agents/reviewer.toml", "agents/worker.toml", "references/agent-execution-policy.md", "references/frontend-libraries.md", "references/upstreams.md"):
+        for relative in (
+            "agents/explorer.toml",
+            "agents/luna-worker.toml",
+            "agents/reviewer.toml",
+            "agents/sol-reviewer.toml",
+            "agents/terra-complex-worker.toml",
+            "agents/worker.toml",
+            "references/agent-execution-policy.md",
+            "references/frontend-libraries.md",
+            "references/upstreams.md",
+        ):
             self.assertTrue((content / relative).is_file(), relative)
+
+        policy = (content / "references/agent-execution-policy.md").read_text()
+        self.assertIn("Use Sol/high as the default primary orchestrator", policy)
+        self.assertIn("Use `luna_worker` first", policy)
+        self.assertIn("fresh `sol_reviewer`", policy)
+        self.assertIn("Require `ship`, `fix-first`, or `rethink`", policy)
+        self.assertIn("Do not directly dispatch model-unpinned `ce-*`", policy)
+        self.assertIn("do not substitute a role-less subprocess", policy)
+        self.assertIn("explicitly deep,\n  non-consequential review", policy)
+        self.assertNotIn("codex exec --ephemeral", policy)
+
+        expected_roles = {
+            "luna-worker.toml": ("gpt-5.6-luna", "max", "workspace-write"),
+            "terra-complex-worker.toml": ("gpt-5.6-terra", "max", "workspace-write"),
+            "sol-reviewer.toml": ("gpt-5.6-sol", "high", "read-only"),
+        }
+        for filename, (model, effort, sandbox) in expected_roles.items():
+            role = (content / "agents" / filename).read_text()
+            self.assertIn(f'model = "{model}"', role)
+            self.assertIn(f'model_reasoning_effort = "{effort}"', role)
+            self.assertIn(f'sandbox_mode = "{sandbox}"', role)
 
     def test_stack_codex_content_digest_matches_pin(self) -> None:
         provider = next(item for item in self.registry["providers"] if item["id"] == "stack-codex")
@@ -97,6 +128,8 @@ class UpstreamPackageTests(unittest.TestCase):
             "install-codex-stack.sh",
             "install-build-skills.sh",
             "gemini-review.sh",
+            "attested subprocess fallback",
+            "codex exec --ephemeral",
         ):
             self.assertNotIn(forbidden, combined)
 

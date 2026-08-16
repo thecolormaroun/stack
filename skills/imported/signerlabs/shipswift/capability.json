@@ -31,7 +31,7 @@
   "provenance": {
     "license": "MIT claimed in upstream README; skills repository has no standalone LICENSE file",
     "posture": "imported-upstream",
-    "source_identity": "https://github.com/signerlabs/shipswift-skills.git@b1dcfcd85dfae0202591642b8c9efe3edd32410b:skills/shipswift"
+    "source_identity": "signerlabs:shipswift-skills@b1dcfcd85dfae0202591642b8c9efe3edd32410b:skills/shipswift"
   },
   "purpose": "ShipSwift recipe library for production-ready SwiftUI and Metal animations, charts, UI components, and full-stack iOS or macOS modules.",
   "role": "leaf",

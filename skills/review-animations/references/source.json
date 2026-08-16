@@ -1,0 +1,20 @@
+{
+  "source_site": "https://emilkowal.ski/skill",
+  "source_repo": "https://github.com/emilkowalski/skill",
+  "upstream_skill_path": "skills/review-animations",
+  "checked_at": "2026-08-16T13:01:19Z",
+  "license": {
+    "github_reported_spdx_id": null,
+    "note": "GitHub reports no explicit upstream license; keep attribution and review before publishing or relicensing the source text outside this repo."
+  },
+  "latest_commit": {
+    "sha": "78761e1b57f97dce65b983d640c70a68f39e8163",
+    "date": "2026-08-10T15:58:24+02:00",
+    "message": "Update README.md",
+    "author": "Emil Kowalski"
+  },
+  "files": [
+    "skills/review-animations/SKILL.md",
+    "skills/review-animations/references/STANDARDS.md"
+  ]
+}

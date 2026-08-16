@@ -18,7 +18,7 @@ class UpstreamPackageTests(unittest.TestCase):
         self.lock = json.loads((ROOT / "upstreams.lock.json").read_text())
 
     def test_allowlisted_immutable_pins_and_last_known_good(self) -> None:
-        required = {"compound-engineering", "gstack", "stack-codex", "matt", "david", "emil"}
+        required = {"compound-engineering", "gstack", "stack-codex", "matt", "david", "emil", "signerlabs"}
         providers = {provider["id"]: provider for provider in self.registry["providers"]}
         self.assertEqual(set(providers), required)
         for provider_id, provider in providers.items():
@@ -165,6 +165,22 @@ class UpstreamPackageTests(unittest.TestCase):
         result = subprocess.run(["python3", "scripts/sync-upstreams.py"], cwd=ROOT, text=True, capture_output=True, check=False)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("extraction and staging may proceed", result.stdout)
+
+    def test_shipswift_import_matches_declared_source_digest(self) -> None:
+        provider = next(item for item in self.registry["providers"] if item["id"] == "signerlabs")
+        directory = ROOT / "skills/imported/signerlabs/shipswift"
+        self.assertEqual(provider["exports"], ["shipswift"])
+        self.assertTrue((directory / "SKILL.md").is_file())
+        self.assertTrue((directory / "references/index.md").is_file())
+        self.assertFalse(any(path.is_symlink() or os.access(path, os.X_OK) for path in directory.rglob("*") if path.is_file()))
+
+        digest = hashlib.sha256()
+        for path in sorted(path for path in directory.rglob("*") if path.is_file() and path.name != "capability.json"):
+            digest.update(path.relative_to(directory).as_posix().encode())
+            digest.update(b"\0")
+            digest.update(path.read_bytes())
+            digest.update(b"\0")
+        self.assertEqual(digest.hexdigest(), provider["last_known_good"]["metadata_digest"])
 
 
 if __name__ == "__main__":

@@ -63,7 +63,7 @@ scan_line() {
       function placeholder(line) {
         line = tolower(line)
         return line ~ /\$\{\{[^}]*secrets\.[^}]*}}/ ||
-          line ~ /<your_|<example|example_|changeme|replace_me|not-a-real|redacted|placeholder/
+          line ~ /<your[-_]|your[-_][a-z0-9-]+|<example|example_|changeme|replace_me|not-a-real|redacted|placeholder|\.\.\./
       }
 
       function finding(rule) {
@@ -73,7 +73,7 @@ scan_line() {
       {
         lower = tolower($0)
 
-        if ($0 ~ /-----BEGIN[[:space:]][A-Z0-9[:space:]]*PRIVATE[[:space:]]KEY-----/) {
+        if (!placeholder($0) && $0 ~ /-----BEGIN[[:space:]][A-Z0-9[:space:]]*PRIVATE[[:space:]]KEY-----/) {
           finding("private key material")
         }
 
@@ -100,7 +100,7 @@ scan_line() {
         }
 
         if (!placeholder($0) &&
-          lower ~ /(api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|private[_-]?key)[[:space:]]*[:=][[:space:]]*["'\''"]?[a-z0-9_.\/+=-]{16,}/) {
+          lower ~ /(api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|private[_-]?key)[[:space:]]*[:=][[:space:]]*["'\''"][a-z0-9_.\/+=-]{16,}/) {
           finding("secret-looking config assignment")
         }
       }

@@ -627,6 +627,11 @@
       "source": "skills/studio/ship/SKILL.md"
     },
     {
+      "canonical_name": "shipswift",
+      "destination": "skills/imported/signerlabs/shipswift/SKILL.md",
+      "source": "skills/imported/signerlabs/shipswift/SKILL.md"
+    },
+    {
       "canonical_name": "simplify",
       "destination": "skills/engineering/simplify/SKILL.md",
       "source": "skills/simplify/SKILL.md"

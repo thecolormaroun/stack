@@ -73,7 +73,7 @@ the product unless they directly support a named design/build workflow.
 
 Read the detailed contracts:
 
-- [`docs/skill-architecture.md`](docs/skill-architecture.md) — the current 141-capability estate, cuts, merges, families, packages, and routing model.
+- [`docs/skill-architecture.md`](docs/skill-architecture.md) — the current 142-capability estate, cuts, merges, families, packages, and routing model.
 - [`docs/architecture.md`](docs/architecture.md) — ownership, catalog, and inclusion boundary.
 - [`docs/capability-lifecycle.md`](docs/capability-lifecycle.md) — evidence, review, and lifecycle transitions.
 - [`docs/bookmark-curation.md`](docs/bookmark-curation.md) — safe intake through review packet.

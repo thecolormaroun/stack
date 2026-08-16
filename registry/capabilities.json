@@ -8040,6 +8040,69 @@
     {
       "artifact_type": "skill",
       "audit_status": "reviewed",
+      "canonical_name": "shipswift",
+      "commands": [
+        "stack.build"
+      ],
+      "context": {
+        "inputs": [
+          "request",
+          "workspace-context"
+        ],
+        "outputs": [
+          "capability-result"
+        ]
+      },
+      "disposition": {
+        "evidence_gap": null,
+        "next_review_trigger": "Reassess on source, export, or runtime-target change.",
+        "status": "keep"
+      },
+      "domain": "engineering",
+      "family": "engineering",
+      "lifecycle": "active",
+      "overlaps": [],
+      "ownership": {
+        "package": "imported-skills",
+        "provider": "signerlabs",
+        "source_path": "skills/imported/signerlabs/shipswift/SKILL.md"
+      },
+      "provenance": {
+        "license": "MIT claimed in upstream README; skills repository has no standalone LICENSE file",
+        "posture": "imported-upstream",
+        "source_identity": "https://github.com/signerlabs/shipswift-skills.git@b1dcfcd85dfae0202591642b8c9efe3edd32410b:skills/shipswift"
+      },
+      "purpose": "ShipSwift recipe library for production-ready SwiftUI and Metal animations, charts, UI components, and full-stack iOS or macOS modules.",
+      "role": "leaf",
+      "runtimes": {
+        "publish_targets": [
+          "claude",
+          "codex"
+        ],
+        "supported": [
+          "claude",
+          "codex"
+        ]
+      },
+      "schema_version": 1,
+      "source": {
+        "skill_path": "skills/imported/signerlabs/shipswift/SKILL.md"
+      },
+      "trust_class": "local-mutation",
+      "validation": {
+        "evidence": [
+          "reviewed-estate-refactor",
+          "structural-classification",
+          "primary-runtime-parity"
+        ],
+        "status": "validated"
+      },
+      "validation_class": "representative-route",
+      "visibility": "extended"
+    },
+    {
+      "artifact_type": "skill",
+      "audit_status": "reviewed",
       "canonical_name": "simplify",
       "commands": [
         "stack.build"
@@ -8925,7 +8988,7 @@
   "catalog_kind": "stack-capability-catalog",
   "schema_version": 1,
   "summary": {
-    "callable_entrypoint_count": 141,
-    "capability_count": 141
+    "callable_entrypoint_count": 142,
+    "capability_count": 142
   }
 }

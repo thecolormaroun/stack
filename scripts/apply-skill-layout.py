@@ -18,7 +18,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION_PATH = ROOT / "registry/migrations/2026-07-23-skill-layout.json"
-IMPORT_PROVIDERS = {"matt", "david", "impeccable", "studio", "ui", "emil", "taste-skill-suite"}
+IMPORT_PROVIDERS = {"matt", "david", "impeccable", "studio", "ui", "emil", "signerlabs", "taste-skill-suite"}
 
 
 class LayoutError(ValueError):
@@ -47,7 +47,7 @@ def destination_for(manifest: dict[str, Any], source: str) -> str:
         if provider == "taste-skill-suite":
             provider_dir = "taste-skill-suite"
         # Preserve the collection's inside layout, but remove its old root.
-        old_root = {"matt": "matt", "david": "david", "impeccable": "impeccable", "studio": "studio", "ui": "ui-skills", "emil": "emil-design-eng", "taste-skill-suite": "taste-skill-suite"}[provider]
+        old_root = {"matt": "matt", "david": "david", "impeccable": "impeccable", "studio": "studio", "ui": "ui-skills", "emil": "emil-design-eng", "signerlabs": "signerlabs", "taste-skill-suite": "taste-skill-suite"}[provider]
         relative = Path(*parts[2:]) if len(parts) > 2 and parts[1] == old_root else Path(parts[-1])
         return (Path("skills/imported") / provider_dir / relative / "SKILL.md").as_posix()
     # Stack-owned collections remain collections, including CDO and CPO.

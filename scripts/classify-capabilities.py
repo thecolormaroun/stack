@@ -58,7 +58,7 @@ def canonical_json(value: Any) -> str:
 
 
 def provider_for(path: str) -> tuple[str, str]:
-    for provider in ("matt", "david", "impeccable", "studio", "ui", "emil", "taste-skill-suite", "other"):
+    for provider in ("matt", "david", "impeccable", "studio", "ui", "emil", "signerlabs", "taste-skill-suite", "other"):
         if path.startswith(f"skills/imported/{provider}/"):
             return provider, "imported-skills"
     for prefix, provider in (("skills/matt-", "matt"), ("skills/david-", "david"), ("skills/impeccable/", "impeccable"), ("skills/studio/", "studio"), ("skills/ui-skills/", "ui"), ("skills/emil-", "emil"), ("skills/taste-skill-suite/", "impeccable")):

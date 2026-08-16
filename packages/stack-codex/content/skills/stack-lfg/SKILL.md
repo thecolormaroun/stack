@@ -21,21 +21,29 @@ description: |
 ## Workflow
 
 1. Clarify the target only if ambiguity will cause rework.
-2. Use the installed Compound Engineering capabilities `ce-plan`, `ce-work`,
+2. Treat installed Compound Engineering capabilities `ce-plan`, `ce-work`,
    `ce-code-review`, `ce-simplify-code`, `ce-test-browser`, and
-   `ce-commit-push-pr` when available.
-3. Use installed GStack `autoplan`, `review`, `qa`, and `ship` capabilities
-   when available.
+   `ce-commit-push-pr` as available phase owners, not a mandatory chain.
+3. Treat installed GStack `autoplan`, `review`, `qa`, and `ship` capabilities
+   the same way. Select one review owner and one ship owner per run; use the
+   other upstream guides as inputs or fallbacks rather than duplicate calls.
 4. Build the plan, implement the work, and keep artifacts in-repo when they help:
    - `docs/plans/`
    - `docs/solutions/`
-   - Sol/high owns planning and synthesis. Dispatch only bounded Terra workers
-     and Luna explorers, within the quota preflight result.
+   - Sol/high owns planning, architecture, reconciliation, verification, and
+     synthesis. Dispatch bounded Luna workers first and Terra workers only for
+     justified complex units, within the quota preflight result.
 5. Review before close-out:
    - Run one findings-first review wave sized by risk and quota.
-   - Use an inline fast pass plus one Terra/high reviewer by default.
-   - Invoke full compound multi-angle review only for the explicit high-risk or
-     deep-review cases in the local execution policy.
+   - Use an inline fast pass plus one Terra/high reviewer for routine diffs.
+   - For consequential deliveries, run a fresh Sol/high final review after the
+     primary verifies the diff. Require `ship`, `fix-first`, or `rethink`, and
+     rerun it after any implementation fix.
+   - `stack-lfg` owns that final verdict. A parent orchestrator consumes the
+     valid verdict for the same verified diff instead of launching another.
+   - Invoke full compound multi-angle review only for an explicitly deep,
+     non-consequential review in `normal` quota mode. For consequential work,
+     feed the applicable lenses to the fresh Sol gate instead.
    - Do not stack a second review merely because two upstream guides exist.
    - focused validation for changed code paths
 6. If the work is frontend-heavy, run browser verification and note the result.

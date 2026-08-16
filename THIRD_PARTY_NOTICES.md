@@ -10,4 +10,4 @@ Stack owns command mappings and package metadata, not the upstream skill impleme
 | David Ondrej skills | davidondrej/skills | `5c99080334072075eb9e0a17837f7d24e4f3e6ae` | MIT |
 | Emil Kowalski skill | emilkowalski/skill | `f6f79ca1d8e9e2d82c8b90d7481b70ca66f4adfb` | NOASSERTION; attribution retained |
 
-Stack-Codex is Stack-owned repository content, bundled under `packages/stack-codex/content` so a GitHub clone contains the complete eight-skill package. Its package pin, `483015638591618e884d4c21f1fa037b645bb872e33acf063fa7a5f802c80df3`, is a deterministic SHA-256 digest over sorted relative paths and exact file bytes. It is not an external upstream and does not appear in the third-party table above.
+Stack-Codex is Stack-owned repository content, bundled under `packages/stack-codex/content` so a GitHub clone contains the complete eight-skill package. Its package pin, `3d42913cd10cfb67f6a3645aef8565472612bca0cdc79ea360c23a40dae8811f`, is a deterministic SHA-256 digest over sorted relative paths and exact file bytes. It is not an external upstream and does not appear in the third-party table above.

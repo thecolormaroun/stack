@@ -123,6 +123,65 @@ class RuntimeParityTests(unittest.TestCase):
             self.assertEqual(report["status"], "failed")
             self.assertTrue(any("integrity" in error for error in report["errors"]))
 
+    def test_doctor_requires_all_stack_codex_agent_roles_after_repin(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            fixture(root)
+            bundle = root / "packages/stack-codex/content"
+            required = (
+                "agents/explorer.toml",
+                "agents/luna-worker.toml",
+                "agents/reviewer.toml",
+                "agents/sol-reviewer.toml",
+                "agents/terra-complex-worker.toml",
+                "agents/worker.toml",
+                "references/agent-execution-policy.md",
+                "references/frontend-libraries.md",
+                "references/upstreams.md",
+            )
+            for relative in required:
+                path = bundle / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(f"# {relative}\n", encoding="utf-8")
+
+            provider = {
+                "id": "stack-codex",
+                "install": "repository-bundle",
+                "bundle_path": "packages/stack-codex/content",
+                "exports": [],
+            }
+            package = json.loads((root / "packages/provider/package.json").read_text())
+            package.update({"provider": "stack-codex", "exports": []})
+            write_json(root / "packages/provider/package.json", package)
+
+            def repin() -> None:
+                pin = DOCTOR.directory_sha256(bundle)
+                provider.update({
+                    "pin": {"type": "sha256", "value": pin},
+                    "last_known_good": {"pin": pin},
+                })
+                write_json(root / "registry/upstreams.json", {"schema_version": 1, "providers": [provider]})
+                write_json(root / "upstreams.lock.json", {"providers": {"stack-codex": pin}})
+
+            repin()
+            self.assertEqual(DOCTOR.doctor(root)["status"], "ok")
+
+            for relative in (
+                "agents/luna-worker.toml",
+                "agents/sol-reviewer.toml",
+                "agents/terra-complex-worker.toml",
+            ):
+                with self.subTest(relative=relative):
+                    path = bundle / relative
+                    content = path.read_text(encoding="utf-8")
+                    path.unlink()
+                    repin()
+                    report = DOCTOR.doctor(root)
+                    self.assertEqual(report["status"], "failed")
+                    self.assertTrue(any("resolvable exports" in error for error in report["errors"]))
+                    path.write_text(content, encoding="utf-8")
+                    repin()
+
 
 if __name__ == "__main__":
     unittest.main()

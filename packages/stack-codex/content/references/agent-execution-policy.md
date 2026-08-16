@@ -8,29 +8,74 @@ controls when and how the wrappers use external workflows; it does not modify
 
 | Role | Model | Reasoning | Use |
 |---|---|---|---|
-| Orchestrator | `gpt-5.6-sol` | `high` | Decomposition, architecture, conflict resolution, final synthesis |
+| Primary orchestrator | `gpt-5.6-sol` | `high` | Requirements, decomposition, architecture, conflict resolution, verification, and final synthesis |
+| Cost-effective worker | `gpt-5.6-luna` | `max` | Bounded, independently verifiable implementation or research units |
+| Complex worker | `gpt-5.6-terra` | `max` | Context-heavy, high-risk, or wider-blast-radius implementation after route justification |
 | Worker | `gpt-5.6-terra` | `medium` | Implementation, tests, general engineering work |
-| Reviewer | `gpt-5.6-terra` | `high` | Correctness, security, contracts, and risk review |
+| Routine reviewer | `gpt-5.6-terra` | `high` | Correctness, security, contracts, and risk review for ordinary diffs |
+| Consequential reviewer | `gpt-5.6-sol` | `high` | Fresh final acceptance or commitment judgment for consequential work |
 | Explorer | `gpt-5.6-luna` | `medium` | Repository mapping, cataloging, extraction, summaries, and bounded research |
 
-Use Sol as an explicit orchestrator, not as an inherited executor default. Use
-`xhigh` only for an explicit escalation after a concrete hard problem survives
-Sol/high or Terra/high. Do not select a model through task wording alone.
+Use Sol/high as the default primary orchestrator. The primary keeps requirements,
+architecture, worker specifications, reconciliation, authoritative verification,
+and final acceptance. Children never inherit Sol accidentally: bounded routine
+work uses Luna Max, and justified complex work uses Terra Max. Use `xhigh` only
+for an explicit escalation after a concrete hard problem survives Sol/high or
+Terra/high. Do not select a model through vague task wording alone.
 
-Codex role names are `worker`, `reviewer`, and `explorer`. When the active
-subagent primitive exposes a role selector, select one of those roles explicitly.
-When it does not, use a model-pinned, ephemeral `codex exec` process instead of
-silently inheriting Sol:
+Codex role names are `luna_worker`, `terra_complex_worker`, `worker`,
+`reviewer`, `sol_reviewer`, and `explorer`. When the active subagent primitive
+exposes a role selector, select one of those roles explicitly.
+When it does not, do not substitute a role-less subprocess: model pinning cannot
+prove the named role, its developer instructions, or the parent/child contract.
+Keep the unit in the primary or stop and report that native attested dispatch is
+unavailable. Cost-effective routing fails closed instead of approximating a
+different lane.
 
-```bash
-codex exec --ephemeral --model gpt-5.6-terra \
-  --config 'model_reasoning_effort="medium"' \
-  --sandbox workspace-write "<self-contained worker packet>" </dev/null
-```
+## Default cost-effective execution
 
-Use Luna/`read-only` for explorer packets and Terra/`high`/`read-only` for
-review packets. A subprocess receives a complete packet and never resumes the
-orchestrator session.
+Apply cost-effective routing to every planning, implementation, and review run
+unless the user explicitly overrides the route for that run:
+
+- Prefer deterministic local tools before spending a model call.
+- Use `luna_worker` first for bounded packets with explicit ownership, scope,
+  and focused verification, including mechanical repository research,
+  extraction, classification, low- or medium-risk implementation, and tests.
+- Keep decomposition, architecture, ambiguity, cross-unit reconciliation,
+  canonical commits, and final verification in the primary orchestrator.
+- Route context-heavy, high-risk, or wider-blast-radius implementation to
+  `terra_complex_worker` only after explicit classification or one corrected
+  Luna attempt demonstrates the need.
+- After the primary inspects the complete diff and reruns verification, use a
+  fresh `sol_reviewer` as the final gate for consequential deliveries. Routine
+  work keeps the proportionate Terra review path and does not pay a Sol-review
+  tax.
+- Never weaken safety, quota, review, approval, backup, or verification gates
+  to obtain a cheaper route.
+
+## Consequential Sol gates
+
+Use one fresh Sol/high context for either of these bounded gates:
+
+- **Commitment review:** before committing to consequential architecture,
+  authentication or security boundaries, payments, migrations, destructive
+  data changes, public contracts, production-state changes, or wide refactors.
+  Require `proceed`, `change`, or `stop`.
+- **Final delivery review:** after parent verification when the implemented
+  change touches one of those surfaces or is a substantial cross-cutting
+  multi-agent delivery. Require `ship`, `fix-first`, or `rethink`.
+
+The final Sol review replaces the default Terra reviewer unless a separate,
+distinct domain-risk review is justified. Treat all selected reviewers as one
+risk-sized review wave rather than mechanically stacking generic passes. Any
+implementation fix invalidates the prior final verdict and requires a new fresh
+Sol review.
+
+The reviewer requests a read-only sandbox, but the host's observed policy is
+authoritative. If the host broadens isolation, continue only when hard isolation
+is not required and the primary proves exact before/after repository and artifact
+state. If isolation is unobservable, a mutation occurs, or hard isolation is
+required, stop the gate instead of claiming a read-only review.
 
 ## Portable quota preflight
 
@@ -50,9 +95,12 @@ Honor the resolved mode:
 | `>=85%` | `pause` | 0 | Deterministic/local work only unless the user explicitly overrides |
 | unknown | `single` | 1 | Fail closed: no fan-out, Terra/Luna only |
 
-The preflight constrains model work, not safe local shell inspection. Do not
-retry quota or capacity failures in a loop. Record whether quota came from the
-runtime or the `single` fallback in the closeout.
+The executor cap constrains child implementation and research work, not the
+already-active Sol primary or safe local shell inspection. Serialize a required
+Sol final review after implementation. In `pause` mode, do not spend a reviewer
+call without an explicit override; leave consequential acceptance blocked. Do
+not retry quota or capacity failures in a loop. Record whether quota came from
+the runtime or the `single` fallback in the closeout.
 
 ## Durable run state
 
@@ -79,8 +127,10 @@ an instruction to fetch another workspace.
 - Allow one follow-up turn per child. After that, close it and start a fresh,
   narrower packet only if the verification gate still requires work.
 - Release completed agents promptly.
-- Run one review wave. A second wave requires a validated P0/P1 finding or an
-  explicit user request for deep review.
+- Run one risk-sized review wave. A consequential Sol final gate belongs to
+  that wave; a second generic wave requires a validated P0/P1 finding or an
+  explicit user request for deep review. A fresh re-review after a required fix
+  is not optional because the earlier verdict is invalid.
 
 ## Composing external CE skills
 
@@ -90,10 +140,23 @@ wrapper decides whether invoking the whole skill is proportionate.
 ### `ce-work`
 
 - Run trivial and small work inline.
+- Prefer `luna_worker` for well-specified, independently verifiable units.
+- Route context-heavy, high-risk, or wider-blast-radius units to
+  `terra_complex_worker` only when the classification or a corrected Luna
+  attempt justifies escalation.
+- Keep the Sol/high primary responsible for the actual diff, authoritative test
+  reruns, and the consequential final-review decision.
 - Use Terra workers only for independent, bounded implementation units.
 - Dispatch at most the quota preflight's executor count.
 - Do not automatically chain implementation fan-out, three-way simplification,
   full review, and validator waves. The Stack wrapper owns that composition.
+
+### `ce-plan`
+
+- Use `luna_worker` for bounded repository mapping, pattern inventories,
+  extraction, and learnings research.
+- Keep scope, architecture, reconciliation, confidence judgment, and final
+  plan authoring in the Sol/high primary unless the user selects another model.
 
 ### `ce-simplify-code`
 
@@ -107,13 +170,19 @@ wrapper decides whether invoking the whole skill is proportionate.
 
 ### `ce-code-review`
 
-- Default to a targeted/lite review: inline fast pass plus one Terra/high
-  reviewer selected for the actual risk.
+- Default routine diffs to a targeted/lite review: inline fast pass plus one
+  Terra/high reviewer selected for the actual risk.
+- For a consequential implemented diff, use the fresh `sol_reviewer` final gate
+  after parent verification. Do not also add the default Terra reviewer unless
+  a distinct domain-risk surface justifies it.
+- Seed selected Compound Engineering persona prompts into the pinned `reviewer`
+  role. Do not directly dispatch model-unpinned `ce-*` persona profiles.
 - Add a second reviewer only when the diff has a distinct high-risk surface.
-- Invoke the full upstream multi-reviewer workflow only in `normal` mode when
-  the user explicitly requests deep review or the diff touches authentication,
-  payments, destructive data changes, public contracts, concurrency, or a
-  verification mechanism that could silently pass.
+- Invoke the full upstream multi-reviewer workflow only for an explicitly deep,
+  non-consequential review in `normal` mode. For consequential authentication,
+  payments, destructive data, public-contract, concurrency, or silent-pass
+  verification risks, seed the applicable lenses into the fresh Sol final gate
+  rather than launching a second generic roster.
 - Validate P0/P1 findings independently. Do not launch one validator per weak
   P2/P3 item by default.
 
@@ -136,5 +205,9 @@ Before closing an orchestrated run, confirm:
    exceeded three.
 4. Only one review wave ran unless the P0/P1 exception was recorded.
 5. The smallest reliable tests or artifact checks passed.
-6. The closeout records the runtime quota result or the portable `single`
+6. A required consequential final review returned `ship`, and any post-review
+   fix received a new verdict.
+7. Reviewer isolation was observed, or broader host policy was reported with
+   exact before/after state proof.
+8. The closeout records the runtime quota result or the portable `single`
    fallback.

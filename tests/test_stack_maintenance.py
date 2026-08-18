@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import os
 import shutil
@@ -310,6 +311,83 @@ def test_dirty_protected_vendor_blocks_and_verified_hold_allows_unrelated_audit(
     }
     report = maintenance.audit_sources(ROOT, protected_vendor=vendor, vendor_hold=hold)
     assert report["protected_vendor"]["status"] == "held"
+
+
+def _vendor_evidence_fixture(tmp_path: Path):
+    maintenance = _module()
+    vendor = _git_fixture(tmp_path / "protected/vendor/gstack")
+    base = maintenance._git(vendor, "rev-parse", "HEAD")
+    (vendor / "README.md").write_text("preserved upstream tree\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(vendor), "add", "README.md"], check=True)
+    subprocess.run(["git", "-C", str(vendor), "commit", "-qm", "matching tree"], check=True)
+    matching = maintenance._git(vendor, "rev-parse", "HEAD")
+    evidence_dir = tmp_path / "evidence"
+    evidence_dir.mkdir(mode=0o700)
+    patch = evidence_dir / "worktree.patch"
+    subprocess.run(["git", "-C", str(vendor), "diff", "--binary", base, matching, f"--output={patch}"], check=True)
+    patch.chmod(0o600)
+    subprocess.run(["git", "-C", str(vendor), "checkout", "-q", base], check=True)
+    subprocess.run(["git", "-C", str(vendor), "apply", "--binary", str(patch)], check=True)
+    status_digest, status_lines = maintenance._git_status(vendor)
+    manifest = evidence_dir / "manifest.json"
+    manifest_value = {
+        "schema_version": 1,
+        "source": {"checkout": str(vendor), "head": base},
+        "classification": {"matching_commit": matching, "unique_uncommitted_content": False},
+        "artifact": {"file": patch.name, "sha256": hashlib.sha256(patch.read_bytes()).hexdigest()},
+        "reconstruction": {"verified": True, "expected_commit": matching},
+    }
+    manifest.write_text(json.dumps(manifest_value), encoding="utf-8")
+    manifest.chmod(0o600)
+    hold = evidence_dir / "current-hold.json"
+    hold_value = {
+        "schema_version": 1,
+        "verified": True,
+        "vendor_identity_digest": maintenance._vendor_identity(vendor),
+        "head": base,
+        "status_digest": status_digest,
+        "changed_entry_count": len(status_lines),
+        "preservation_manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
+        "preservation_patch_sha256": hashlib.sha256(patch.read_bytes()).hexdigest(),
+    }
+    hold.write_text(json.dumps(hold_value), encoding="utf-8")
+    hold.chmod(0o600)
+    return maintenance, vendor, hold, manifest, patch
+
+
+def test_vendor_preservation_is_owner_only_and_reconstructable(tmp_path: Path):
+    maintenance, vendor, hold, manifest, _patch = _vendor_evidence_fixture(tmp_path)
+    before = maintenance._git_status(vendor)
+    evidence = maintenance.validate_vendor_preservation(vendor, hold_path=hold, manifest_path=manifest)
+    proof = maintenance.verify_vendor_reconstruction(manifest, vendor)
+    assert evidence["reconstruction_verified"] is True
+    assert proof["status"] == "verified"
+    assert maintenance._git_status(vendor) == before
+
+
+def test_vendor_preservation_rejects_incomplete_or_changed_evidence(tmp_path: Path):
+    maintenance, vendor, hold, manifest, patch = _vendor_evidence_fixture(tmp_path)
+    patch.write_bytes(patch.read_bytes() + b"\n")
+    patch.chmod(0o600)
+    with unittest.TestCase().assertRaisesRegex(maintenance.MaintenanceError, "vendor_patch_digest_mismatch"):
+        maintenance.validate_vendor_preservation(vendor, hold_path=hold, manifest_path=manifest)
+    patch.chmod(0o644)
+    with unittest.TestCase().assertRaisesRegex(maintenance.MaintenanceError, "vendor_evidence_permissions_unsafe"):
+        maintenance.validate_vendor_preservation(vendor, hold_path=hold, manifest_path=manifest)
+
+
+def test_vendor_restoration_plan_is_exact_target_and_approval_bound(tmp_path: Path):
+    maintenance, vendor, hold, manifest, _patch = _vendor_evidence_fixture(tmp_path)
+    evidence = maintenance.validate_vendor_preservation(vendor, hold_path=hold, manifest_path=manifest)
+    token = maintenance.vendor_restoration_approval_token(evidence)
+    with unittest.TestCase().assertRaisesRegex(maintenance.MaintenanceError, "vendor_restoration_approval_required"):
+        maintenance.build_vendor_restoration_plan(vendor, hold_path=hold, manifest_path=manifest, approval_token="wrong")
+    plan = maintenance.build_vendor_restoration_plan(vendor, hold_path=hold, manifest_path=manifest, approval_token=token)
+    assert plan["status"] == "approved_plan"
+    assert plan["target_identity_digest"] == evidence["vendor_identity_digest"]
+    assert plan["scheduled_execution_allowed"] is False
+    with unittest.TestCase().assertRaisesRegex(maintenance.MaintenanceError, "vendor_target_too_broad"):
+        maintenance.build_vendor_restoration_plan(Path("/"), hold_path=hold, manifest_path=manifest, approval_token=token)
 
 
 def test_disposable_candidate_is_clean_base_allowlisted_and_private_data_safe(tmp_path: Path):

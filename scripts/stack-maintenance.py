@@ -719,6 +719,143 @@ def inspect_protected_vendor(vendor: Optional[Path], hold: Optional[Mapping[str,
     }
 
 
+def _owner_only_evidence_file(path: Path) -> None:
+    if path.is_symlink() or not path.is_file():
+        raise MaintenanceError("vendor_evidence_missing", "non_transient")
+    try:
+        info = path.stat()
+    except OSError:
+        raise MaintenanceError("vendor_evidence_unreadable", "non_transient")
+    if info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o077:
+        raise MaintenanceError("vendor_evidence_permissions_unsafe", "non_transient")
+
+
+def validate_vendor_preservation(
+    vendor: Path,
+    *,
+    hold_path: Path,
+    manifest_path: Path,
+) -> Dict[str, Any]:
+    """Bind a protected hold to immutable, reconstructable owner-local evidence."""
+    vendor = Path(vendor).resolve()
+    hold_path = Path(hold_path)
+    manifest_path = Path(manifest_path)
+    _owner_only_evidence_file(hold_path)
+    _owner_only_evidence_file(manifest_path)
+    hold = _load_object(hold_path, "vendor_hold")
+    manifest = _load_object(manifest_path, "vendor_preservation")
+    if hold.get("verified") is not True or manifest.get("schema_version") != SCHEMA_VERSION:
+        raise MaintenanceError("vendor_evidence_incomplete", "non_transient")
+    manifest_digest = _file_digest(manifest_path)
+    if hold.get("preservation_manifest_sha256") != manifest_digest:
+        raise MaintenanceError("vendor_manifest_digest_mismatch", "non_transient")
+    source = manifest.get("source")
+    classification = manifest.get("classification")
+    artifact = manifest.get("artifact")
+    reconstruction = manifest.get("reconstruction")
+    if not all(isinstance(value, Mapping) for value in (source, classification, artifact, reconstruction)):
+        raise MaintenanceError("vendor_evidence_incomplete", "non_transient")
+    try:
+        recorded_vendor = Path(str(source["checkout"])).resolve()
+    except (KeyError, OSError):
+        raise MaintenanceError("vendor_target_invalid", "non_transient")
+    if recorded_vendor != vendor:
+        raise MaintenanceError("vendor_target_mismatch", "non_transient")
+    patch_name = artifact.get("file")
+    if not isinstance(patch_name, str) or Path(patch_name).name != patch_name:
+        raise MaintenanceError("vendor_patch_invalid", "non_transient")
+    patch_path = manifest_path.parent / patch_name
+    _owner_only_evidence_file(patch_path)
+    patch_digest = _file_digest(patch_path)
+    if artifact.get("sha256") != patch_digest or hold.get("preservation_patch_sha256") != patch_digest:
+        raise MaintenanceError("vendor_patch_digest_mismatch", "non_transient")
+    if classification.get("unique_uncommitted_content") is not False or reconstruction.get("verified") is not True:
+        raise MaintenanceError("vendor_reconstruction_unverified", "non_transient")
+    matching_commit = classification.get("matching_commit")
+    if not isinstance(matching_commit, str) or SHA1_PATTERN.fullmatch(matching_commit) is None:
+        raise MaintenanceError("vendor_matching_commit_invalid", "non_transient")
+    head = _git(vendor, "rev-parse", "HEAD")
+    status_digest, status_lines = _git_status(vendor)
+    if (
+        head != hold.get("head")
+        or status_digest != hold.get("status_digest")
+        or len(status_lines) != hold.get("changed_entry_count")
+        or source.get("head") != head
+    ):
+        raise MaintenanceError("vendor_hold_state_changed", "non_transient")
+    return {
+        "status": "held",
+        "vendor_identity_digest": _vendor_identity(vendor),
+        "head": head,
+        "status_digest": status_digest,
+        "changed_entry_count": len(status_lines),
+        "manifest_digest": manifest_digest,
+        "patch_digest": patch_digest,
+        "matching_commit": matching_commit,
+        "reconstruction_verified": True,
+    }
+
+
+def verify_vendor_reconstruction(manifest_path: Path, proof_checkout: Path) -> Dict[str, Any]:
+    """Prove the preserved tree matches its recorded upstream commit."""
+    manifest_path = Path(manifest_path)
+    proof_checkout = Path(proof_checkout).resolve()
+    _owner_only_evidence_file(manifest_path)
+    manifest = _load_object(manifest_path, "vendor_preservation")
+    classification = manifest.get("classification", {})
+    expected = classification.get("matching_commit") if isinstance(classification, Mapping) else None
+    if not isinstance(expected, str) or SHA1_PATTERN.fullmatch(expected) is None:
+        raise MaintenanceError("vendor_matching_commit_invalid", "non_transient")
+    if proof_checkout.is_symlink() or not (proof_checkout / ".git").exists():
+        raise MaintenanceError("vendor_reconstruction_missing", "non_transient")
+    comparison = subprocess.run(
+        ["git", "-C", str(proof_checkout), "diff", "--quiet", expected, "--"],
+        capture_output=True,
+        check=False,
+    )
+    if comparison.returncode or _git(proof_checkout, "ls-files", "--others", "--exclude-standard"):
+        raise MaintenanceError("vendor_reconstruction_mismatch", "non_transient")
+    return {"status": "verified", "matching_commit": expected, "tree_diff_exit": 0, "untracked_paths": 0}
+
+
+def vendor_restoration_approval_token(evidence: Mapping[str, Any]) -> str:
+    return "restore-vendor-" + digest(
+        {
+            "vendor_identity_digest": evidence.get("vendor_identity_digest"),
+            "head": evidence.get("head"),
+            "status_digest": evidence.get("status_digest"),
+            "manifest_digest": evidence.get("manifest_digest"),
+            "patch_digest": evidence.get("patch_digest"),
+        }
+    )[:24]
+
+
+def build_vendor_restoration_plan(
+    vendor: Path,
+    *,
+    hold_path: Path,
+    manifest_path: Path,
+    approval_token: Optional[str],
+) -> Dict[str, Any]:
+    """Return an exact, approval-bound plan; scheduled code never executes it."""
+    vendor = Path(vendor).resolve()
+    if vendor == Path(vendor.anchor) or vendor == Path.home().resolve() or len(vendor.parts) < 4:
+        raise MaintenanceError("vendor_target_too_broad", "non_transient")
+    evidence = validate_vendor_preservation(vendor, hold_path=hold_path, manifest_path=manifest_path)
+    expected_token = vendor_restoration_approval_token(evidence)
+    if approval_token != expected_token:
+        raise MaintenanceError("vendor_restoration_approval_required", "non_transient")
+    return {
+        "status": "approved_plan",
+        "target_identity_digest": evidence["vendor_identity_digest"],
+        "expected_head": evidence["head"],
+        "expected_status_digest": evidence["status_digest"],
+        "preservation_manifest_digest": evidence["manifest_digest"],
+        "actions": ["restore_recorded_worktree_to_head", "fast_forward_recorded_checkout_only"],
+        "scheduled_execution_allowed": False,
+    }
+
+
 def _private_data_in_bytes(data: bytes) -> bool:
     try:
         text = data.decode("utf-8")

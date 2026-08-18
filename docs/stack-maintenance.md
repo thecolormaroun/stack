@@ -216,6 +216,22 @@ mutation. Optional labels do not participate in identity or convergence. The
 adapter never force-pushes or targets `main`. If push or PR creation fails, the
 receipt is `partial` and the stage remains available for recovery.
 
+## U5 protected vendor hold
+
+The legacy GStack checkout is no longer an input authority or update path. Its
+151-file dirty state was captured in an owner-only binary patch and proved in a
+disposable checkout to match upstream commit
+`9fd03fae9e74f5daa7a138366aca8f86c7367c5c` exactly, with no untracked or
+unique uncommitted content. The original checkout remains untouched under a
+verified hold; unrelated catalog audit and candidate preparation can proceed.
+
+`validate_vendor_preservation` binds the exact checkout identity, HEAD, status
+digest, patch digest, manifest digest, and reconstruction proof. A changed or
+incomplete artifact fails closed. `build_vendor_restoration_plan` can describe
+only that exact target and requires a token derived from the current evidence;
+it never performs restoration and scheduled execution is forbidden. No stash,
+reset, restore, fast-forward, or vendor deletion is part of the recurring task.
+
 ## Receipt and closeout
 
 Append one redacted, owner-only structured receipt for each run. It records the

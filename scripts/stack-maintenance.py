@@ -65,6 +65,7 @@ DIGEST_PATTERN = re.compile(r"^[a-f0-9]{64}$")
 RUN_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 SHA1_PATTERN = re.compile(r"^[a-f0-9]{40}$")
 SHA256_PATTERN = re.compile(r"^[a-f0-9]{64}$")
+BRANCH_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
 PRIVATE_DATA_PATTERNS = (
     re.compile(r"/Users/[^\s\"']+"),
     re.compile(r"/home/[^\s\"']+"),
@@ -316,8 +317,31 @@ def _git(root: Path, *arguments: str) -> str:
     return result.stdout.strip()
 
 
+def _git_mutate(root: Path, *arguments: str, error_code: str = "git_mutation_failed") -> str:
+    """Run one explicitly-scoped Git mutation and redact command failures."""
+    result = subprocess.run(
+        ["git", "-C", str(root), *arguments],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode:
+        raise MaintenanceError(error_code, "transient")
+    return result.stdout.strip()
+
+
 def _git_status(root: Path) -> tuple[str, list[str]]:
-    status = _git(root, "status", "--porcelain=v1", "--untracked-files=all")
+    # Do not use ``_git`` here: its normalizing ``strip`` would remove the
+    # leading porcelain status column and turn `` M docs/x`` into ``M docs/x``.
+    result = subprocess.run(
+        ["git", "-C", str(root), "status", "--porcelain=v1", "--untracked-files=all"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode:
+        raise MaintenanceError("git_query_failed", "transient")
+    status = result.stdout.rstrip("\n")
     lines = [line for line in status.splitlines() if line.strip()]
     return digest(lines), lines
 
@@ -867,6 +891,711 @@ def run_candidate_readiness(stage_dir: Path) -> Dict[str, Any]:
     return {"status": "passed", "checks": checks}
 
 
+CANONICAL_PR_MARKER = "stack-maintenance/v1"
+CANONICAL_PR_COMMIT_MESSAGE = "chore(stack-maintenance): prepare candidate"
+
+
+def _status_entries(root: Path) -> list[dict[str, str]]:
+    """Return porcelain status entries without exposing their absolute root."""
+    _, raw_lines = _git_status(root)
+    entries: list[dict[str, str]] = []
+    for line in raw_lines:
+        if not line.strip():
+            continue
+        if len(line) < 4:
+            raise MaintenanceError("candidate_status_invalid", "non_transient")
+        path = line[3:]
+        # A rename contains two paths.  It is not a generated candidate shape,
+        # so fail closed instead of guessing which side is safe to stage.
+        if " -> " in path:
+            raise MaintenanceError("candidate_rename_not_allowed", "non_transient")
+        try:
+            relative = _candidate_path(path)
+        except MaintenanceError:
+            raise
+        entries.append({"code": line[:2], "path": relative.as_posix()})
+    return entries
+
+
+def _candidate_changed_paths(root: Path, base_sha: str) -> list[str]:
+    """Return the tracked diff plus untracked paths in a candidate checkout."""
+    tracked = _git(root, "diff", "--name-only", f"{base_sha}...HEAD")
+    tracked_paths = [
+        _candidate_path(line).as_posix()
+        for line in tracked.splitlines()
+        if line.strip()
+    ]
+    untracked_paths = [
+        entry["path"]
+        for entry in _status_entries(root)
+        if entry["code"] == "??"
+    ]
+    return sorted(set(tracked_paths + untracked_paths))
+
+
+def _validate_candidate_allowlist(root: Path, allowlist: Iterable[str]) -> list[str]:
+    entries = _status_entries(root)
+    paths = sorted({entry["path"] for entry in entries})
+    if any(not _allowlisted_path(Path(path), allowlist) for path in paths):
+        raise MaintenanceError("candidate_diff_not_allowlisted", "non_transient")
+    return paths
+
+
+def _assert_expected_commit_ancestry(
+    stage_dir: Path,
+    *,
+    base_sha: str,
+    expected_commit_count: int = 1,
+    expected_commits: Optional[Iterable[str]] = None,
+) -> Dict[str, Any]:
+    if SHA1_PATTERN.fullmatch(base_sha) is None:
+        raise MaintenanceError("candidate_base_invalid", "non_transient")
+    head_sha = _git(stage_dir, "rev-parse", "HEAD")
+    if SHA1_PATTERN.fullmatch(head_sha) is None:
+        raise MaintenanceError("candidate_head_invalid", "non_transient")
+    ancestry = subprocess.run(
+        ["git", "-C", str(stage_dir), "merge-base", "--is-ancestor", base_sha, head_sha],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if ancestry.returncode:
+        raise MaintenanceError("candidate_ancestry_invalid", "non_transient")
+    commits = [
+        item
+        for item in _git(stage_dir, "rev-list", "--reverse", f"{base_sha}..{head_sha}").splitlines()
+        if item.strip()
+    ]
+    if len(commits) != expected_commit_count:
+        raise MaintenanceError("candidate_commit_count_invalid", "non_transient")
+    if expected_commits is not None:
+        expected = list(expected_commits)
+        if expected != commits:
+            raise MaintenanceError("candidate_commit_set_invalid", "non_transient")
+    status = _status_entries(stage_dir)
+    if status:
+        raise MaintenanceError("candidate_not_clean", "non_transient")
+    return {"head_sha": head_sha, "commits": commits, "commit_count": len(commits)}
+
+
+def _run_pr_readiness(
+    stage_dir: Path,
+    *,
+    readiness_runner: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """Run local gates through an injectable boundary before remote mutation.
+
+    The default keeps the U3 catalog/bootstrap checks as the minimum local
+    gate.  The scheduler supplies a checked-in full-gate runner when it is
+    enabled; tests inject a deterministic runner and never contact GitHub.
+    """
+    if readiness_runner is not None:
+        try:
+            result = readiness_runner(Path(stage_dir))
+        except MaintenanceError:
+            raise
+        except Exception:
+            raise MaintenanceError("candidate_readiness_failed", "non_transient")
+        if result is False:
+            raise MaintenanceError("candidate_readiness_failed", "non_transient")
+        if result is None or result is True:
+            return {"status": "passed", "checks": ["injected"]}
+        if not isinstance(result, Mapping) or result.get("status") != "passed":
+            raise MaintenanceError("candidate_readiness_failed", "non_transient")
+        return dict(result)
+    result = run_candidate_readiness(stage_dir)
+    if result.get("status") != "passed":
+        raise MaintenanceError("candidate_readiness_failed", "non_transient")
+    # This check is intentionally local and deterministic; no network or
+    # GitHub authority is required to prove whitespace safety.
+    _git_mutate(stage_dir, "diff", "--check", error_code="candidate_diff_check_failed")
+    return {**result, "checks": [*result.get("checks", []), "git-diff-check"]}
+
+
+def _commit_candidate(
+    stage_dir: Path,
+    *,
+    base_sha: str,
+    branch: str,
+    allowlist: Iterable[str],
+    expected_changed_paths_digest: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Create one explicit allowlisted commit in the disposable checkout."""
+    if not BRANCH_PATTERN.fullmatch(branch) or branch in {"main", "master"}:
+        raise MaintenanceError("canonical_branch_invalid", "non_transient")
+    if _git(stage_dir, "rev-parse", "HEAD") != base_sha:
+        raise MaintenanceError("candidate_base_mismatch", "non_transient")
+    paths = _validate_candidate_allowlist(stage_dir, allowlist)
+    if not paths:
+        return {
+            "status": "no_action",
+            "base_sha": base_sha,
+            "head_sha": _git(stage_dir, "rev-parse", "HEAD"),
+            "commits": [],
+            "commit_count": 0,
+            "changed_paths": [],
+            "changed_paths_digest": digest([]),
+        }
+    changed_digest = digest(paths)
+    if expected_changed_paths_digest is not None and changed_digest != expected_changed_paths_digest:
+        raise MaintenanceError("changed_paths_digest_mismatch", "non_transient")
+    # A new branch is created only in the disposable clone.  The explicit
+    # path list is the allowlist boundary; whole-tree staging is forbidden.
+    _git_mutate(stage_dir, "switch", "--create", branch, error_code="candidate_branch_create_failed")
+    _git_mutate(stage_dir, "add", "--", *paths, error_code="candidate_stage_failed")
+    staged = [
+        _candidate_path(line).as_posix()
+        for line in _git(stage_dir, "diff", "--cached", "--name-only").splitlines()
+        if line.strip()
+    ]
+    if staged != paths:
+        raise MaintenanceError("candidate_staged_paths_invalid", "non_transient")
+    _git_mutate(stage_dir, "diff", "--cached", "--check", error_code="candidate_diff_check_failed")
+    # Disposable clones do not inherit repository-local identity settings.
+    # Keep the generated commit deterministic without changing the caller.
+    _git_mutate(stage_dir, "config", "user.name", "Stack Maintenance", error_code="candidate_identity_failed")
+    _git_mutate(stage_dir, "config", "user.email", "stack-maintenance@localhost", error_code="candidate_identity_failed")
+    _git_mutate(
+        stage_dir,
+        "commit",
+        "--no-verify",
+        "-m",
+        f"{CANONICAL_PR_COMMIT_MESSAGE} [{CANONICAL_PR_MARKER}]",
+        error_code="candidate_commit_failed",
+    )
+    metadata = _assert_expected_commit_ancestry(stage_dir, base_sha=base_sha)
+    actual_paths = _candidate_changed_paths(stage_dir, base_sha)
+    if actual_paths != paths:
+        raise MaintenanceError("candidate_changed_paths_invalid", "non_transient")
+    actual_digest = digest(actual_paths)
+    if actual_digest != changed_digest:
+        raise MaintenanceError("changed_paths_digest_mismatch", "non_transient")
+    return {
+        "status": "changed",
+        "base_sha": base_sha,
+        "head_sha": metadata["head_sha"],
+        "commits": metadata["commits"],
+        "commit_count": metadata["commit_count"],
+        "changed_paths": actual_paths,
+        "changed_paths_digest": actual_digest,
+    }
+
+
+def _pr_marker_body(
+    *,
+    marker: str,
+    base_sha: str,
+    input_fingerprint_value: Optional[str],
+    changed_paths_digest: str,
+    commits: Iterable[str],
+) -> str:
+    values = [
+        f"<!-- {marker} -->",
+        f"<!-- stack-maintenance/base-sha: {base_sha} -->",
+        f"<!-- stack-maintenance/changed-paths-digest: {changed_paths_digest} -->",
+        f"<!-- stack-maintenance/input-fingerprint: {input_fingerprint_value or 'unknown'} -->",
+        f"<!-- stack-maintenance/commits: {','.join(commits)} -->",
+    ]
+    return "\n".join(
+        [
+            "## Stack maintenance candidate",
+            "",
+            "This draft was prepared from a disposable clean `origin/main` base.",
+            "The scheduled lane does not merge, install, or publish this change.",
+            "",
+            *values,
+            "",
+        ]
+    )
+
+
+def _body_metadata(body: Any, key: str) -> Optional[str]:
+    if not isinstance(body, str):
+        return None
+    match = re.search(rf"<!--\s*stack-maintenance/{re.escape(key)}:\s*([^ >]+)\s*-->", body)
+    return match.group(1) if match else None
+
+
+def _record_value(record: Mapping[str, Any], *names: str) -> Any:
+    for name in names:
+        if name in record and record[name] is not None:
+            return record[name]
+    return None
+
+
+def _normalise_pr_records(value: Any) -> list[Mapping[str, Any]]:
+    if value is None:
+        return []
+    if isinstance(value, Mapping):
+        value = value.get("pull_requests", value.get("prs", []))
+    if not isinstance(value, list) or not all(isinstance(item, Mapping) for item in value):
+        raise MaintenanceError("github_candidates_invalid", "non_transient")
+    return list(value)
+
+
+def _candidate_pr_identity(record: Mapping[str, Any]) -> str:
+    number = _record_value(record, "number", "id")
+    if number is not None:
+        return str(number)
+    return digest({key: record[key] for key in sorted(record) if key not in {"body", "title"}})[:16]
+
+
+def _verify_existing_candidate(
+    record: Mapping[str, Any],
+    *,
+    branch: str,
+    marker: str,
+    base_sha: str,
+    changed_paths_digest: Optional[str],
+    remote_branch: Optional[Mapping[str, Any]],
+) -> Dict[str, Any]:
+    """Validate an existing PR before allowing reuse."""
+    head_ref = _record_value(record, "head_ref_name", "headRefName", "head")
+    base_ref = _record_value(record, "base_ref_name", "baseRefName", "base")
+    if head_ref not in {branch, f"refs/heads/{branch}"}:
+        raise MaintenanceError("canonical_branch_mismatch", "non_transient")
+    if base_ref not in {None, "main", "refs/heads/main"}:
+        raise MaintenanceError("canonical_base_branch_mismatch", "non_transient")
+    draft_value = _record_value(record, "is_draft", "isDraft", "draft")
+    if draft_value is False:
+        raise MaintenanceError("canonical_pr_not_draft", "non_transient")
+    body = _record_value(record, "body", "description")
+    if marker not in body if isinstance(body, str) else True:
+        raise MaintenanceError("canonical_marker_missing", "non_transient")
+    recorded_base = _body_metadata(body, "base-sha")
+    recorded_base = recorded_base or _record_value(record, "base_sha", "baseSha", "base_ref_oid", "baseRefOid")
+    if recorded_base != base_sha:
+        raise MaintenanceError("canonical_base_sha_mismatch", "non_transient")
+    recorded_digest = _record_value(record, "changed_paths_digest", "changedPathsDigest")
+    recorded_digest = recorded_digest or _body_metadata(body, "changed-paths-digest")
+    if not isinstance(recorded_digest, str) or not DIGEST_PATTERN.fullmatch(recorded_digest):
+        raise MaintenanceError("canonical_changed_paths_digest_missing", "non_transient")
+    if changed_paths_digest is not None and recorded_digest != changed_paths_digest:
+        raise MaintenanceError("canonical_changed_paths_digest_mismatch", "non_transient")
+    head_sha = _record_value(record, "head_sha", "headSha", "head_ref_oid", "headRefOid", "sha")
+    if not isinstance(head_sha, str) or SHA1_PATTERN.fullmatch(head_sha) is None:
+        raise MaintenanceError("canonical_head_sha_missing", "non_transient")
+    remote_sha = _record_value(remote_branch or {}, "head_sha", "headSha", "sha", "object_sha", "objectSha")
+    if not isinstance(remote_sha, str) or remote_sha != head_sha:
+        raise MaintenanceError("canonical_remote_head_changed", "non_transient")
+    commit_count = _record_value(record, "commit_count", "commitCount")
+    commits = _record_value(record, "commits", "commit_shas", "commitShas")
+    if commits is None:
+        recorded_commits = _body_metadata(body, "commits")
+        commits = recorded_commits.split(",") if recorded_commits else None
+    if isinstance(commits, list):
+        normalized_commits = [
+            item
+            if isinstance(item, str)
+            else _record_value(item, "sha", "oid", "commit_sha", "commitSha")
+            if isinstance(item, Mapping)
+            else None
+            for item in commits
+        ]
+        if not all(isinstance(item, str) and SHA1_PATTERN.fullmatch(item) for item in normalized_commits):
+            raise MaintenanceError("canonical_commit_set_invalid", "non_transient")
+        commits = normalized_commits
+        if commit_count is None:
+            commit_count = len(commits)
+    if commit_count != 1:
+        raise MaintenanceError("canonical_commit_count_invalid", "non_transient")
+    labels = _record_value(record, "labels")
+    return {
+        "number": _record_value(record, "number", "id"),
+        "url": _record_value(record, "url", "html_url", "htmlUrl"),
+        "branch": branch,
+        "marker": marker,
+        "base_sha": base_sha,
+        "head_sha": head_sha,
+        "changed_paths_digest": recorded_digest,
+        "commit_count": commit_count,
+        "labels": labels if isinstance(labels, list) else [],
+        "labels_missing": not bool(labels),
+    }
+
+
+class GitHubCommandBoundary:
+    """Small production adapter; tests inject an in-memory equivalent.
+
+    Only this adapter knows how to invoke ``gh`` or ``git push``.  The lane
+    above it reasons over structured records and therefore cannot accidentally
+    use ``git add -A``, force-push, or push ``main``.
+    """
+
+    def __init__(self, repository: str, *, root: Optional[Path] = None, command_runner: Any = subprocess.run) -> None:
+        self.repository = repository
+        self.root = Path(root or ROOT)
+        self.command_runner = command_runner
+
+    def _run(self, command: list[str], *, cwd: Optional[Path] = None, error_code: str) -> str:
+        try:
+            result = self.command_runner(command, cwd=str(cwd) if cwd is not None else None, text=True, capture_output=True, check=False)
+        except (OSError, TypeError):
+            raise MaintenanceError(error_code, "transient")
+        if result.returncode:
+            raise MaintenanceError(error_code, "transient")
+        return str(result.stdout or "").strip()
+
+    def list_open_candidates(self, repository: str, branch: str, marker: str) -> list[Mapping[str, Any]]:
+        output = self._run(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--repo",
+                repository,
+                "--state",
+                "open",
+                "--head",
+                branch,
+                "--json",
+                "number,headRefName,baseRefName,headRefOid,baseRefOid,isDraft,body,labels,url,commits",
+            ],
+            error_code="github_list_failed",
+        )
+        try:
+            value = json.loads(output or "[]")
+        except json.JSONDecodeError:
+            raise MaintenanceError("github_candidates_invalid", "transient")
+        return _normalise_pr_records(value)
+
+    def remote_branch(self, repository: str, branch: str) -> Optional[Mapping[str, Any]]:
+        command = ["gh", "api", f"repos/{repository}/git/ref/heads/{branch}"]
+        try:
+            result = self.command_runner(command, text=True, capture_output=True, check=False)
+        except (OSError, TypeError):
+            raise MaintenanceError("github_branch_query_failed", "transient")
+        if result.returncode:
+            # ``gh api`` uses a non-zero status for a missing ref.  Treat only
+            # an explicit 404 as an absent branch; every other error blocks.
+            if "404" in str(result.stderr or ""):
+                return None
+            raise MaintenanceError("github_branch_query_failed", "transient")
+        output = str(result.stdout or "").strip()
+        try:
+            value = json.loads(output or "{}")
+        except json.JSONDecodeError:
+            raise MaintenanceError("github_branch_invalid", "transient")
+        if not value:
+            return None
+        obj = value.get("object", {}) if isinstance(value, Mapping) else {}
+        return {"sha": obj.get("sha")} if isinstance(obj, Mapping) else None
+
+    def push_branch(
+        self,
+        repository: str,
+        branch: str,
+        stage_dir: Path,
+        *,
+        expected_remote_head: Optional[str] = None,
+    ) -> Mapping[str, Any]:
+        if branch in {"main", "master"} or not BRANCH_PATTERN.fullmatch(branch):
+            raise MaintenanceError("push_protected_branch", "non_transient")
+        remote_url = _git(self.root, "remote", "get-url", "origin")
+        _git_mutate(stage_dir, "remote", "set-url", "origin", remote_url, error_code="candidate_remote_config_failed")
+        if expected_remote_head is None:
+            arguments = ["push", "--set-upstream", "origin", f"refs/heads/{branch}:refs/heads/{branch}"]
+        else:
+            # A non-force push is the only permitted update shape.  The
+            # expected remote SHA is checked by the caller before this call;
+            # ``--force`` and ref deletion are intentionally impossible here.
+            arguments = ["push", "--set-upstream", "origin", f"refs/heads/{branch}:refs/heads/{branch}"]
+        _git_mutate(stage_dir, *arguments, error_code="github_push_failed")
+        head = _git(stage_dir, "rev-parse", "HEAD")
+        return {"branch": branch, "head_sha": head, "expected_remote_head": expected_remote_head}
+
+    def create_draft_pr(self, repository: str, branch: str, title: str, body: str, *, labels: Optional[list[str]] = None) -> Mapping[str, Any]:
+        command = ["gh", "pr", "create", "--repo", repository, "--draft", "--base", "main", "--head", branch, "--title", title, "--body", body]
+        if labels:
+            command.extend(["--label", ",".join(labels)])
+        output = self._run(command, error_code="github_pr_create_failed")
+        return {"url": output, "head_ref_name": branch, "is_draft": True}
+
+    def update_draft_pr(self, repository: str, number: Any, title: str, body: str, *, labels: Optional[list[str]] = None) -> Mapping[str, Any]:
+        command = ["gh", "pr", "edit", str(number), "--repo", repository, "--title", title, "--body", body]
+        if labels:
+            command.extend(["--add-label", ",".join(labels)])
+        self._run(command, error_code="github_pr_update_failed")
+        return {"number": number, "updated": True}
+
+
+def _gateway_call(gateway: Any, method: str, *arguments: Any, **keywords: Any) -> Any:
+    function = getattr(gateway, method, None)
+    if not callable(function):
+        raise MaintenanceError("github_boundary_invalid", "non_transient")
+    try:
+        return function(*arguments, **keywords)
+    except MaintenanceError:
+        raise
+    except Exception:
+        raise MaintenanceError(f"github_{method}_failed", "transient")
+
+
+def _lane_result(
+    *,
+    classification: str,
+    result: str,
+    reason: Optional[str],
+    pr_state: Mapping[str, Any],
+    checks: Mapping[str, Any],
+    changed_paths_digest: str,
+    stage_retained: bool = False,
+) -> Dict[str, Any]:
+    state = dict(pr_state)
+    state.setdefault("status", result)
+    state["digest"] = digest({key: value for key, value in state.items() if key != "digest"})
+    payload: Dict[str, Any] = {
+        "terminal_classification": classification,
+        "result": result,
+        "pr_state": state,
+        "checks": dict(checks),
+        "changed_paths_digest": changed_paths_digest,
+        "stage_retained": stage_retained,
+    }
+    if reason:
+        payload["reason_code"] = reason
+    return payload
+
+
+def prepare_canonical_pr(
+    root: Path = ROOT,
+    stage_dir: Optional[Path] = None,
+    *,
+    base_sha: Optional[str] = None,
+    allowlist: Optional[Iterable[str]] = None,
+    input_fingerprint_value: Optional[str] = None,
+    policy: Optional[Mapping[str, Any]] = None,
+    github: Any,
+    readiness_runner: Optional[Any] = None,
+    expected_changed_paths_digest: Optional[str] = None,
+    marker: Optional[str] = None,
+    branch: Optional[str] = None,
+    labels: Optional[list[str]] = None,
+) -> Dict[str, Any]:
+    """Prepare or reuse the one safe canonical draft PR.
+
+    All remote actions are delegated to ``github``.  Passing an in-memory
+    boundary is sufficient for the complete focused test suite; no test needs
+    credentials or a live repository.
+    """
+    policy = dict(policy or load_policy())
+    candidate_policy = policy.get("canonical_candidate", {})
+    branch = branch or str(candidate_policy.get("branch", "automation/stack-maintenance"))
+    marker = marker or str(candidate_policy.get("marker", CANONICAL_PR_MARKER))
+    repository = str(policy.get("authority", {}).get("project_identity", "thecolormaroun/stack"))
+    allowlist = list(allowlist or policy.get("diff_allowlist", []))
+    base_sha = base_sha or _git(Path(root), "rev-parse", "--verify", "origin/main^{commit}")
+    if SHA1_PATTERN.fullmatch(base_sha) is None:
+        return _lane_result(
+            classification="blocked",
+            result="candidate_base_invalid",
+            reason="candidate_base_invalid",
+            pr_state={"status": "blocked"},
+            checks={"remote_mutation_started": False},
+            changed_paths_digest=digest([]),
+        )
+    if stage_dir is not None and (Path(stage_dir).is_symlink() or not Path(stage_dir).is_dir()):
+        return _lane_result(
+            classification="blocked",
+            result="candidate_stage_missing",
+            reason="candidate_stage_missing",
+            pr_state={"status": "blocked"},
+            checks={"remote_mutation_started": False},
+            changed_paths_digest=digest([]),
+        )
+
+    try:
+        records = _normalise_pr_records(_gateway_call(github, "list_open_candidates", repository, branch, marker))
+        # ``list_open_candidates`` is expected to scope by branch, but retain a
+        # second marker/lineage check so a permissive test or adapter cannot
+        # turn an unrelated PR into the canonical candidate.
+        records = [
+            item
+            for item in records
+            if (
+                _record_value(item, "head_ref_name", "headRefName", "head") is None
+                or _record_value(item, "head_ref_name", "headRefName", "head") in {branch, f"refs/heads/{branch}"}
+                or marker in str(_record_value(item, "body", "description") or "")
+            )
+        ]
+        if len(records) > 1:
+            return _lane_result(
+                classification="blocked",
+                result="canonical_pr_ambiguous",
+                reason="canonical_pr_ambiguous",
+                pr_state={"status": "ambiguous", "candidate_count": len(records)},
+                checks={"remote_mutation_started": False, "candidate_ids": [_candidate_pr_identity(item) for item in records]},
+                changed_paths_digest=expected_changed_paths_digest or digest([]),
+            )
+        remote = _gateway_call(github, "remote_branch", repository, branch)
+        if remote is not None and not isinstance(remote, Mapping):
+            raise MaintenanceError("github_branch_invalid", "non_transient")
+        if records:
+            try:
+                safe = _verify_existing_candidate(
+                    records[0],
+                    branch=branch,
+                    marker=marker,
+                    base_sha=base_sha,
+                    changed_paths_digest=expected_changed_paths_digest,
+                    remote_branch=remote,
+                )
+            except MaintenanceError as error:
+                return _lane_result(
+                    classification="blocked",
+                    result=error.code,
+                    reason=error.code,
+                    pr_state={"status": "blocked", "candidate_id": _candidate_pr_identity(records[0])},
+                    checks={"remote_mutation_started": False},
+                    changed_paths_digest=expected_changed_paths_digest or digest([]),
+                )
+            return _lane_result(
+                classification="prepared",
+                result="canonical_pr_reused",
+                reason=None,
+                pr_state={"status": "reused", **safe},
+                checks={
+                    "canonical_candidate_count": 1,
+                    "lineage_verified": True,
+                    "base_sha_verified": True,
+                    "remote_head_verified": True,
+                    "expected_commit_count": 1,
+                    "allowlist_verified": True,
+                    "optional_labels_missing": safe["labels_missing"],
+                    "remote_mutation_started": False,
+                },
+                changed_paths_digest=safe["changed_paths_digest"],
+            )
+        if remote is not None:
+            return _lane_result(
+                classification="blocked",
+                result="canonical_branch_without_pr",
+                reason="canonical_branch_without_pr",
+                pr_state={"status": "blocked"},
+                checks={"remote_mutation_started": False, "remote_branch_present": True},
+                changed_paths_digest=expected_changed_paths_digest or digest([]),
+            )
+        if stage_dir is None:
+            return _lane_result(
+                classification="blocked",
+                result="candidate_stage_missing",
+                reason="candidate_stage_missing",
+                pr_state={"status": "blocked"},
+                checks={"remote_mutation_started": False},
+                changed_paths_digest=digest([]),
+            )
+        local = _commit_candidate(
+            Path(stage_dir),
+            base_sha=base_sha,
+            branch=branch,
+            allowlist=allowlist,
+            expected_changed_paths_digest=expected_changed_paths_digest,
+        )
+        if local["status"] == "no_action":
+            return _lane_result(
+                classification="no_action",
+                result="candidate_no_action",
+                reason=None,
+                pr_state={"status": "not_created"},
+                checks={"remote_mutation_started": False, "local_candidate_no_action": True},
+                changed_paths_digest=local["changed_paths_digest"],
+                stage_retained=True,
+            )
+        readiness = _run_pr_readiness(Path(stage_dir), readiness_runner=readiness_runner)
+        body = _pr_marker_body(
+            marker=marker,
+            base_sha=base_sha,
+            input_fingerprint_value=input_fingerprint_value,
+            changed_paths_digest=local["changed_paths_digest"],
+            commits=local["commits"],
+        )
+        if _private_data_in_bytes(body.encode("utf-8")):
+            raise MaintenanceError("candidate_private_data", "non_transient")
+        pushed = _gateway_call(
+            github,
+            "push_branch",
+            repository,
+            branch,
+            Path(stage_dir),
+            expected_remote_head=None,
+        )
+        if not isinstance(pushed, Mapping):
+            raise MaintenanceError("github_push_result_invalid", "transient")
+        pushed_head = pushed.get("head_sha")
+        if pushed_head != local["head_sha"]:
+            raise MaintenanceError("github_push_head_mismatch", "non_transient")
+        try:
+            created = _gateway_call(
+                github,
+                "create_draft_pr",
+                repository,
+                branch,
+                "chore: prepare Stack maintenance candidate",
+                body,
+                labels=labels,
+            )
+        except MaintenanceError as error:
+            return _lane_result(
+                classification="partial",
+                result="github_pr_create_failed",
+                reason=error.code,
+                pr_state={"status": "branch_pushed", "head_sha": local["head_sha"], "base_sha": base_sha},
+                checks={
+                    "readiness": readiness,
+                    "remote_mutation_started": True,
+                    "branch_pushed": True,
+                    "pr_created": False,
+                    "recoverable_stage": True,
+                },
+                changed_paths_digest=local["changed_paths_digest"],
+                stage_retained=True,
+            )
+        if not isinstance(created, Mapping):
+            raise MaintenanceError("github_pr_create_result_invalid", "transient")
+        return _lane_result(
+            classification="prepared",
+            result="draft_pr_created",
+            reason=None,
+            pr_state={
+                "status": "created",
+                "number": _record_value(created, "number", "id"),
+                "url": _record_value(created, "url", "html_url", "htmlUrl"),
+                "branch": branch,
+                "marker": marker,
+                "base_sha": base_sha,
+                "head_sha": local["head_sha"],
+                "changed_paths_digest": local["changed_paths_digest"],
+                "commit_count": local["commit_count"],
+            },
+            checks={
+                "readiness": readiness,
+                "canonical_candidate_count": 0,
+                "lineage_verified": True,
+                "base_sha_verified": True,
+                "expected_commit_count": 1,
+                "allowlist_verified": True,
+                "changed_paths_digest_verified": True,
+                "remote_mutation_started": True,
+                "branch_pushed": True,
+                "pr_created": True,
+                "optional_labels_missing": not bool(_record_value(created, "labels")),
+            },
+            changed_paths_digest=local["changed_paths_digest"],
+            stage_retained=True,
+        )
+    except MaintenanceError as error:
+        classification = "blocked" if error.retry_class == "non_transient" else ("partial" if stage_dir is not None and Path(stage_dir).exists() else "failed")
+        return _lane_result(
+            classification=classification,
+            result=error.code,
+            reason=error.code,
+            pr_state={"status": "failed"},
+            checks={"remote_mutation_started": False, "recoverable_stage": bool(stage_dir and Path(stage_dir).exists())},
+            changed_paths_digest=expected_changed_paths_digest or digest([]),
+            stage_retained=bool(stage_dir and Path(stage_dir).exists()),
+        )
+
+
 def audit_sources(
     root: Path = ROOT,
     *,
@@ -1301,6 +2030,7 @@ def _preflight(
     protected_vendor: Optional[Path] = None,
     vendor_hold: Optional[Mapping[str, Any]] = None,
     observe_remotes: bool = False,
+    proposed_files: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     if mode not in policy.get("allowed_modes", []):
         raise PolicyError("mode_not_allowed")
@@ -1326,7 +2056,7 @@ def _preflight(
             Path(stage_dir),
             base_sha=audit["checkout"]["base_sha"],
             allowlist=policy.get("diff_allowlist", []),
-            proposed_files=None,
+            proposed_files=proposed_files,
         )
     return {
         "policy_valid": True,
@@ -1364,6 +2094,9 @@ def run(
     protected_vendor: Optional[Path] = None,
     vendor_hold_path: Optional[Path] = None,
     observe_remotes: bool = False,
+    proposed_files: Optional[Mapping[str, Any]] = None,
+    github: Any = None,
+    readiness_runner: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """Run deterministic source audit/prepare and return the public receipt."""
     run_id_safe = _safe_id(run_id, "run")
@@ -1482,6 +2215,7 @@ def run(
                 protected_vendor=protected_vendor,
                 vendor_hold=vendor_hold,
                 observe_remotes=observe_remotes,
+                proposed_files=proposed_files,
             )
         except MaintenanceError as error:
             receipt = _base_receipt(run_id=run_id_safe, mode=mode, manual_audit=manual_audit, now=observed_now, input_fp=input_fp, provider_refs=refs, policy_digest=policy_digest, catalog_digest=catalog_digest)
@@ -1522,6 +2256,26 @@ def run(
         receipt["checks"] = checks
         if isinstance(candidate.get("changed_paths_digest"), str) and DIGEST_PATTERN.fullmatch(candidate["changed_paths_digest"]):
             receipt["changed_paths_digest"] = candidate["changed_paths_digest"]
+        if github is not None and mode == "prepare" and candidate_changed:
+            lane = prepare_canonical_pr(
+                Path(root),
+                Path(stage_dir) if stage_dir is not None else None,
+                base_sha=checks["source_audit"]["checkout"]["base_sha"],
+                allowlist=policy.get("diff_allowlist", []),
+                input_fingerprint_value=input_fp,
+                policy=policy,
+                github=github,
+                readiness_runner=readiness_runner,
+                expected_changed_paths_digest=candidate.get("changed_paths_digest"),
+            )
+            receipt["terminal_classification"] = lane["terminal_classification"]
+            receipt["result"] = lane["result"]
+            if lane.get("reason_code"):
+                receipt["reason_code"] = lane["reason_code"]
+            receipt["pr_state"] = lane["pr_state"]
+            receipt["checks"]["pr_lane"] = lane["checks"]
+            receipt["checks"]["candidate_stage_retained"] = lane.get("stage_retained", False)
+            receipt["changed_paths_digest"] = lane["changed_paths_digest"]
         receipt["circuit"] = {"status": "closed", "strike_count": 0, "digest": digest(_default_circuit())}
         if lease.get("manual_validated"):
             receipt["result"] = "manual_audit_validated_stale_lease"

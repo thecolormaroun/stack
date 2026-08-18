@@ -199,6 +199,23 @@ observation-only fields such as `checked_at`, so a timestamp refresh is a true
 no-op. Candidate output remains local evidence for the canonical PR lane; U3
 does not commit, push, merge, or publish it.
 
+## U4 canonical draft-PR lane
+
+`prepare_canonical_pr` is the only remote-candidate path. It identifies the
+candidate by branch `automation/stack-maintenance` and marker
+`stack-maintenance/v1`, then verifies the recorded `origin/main` SHA, one
+expected commit, ancestry, the allowlisted changed paths, and their digest.
+It commits only an explicit path list in the disposable checkout and requires
+local readiness checks while the stage is clean before calling the injected
+GitHub boundary.
+
+Exactly one safe open candidate is reused; no candidate creates one draft PR.
+Multiple candidates, a branch without its PR, unexpected lineage, a changed
+remote head, an unrelated path, or a missing marker blocks before remote
+mutation. Optional labels do not participate in identity or convergence. The
+adapter never force-pushes or targets `main`. If push or PR creation fails, the
+receipt is `partial` and the stage remains available for recovery.
+
 ## Receipt and closeout
 
 Append one redacted, owner-only structured receipt for each run. It records the

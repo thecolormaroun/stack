@@ -52,6 +52,22 @@ The installer verifies pinned external packages, compiles only catalogued
 capabilities, switches both targets atomically, and writes rollback receipts.
 Never edit `.claude/skills/stack` or `.codex/skills/stack` by hand.
 
+## Scheduled maintenance candidate lane
+
+The scheduled maintenance runner may prepare one draft review candidate on
+`automation/stack-maintenance`, identified by `stack-maintenance/v1`. It starts
+from the recorded `origin/main` SHA in a disposable clean checkout and stages
+only explicit allowlisted paths. Before any remote write it proves the base
+SHA, commit ancestry, changed-path digest, clean stage, and local readiness
+gates.
+
+It reuses exactly one safe canonical PR. Multiple candidates, unexpected
+commits or paths, a changed remote head, an unproven base, or an unrelated
+staged file block before remote mutation. Missing labels are informational;
+they do not create a duplicate. The lane never uses whole-tree staging,
+force-pushes, pushes `main`, merges, installs, or publishes. Push or PR-create
+failure retains the disposable stage and writes a recoverable partial receipt.
+
 ## Updating a package
 
 An upstream update is complete only when its canonical source, immutable pin,

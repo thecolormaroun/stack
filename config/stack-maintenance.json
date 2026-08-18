@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "policy_id": "stack-maintenance",
-  "revision": "2026-08-18-u3",
+  "revision": "2026-08-18-u4",
   "allowed_modes": ["audit", "prepare"],
   "legacy_target_ids": [
     "last30days",

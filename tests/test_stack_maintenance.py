@@ -353,6 +353,155 @@ def test_semantic_json_digest_ignores_observation_only_provenance_fields(tmp_pat
     assert maintenance.semantic_bytes_digest(first, Path("source.json")) == maintenance.semantic_bytes_digest(second, Path("source.json"))
 
 
+def _candidate_fixture(tmp_path: Path):
+    maintenance = _module()
+    root = _git_fixture(tmp_path / "stack")
+    (root / "docs").mkdir()
+    (root / "docs" / "candidate.md").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(root), "add", "docs/candidate.md"], check=True)
+    subprocess.run(["git", "-C", str(root), "commit", "-qm", "base candidate"], check=True)
+    base = maintenance._git(root, "rev-parse", "HEAD")
+    stage = tmp_path / "stage"
+    maintenance.stage_candidate(
+        root,
+        stage,
+        base_sha=base,
+        allowlist=["docs/candidate.md"],
+        proposed_files={"docs/candidate.md": "candidate\n"},
+        run_readiness_checks=False,
+    )
+    return maintenance, root, stage, base
+
+
+class _FakeGitHub:
+    def __init__(self, maintenance, *, records=None, push_error=None, create_error=None):
+        self.maintenance = maintenance
+        self.records = list(records or [])
+        self.remote = None
+        self.push_error = push_error
+        self.create_error = create_error
+        self.push_calls = 0
+        self.create_calls = 0
+
+    def list_open_candidates(self, repository, branch, marker):
+        return list(self.records)
+
+    def remote_branch(self, repository, branch):
+        return self.remote
+
+    def push_branch(self, repository, branch, stage_dir, *, expected_remote_head=None):
+        self.push_calls += 1
+        if self.push_error:
+            raise self.maintenance.MaintenanceError(self.push_error, "transient")
+        head = self.maintenance._git(stage_dir, "rev-parse", "HEAD")
+        self.remote = {"sha": head}
+        return {"branch": branch, "head_sha": head}
+
+    def create_draft_pr(self, repository, branch, title, body, *, labels=None):
+        self.create_calls += 1
+        if self.create_error:
+            raise self.maintenance.MaintenanceError(self.create_error, "transient")
+        head = self.remote["sha"]
+        self.records = [{
+            "number": 41,
+            "head_ref_name": branch,
+            "base_ref_name": "main",
+            "head_sha": head,
+            "base_sha": self.maintenance._body_metadata(body, "base-sha"),
+            "changed_paths_digest": self.maintenance._body_metadata(body, "changed-paths-digest"),
+            "commit_count": 1,
+            "commits": [head],
+            "body": body,
+            "url": "https://github.com/thecolormaroun/stack/pull/41",
+        }]
+        return {"number": 41, "url": self.records[0]["url"]}
+
+
+def _lane(maintenance, root, stage, base, github, *, expected_digest=None):
+    return maintenance.prepare_canonical_pr(
+        root,
+        stage,
+        base_sha=base,
+        allowlist=["docs/candidate.md"],
+        input_fingerprint_value="a" * 64,
+        github=github,
+        readiness_runner=lambda _stage: {"status": "passed", "checks": ["fixture-gate"]},
+        expected_changed_paths_digest=expected_digest,
+    )
+
+
+def test_canonical_lane_creates_one_draft_pr_from_clean_allowlisted_base(tmp_path: Path):
+    maintenance, root, stage, base = _candidate_fixture(tmp_path)
+    github = _FakeGitHub(maintenance)
+    result = _lane(maintenance, root, stage, base, github)
+    assert result["terminal_classification"] == "prepared"
+    assert result["result"] == "draft_pr_created"
+    assert result["pr_state"]["status"] == "created"
+    assert result["pr_state"]["base_sha"] == base
+    assert result["checks"]["changed_paths_digest_verified"] is True
+    assert github.push_calls == 1
+    assert github.create_calls == 1
+    assert not maintenance._status_entries(stage)
+
+
+def test_canonical_lane_reuses_safe_candidate_and_missing_labels_are_informational(tmp_path: Path):
+    maintenance, root, stage, base = _candidate_fixture(tmp_path)
+    github = _FakeGitHub(maintenance)
+    created = _lane(maintenance, root, stage, base, github)
+    digest_value = created["changed_paths_digest"]
+    reused = _lane(maintenance, root, None, base, github, expected_digest=digest_value)
+    assert reused["terminal_classification"] == "prepared"
+    assert reused["result"] == "canonical_pr_reused"
+    assert reused["checks"]["optional_labels_missing"] is True
+    assert github.push_calls == 1
+    assert github.create_calls == 1
+
+
+def test_canonical_lane_blocks_duplicate_candidates_before_remote_mutation(tmp_path: Path):
+    maintenance, root, stage, base = _candidate_fixture(tmp_path)
+    records = [{"number": 1, "head_ref_name": "automation/stack-maintenance"}, {"number": 2, "head_ref_name": "automation/stack-maintenance"}]
+    github = _FakeGitHub(maintenance, records=records)
+    result = _lane(maintenance, root, stage, base, github)
+    assert result["terminal_classification"] == "blocked"
+    assert result["result"] == "canonical_pr_ambiguous"
+    assert github.push_calls == 0
+    assert github.create_calls == 0
+
+
+def test_canonical_lane_rejects_unrelated_staged_path_before_commit_or_push(tmp_path: Path):
+    maintenance, root, stage, base = _candidate_fixture(tmp_path)
+    (stage / "README.md").write_text("unrelated\n", encoding="utf-8")
+    github = _FakeGitHub(maintenance)
+    result = _lane(maintenance, root, stage, base, github)
+    assert result["result"] == "candidate_diff_not_allowlisted"
+    assert github.push_calls == 0
+    assert github.create_calls == 0
+    assert any(entry["path"] == "README.md" for entry in maintenance._status_entries(stage))
+
+
+def test_canonical_lane_push_failure_keeps_recoverable_stage_and_receipt_shape(tmp_path: Path):
+    maintenance, root, stage, base = _candidate_fixture(tmp_path)
+    github = _FakeGitHub(maintenance, push_error="github_push_failed")
+    result = _lane(maintenance, root, stage, base, github)
+    assert result["terminal_classification"] == "partial"
+    assert result["result"] == "github_push_failed"
+    assert result["stage_retained"] is True
+    assert result["checks"]["remote_mutation_started"] is False
+    assert stage.exists()
+
+
+def test_canonical_lane_pr_create_failure_records_remote_branch_and_retains_stage(tmp_path: Path):
+    maintenance, root, stage, base = _candidate_fixture(tmp_path)
+    github = _FakeGitHub(maintenance, create_error="github_pr_create_failed")
+    result = _lane(maintenance, root, stage, base, github)
+    assert result["terminal_classification"] == "partial"
+    assert result["result"] == "github_pr_create_failed"
+    assert result["pr_state"]["status"] == "branch_pushed"
+    assert result["checks"]["remote_mutation_started"] is True
+    assert result["checks"]["recoverable_stage"] is True
+    assert stage.exists()
+
+
 class StackMaintenanceTests(unittest.TestCase):
     """Expose pytest-style scenario functions to the repository unittest gate."""
 

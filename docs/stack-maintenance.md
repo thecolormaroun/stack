@@ -115,6 +115,54 @@ worktree, the dirty vendor, PR #23, and every proposed cleanup target. For U1,
 the expected result is an exact match of identity and status digests. A missing
 after-check is not a pass.
 
+## U2 maintenance state machine
+
+The versioned runner is `scripts/stack-maintenance.py`. Its `audit` and
+`prepare` modes currently stop at policy and authority preflight; they do not
+fetch a provider, create a worktree, stage a candidate, contact GitHub, write a
+runtime, or publish a plugin. Later source and candidate units consume the same
+receipt contract rather than adding a second state store.
+
+The policy in [`config/stack-maintenance.json`](../config/stack-maintenance.json)
+and the complete target inventory in
+[`registry/maintenance-sources.json`](../registry/maintenance-sources.json)
+are loaded fail-closed. Every legacy target has one explicit disposition:
+catalog-managed provider, repository-owned capability, report-only
+external/plugin, or retired legacy target. A missing target, duplicate target,
+unknown disposition, mutable policy mode, or incomplete authority declaration
+is a terminal `failed` result.
+
+Owner-local state is initialized only at the configured state directory. The
+directory is mode `0700`; its receipt directory and each JSON receipt are mode
+`0600`. Receipts are created with exclusive creation and are never replaced.
+Each record includes the run identity, semantic input fingerprint, provider-ref
+digests, catalog and policy digests, checkout/changed-path/PR/approval/cleanup/
+thread state, checks, and one terminal classification defined by
+[`registry/stack-maintenance-receipt.schema.json`](../registry/stack-maintenance-receipt.schema.json).
+Observation time is receipt metadata only and is excluded from the input
+fingerprint, so repeated unchanged runs do not create timestamp-driven input
+churn.
+
+One task-scoped lease protects the source, runtime, and PR lane. An active
+lease produces `blocked` with `duplicate_active_run` and performs no
+disposable write. An expired lease is recoverable only when both its owner and
+input fingerprint match; a mismatch remains `blocked` with
+`stale_lease_mismatch` until an explicit `--manual-audit` validates recovery.
+Three consecutive non-transient blockers with the same fingerprint open the
+local circuit. Scheduled invocations exit cheaply with `circuit_open`; a
+successful manual audit clears the circuit and appends a new receipt without
+rewriting prior records.
+
+For example, an isolated proof run is:
+
+```sh
+python3 scripts/stack-maintenance.py audit --state-dir "$STACK_MAINTENANCE_STATE_DIR"
+```
+
+If state initialization is unsafe or cannot be persisted, the runner fails
+closed and emits one redacted structured terminal record on stderr with
+`receipt_persisted: false`; it never selects a fallback filesystem path.
+
 ## Receipt and closeout
 
 Append one redacted, owner-only structured receipt for each run. It records the
@@ -130,4 +178,3 @@ recorded, all protected exclusions are explicit, every unique-content decision
 is covered, and read-only before/after fingerprints match. The packet is then
 ready for a separately approved implementation or cleanup unit; it is not
 itself authorization to mutate anything.
-

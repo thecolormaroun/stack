@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stack.maroun.co/registry/stack-maintenance-receipt.schema.json",
+  "title": "Stack maintenance receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "run_id",
+    "mode",
+    "manual_audit",
+    "observed_at",
+    "input_fingerprint",
+    "provider_refs",
+    "catalog_digest",
+    "policy_digest",
+    "checkout_state",
+    "changed_paths_digest",
+    "checks",
+    "pr_state",
+    "approval_state",
+    "cleanup_state",
+    "thread_state",
+    "terminal_classification",
+    "receipt_persisted"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "task_id": {"const": "stack-maintenance"},
+    "run_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "mode": {"enum": ["audit", "prepare"]},
+    "manual_audit": {"type": "boolean"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "input_fingerprint": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+    "provider_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id", "ref_digest"],
+        "properties": {
+          "source_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "ref_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+        }
+      }
+    },
+    "catalog_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "policy_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "checkout_state": {"$ref": "#/$defs/state"},
+    "changed_paths_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "checks": {"type": "object", "additionalProperties": true},
+    "pr_state": {"$ref": "#/$defs/state"},
+    "approval_state": {"$ref": "#/$defs/state"},
+    "cleanup_state": {"$ref": "#/$defs/state"},
+    "thread_state": {"$ref": "#/$defs/state"},
+    "terminal_classification": {"enum": ["no_action", "prepared", "awaiting_approval", "blocked", "partial", "failed", "published"]},
+    "receipt_persisted": {"const": true},
+    "result": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+    "reason_code": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+    "circuit": {"$ref": "#/$defs/state"},
+    "manual_audit_cleared": {"type": "boolean"}
+  },
+  "$defs": {
+    "state": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["status"],
+      "properties": {"status": {"type": "string", "minLength": 1}, "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}
+    }
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "id": "last30days",
+      "target": "Codex last30days skill",
+      "disposition": "report-only-external-plugin",
+      "provider_ref": "mvanhorn/last30days-skill",
+      "pin_source": "app-managed skill state; no Stack catalog provider"
+    },
+    {
+      "id": "gstack",
+      "target": "legacy GStack checkout and setup",
+      "disposition": "catalog-managed-provider",
+      "provider_ref": "garrytan/gstack",
+      "pin_source": "registry/upstreams.json:gstack"
+    },
+    {
+      "id": "compound-engineering",
+      "target": "Compound Engineering plugin vendor tree",
+      "disposition": "catalog-managed-provider",
+      "provider_ref": "EveryInc/compound-engineering-plugin",
+      "pin_source": "registry/upstreams.json:compound-engineering"
+    },
+    {
+      "id": "impeccable",
+      "target": "Stack Impeccable capabilities",
+      "disposition": "repository-owned-capability",
+      "provider_ref": "thecolormaroun/stack",
+      "pin_source": "repository source"
+    },
+    {
+      "id": "emil-design-eng",
+      "target": "Emil design engineering skill wrapper",
+      "disposition": "catalog-managed-provider",
+      "provider_ref": "emilkowalski/skill",
+      "pin_source": "skills/imported/emil/emil-design-eng/references/source.json"
+    },
+    {
+      "id": "review-animations",
+      "target": "Emil review animations skill wrapper",
+      "disposition": "catalog-managed-provider",
+      "provider_ref": "emilkowalski/skill",
+      "pin_source": "skills/design/review-animations/references/source.json"
+    },
+    {
+      "id": "illo-skill",
+      "target": "illo external plugin and marketplace",
+      "disposition": "report-only-external-plugin",
+      "provider_ref": "tmchow/illo-skill",
+      "pin_source": "config/settings.json:extraKnownMarketplaces.illo-skill"
+    },
+    {
+      "id": "codex-plugin-marketplace",
+      "target": "Codex app-managed illo marketplace",
+      "disposition": "report-only-external-plugin",
+      "provider_ref": "codex plugin marketplace",
+      "pin_source": "app-managed plugin state"
+    },
+    {
+      "id": "claude-plugin-marketplace",
+      "target": "Claude app-managed illo marketplace",
+      "disposition": "report-only-external-plugin",
+      "provider_ref": "claude plugin marketplace",
+      "pin_source": "app-managed plugin state"
+    },
+    {
+      "id": "upstreams-lock",
+      "target": "Stack immutable upstream lock",
+      "disposition": "repository-owned-capability",
+      "provider_ref": "upstreams.lock.json",
+      "pin_source": "repository source"
+    },
+    {
+      "id": "global-skill-roots",
+      "target": "Global Claude and Codex skill roots",
+      "disposition": "retired-legacy-target",
+      "provider_ref": "global runtime paths",
+      "pin_source": "legacy updater"
+    },
+    {
+      "id": "plugin-marketplaces",
+      "target": "Plugin marketplace installation and upgrades",
+      "disposition": "retired-legacy-target",
+      "provider_ref": "app-managed plugin state",
+      "pin_source": "legacy updater"
+    }
+  ]
+}

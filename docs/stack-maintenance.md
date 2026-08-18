@@ -236,6 +236,12 @@ local readiness checks while the stage is clean before calling the injected
 GitHub boundary.
 
 Exactly one safe open candidate is reused; no candidate creates one draft PR.
+Before either push or PR creation, the lane inventories every open automation
+PR plus every local, tracked, and GitHub automation branch. A noncanonical open
+automation PR blocks rather than creating another lane. The canonical branch
+head and candidate set are re-read immediately before creation, and the
+created draft's actual branch, head SHA, base, and draft state must match the
+verified candidate.
 If a successful canonical-branch push is followed by a transient PR-creation
 failure, the next run resumes PR creation only after proving the branch's base,
 single-commit ancestry, changed-path digest, and blob-content digest against

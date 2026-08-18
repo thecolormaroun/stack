@@ -1923,6 +1923,96 @@ def _candidate_pr_identity(record: Mapping[str, Any]) -> str:
     return digest({key: record[key] for key in sorted(record) if key not in {"body", "title"}})[:16]
 
 
+def _automation_inventory_summary(
+    value: Any,
+    *,
+    branch: str,
+    marker: str,
+) -> Dict[str, Any]:
+    """Validate and redact the repository-wide automation inventory."""
+    if not isinstance(value, Mapping):
+        raise MaintenanceError("automation_inventory_invalid", "non_transient")
+    pull_requests = value.get("pull_requests")
+    local_branches = value.get("local_branches")
+    remote_branches = value.get("remote_branches")
+    if (
+        not isinstance(pull_requests, list)
+        or not all(isinstance(item, Mapping) for item in pull_requests)
+        or not isinstance(local_branches, list)
+        or not all(isinstance(item, str) for item in local_branches)
+        or not isinstance(remote_branches, list)
+        or not all(isinstance(item, str) for item in remote_branches)
+    ):
+        raise MaintenanceError("automation_inventory_invalid", "non_transient")
+    prefix = branch.rsplit("/", 1)[0] + "/" if "/" in branch else branch
+    automation_prs = []
+    for record in pull_requests:
+        head = str(_record_value(record, "head_ref_name", "headRefName", "head") or "")
+        body = str(_record_value(record, "body", "description") or "")
+        if head.startswith(prefix) or marker in body:
+            automation_prs.append(record)
+    conflicts = [
+        _candidate_pr_identity(record)
+        for record in automation_prs
+        if str(_record_value(record, "head_ref_name", "headRefName", "head") or "")
+        not in {branch, f"refs/heads/{branch}"}
+    ]
+    evidence = {
+        "pull_requests": sorted(
+            [
+                {
+                    "id": _candidate_pr_identity(record),
+                    "head_digest": digest(
+                        str(_record_value(record, "head_ref_name", "headRefName", "head") or "")
+                    ),
+                }
+                for record in automation_prs
+            ],
+            key=lambda item: item["id"],
+        ),
+        "local_branch_digests": sorted(digest(item) for item in set(local_branches)),
+        "remote_branch_digests": sorted(digest(item) for item in set(remote_branches)),
+    }
+    return {
+        "status": "conflict" if conflicts else "recorded",
+        "pull_request_count": len(automation_prs),
+        "local_branch_count": len(set(local_branches)),
+        "remote_branch_count": len(set(remote_branches)),
+        "conflicting_pr_ids": sorted(conflicts),
+        "digest": digest(evidence),
+    }
+
+
+def _verify_pre_create_state(
+    github: Any,
+    repository: str,
+    branch: str,
+    marker: str,
+    expected_head: str,
+) -> Mapping[str, Any]:
+    """Re-read the branch and candidate set immediately before PR creation."""
+    remote = _gateway_call(github, "remote_branch", repository, branch)
+    remote_head = _record_value(remote or {}, "head_sha", "headSha", "sha", "object_sha", "objectSha")
+    if remote_head != expected_head:
+        raise MaintenanceError("canonical_remote_head_changed", "non_transient")
+    candidates = _normalise_pr_records(_gateway_call(github, "list_open_candidates", repository, branch, marker))
+    if candidates:
+        raise MaintenanceError("canonical_pr_appeared", "non_transient")
+    return remote
+
+
+def _created_pr_matches(created: Mapping[str, Any], *, branch: str, expected_head: str) -> bool:
+    head_ref = _record_value(created, "head_ref_name", "headRefName", "head")
+    base_ref = _record_value(created, "base_ref_name", "baseRefName", "base")
+    head_sha = _record_value(created, "head_sha", "headSha", "head_ref_oid", "headRefOid", "sha")
+    return (
+        head_ref in {branch, f"refs/heads/{branch}"}
+        and base_ref in {"main", "refs/heads/main"}
+        and head_sha == expected_head
+        and _record_value(created, "is_draft", "isDraft", "draft") is True
+    )
+
+
 def _verify_existing_candidate(
     record: Mapping[str, Any],
     *,
@@ -2055,6 +2145,44 @@ class GitHubCommandBoundary:
             raise MaintenanceError(error_code, "transient")
         return str(result.stdout or "").strip()
 
+    def list_automation_inventory(self, repository: str, branch_prefix: str, marker: str) -> Mapping[str, Any]:
+        pr_output = self._run(
+            [
+                "gh", "pr", "list", "--repo", repository, "--state", "open", "--limit", "1000",
+                "--json", "number,headRefName,baseRefName,headRefOid,baseRefOid,isDraft,body,url,title",
+            ],
+            error_code="github_inventory_failed",
+        )
+        remote_output = self._run(
+            ["gh", "api", "--paginate", "--slurp", f"repos/{repository}/git/matching-refs/heads/{branch_prefix}"],
+            error_code="github_inventory_failed",
+        )
+        try:
+            pull_requests = json.loads(pr_output or "[]")
+            remote_pages = json.loads(remote_output or "[]")
+        except json.JSONDecodeError:
+            raise MaintenanceError("automation_inventory_invalid", "transient")
+        if not isinstance(remote_pages, list):
+            raise MaintenanceError("automation_inventory_invalid", "transient")
+        remote_rows = [item for page in remote_pages for item in (page if isinstance(page, list) else [page])]
+        if not all(isinstance(item, Mapping) and isinstance(item.get("ref"), str) for item in remote_rows):
+            raise MaintenanceError("automation_inventory_invalid", "transient")
+        local_output = _git(self.root, "for-each-ref", "--format=%(refname:short)", f"refs/heads/{branch_prefix}")
+        tracking_output = _git(
+            self.root,
+            "for-each-ref",
+            "--format=%(refname:short)",
+            f"refs/remotes/origin/{branch_prefix}",
+        )
+        return {
+            "pull_requests": pull_requests,
+            "local_branches": [line for line in local_output.splitlines() if line],
+            "remote_branches": sorted(
+                {str(item["ref"]).removeprefix("refs/heads/") for item in remote_rows}
+                | {line.removeprefix("origin/") for line in tracking_output.splitlines() if line}
+            ),
+        }
+
     def list_open_candidates(self, repository: str, branch: str, marker: str) -> list[Mapping[str, Any]]:
         output = self._run(
             [
@@ -2163,7 +2291,20 @@ class GitHubCommandBoundary:
         if labels:
             command.extend(["--label", ",".join(labels)])
         output = self._run(command, error_code="github_pr_create_failed")
-        return {"url": output, "head_ref_name": branch, "is_draft": True}
+        details = self._run(
+            [
+                "gh", "pr", "view", output, "--repo", repository,
+                "--json", "number,url,headRefName,headRefOid,baseRefName,baseRefOid,isDraft,body,labels",
+            ],
+            error_code="github_pr_verify_failed",
+        )
+        try:
+            value = json.loads(details or "{}")
+        except json.JSONDecodeError:
+            raise MaintenanceError("github_pr_verify_failed", "transient")
+        if not isinstance(value, Mapping):
+            raise MaintenanceError("github_pr_verify_failed", "transient")
+        return value
 
     def update_draft_pr(self, repository: str, number: Any, title: str, body: str, *, labels: Optional[list[str]] = None) -> Mapping[str, Any]:
         command = ["gh", "pr", "edit", str(number), "--repo", repository, "--title", title, "--body", body]
@@ -2260,6 +2401,21 @@ def prepare_canonical_pr(
         )
 
     try:
+        branch_prefix = branch.rsplit("/", 1)[0] + "/" if "/" in branch else branch
+        inventory_summary = _automation_inventory_summary(
+            _gateway_call(github, "list_automation_inventory", repository, branch_prefix, marker),
+            branch=branch,
+            marker=marker,
+        )
+        if inventory_summary["conflicting_pr_ids"]:
+            return _lane_result(
+                classification="blocked",
+                result="automation_pr_inventory_conflict",
+                reason="automation_pr_inventory_conflict",
+                pr_state={"status": "blocked"},
+                checks={"remote_mutation_started": False, "automation_inventory": inventory_summary},
+                changed_paths_digest=expected_changed_paths_digest or digest([]),
+            )
         records = _normalise_pr_records(_gateway_call(github, "list_open_candidates", repository, branch, marker))
         # ``list_open_candidates`` is expected to scope by branch, but retain a
         # second marker/lineage check so a permissive test or adapter cannot
@@ -2329,6 +2485,7 @@ def prepare_canonical_pr(
                 reason=None,
                 pr_state={"status": "reused", **safe},
                 checks={
+                    "automation_inventory": inventory_summary,
                     "canonical_candidate_count": 1,
                     "lineage_verified": True,
                     "base_sha_verified": True,
@@ -2389,6 +2546,20 @@ def prepare_canonical_pr(
             )
             if _private_data_in_bytes(body.encode("utf-8")):
                 raise MaintenanceError("candidate_private_data", "non_transient")
+            latest_inventory = _automation_inventory_summary(
+                _gateway_call(github, "list_automation_inventory", repository, branch_prefix, marker),
+                branch=branch,
+                marker=marker,
+            )
+            if latest_inventory["conflicting_pr_ids"]:
+                raise MaintenanceError("automation_pr_inventory_conflict", "non_transient")
+            _verify_pre_create_state(
+                github,
+                repository,
+                branch,
+                marker,
+                verified_remote["head_sha"],
+            )
             try:
                 created = _gateway_call(
                     github,
@@ -2412,6 +2583,7 @@ def prepare_canonical_pr(
                     },
                     checks={
                         "readiness": readiness,
+                        "automation_inventory": latest_inventory,
                         "remote_mutation_started": True,
                         "branch_pushed": True,
                         "pr_created": False,
@@ -2423,6 +2595,28 @@ def prepare_canonical_pr(
                 )
             if not isinstance(created, Mapping):
                 raise MaintenanceError("github_pr_create_result_invalid", "transient")
+            if not _created_pr_matches(created, branch=branch, expected_head=verified_remote["head_sha"]):
+                return _lane_result(
+                    classification="partial",
+                    result="created_pr_head_mismatch",
+                    reason="created_pr_head_mismatch",
+                    pr_state={
+                        "status": "created_unverified",
+                        "number": _record_value(created, "number", "id"),
+                        "url": _record_value(created, "url", "html_url", "htmlUrl"),
+                    },
+                    checks={
+                        "readiness": readiness,
+                        "automation_inventory": latest_inventory,
+                        "remote_mutation_started": True,
+                        "branch_pushed": True,
+                        "pr_created": True,
+                        "created_pr_head_verified": False,
+                        "recoverable_stage": True,
+                    },
+                    changed_paths_digest=local["changed_paths_digest"],
+                    stage_retained=True,
+                )
             return _lane_result(
                 classification="prepared",
                 result="draft_pr_resumed",
@@ -2441,6 +2635,7 @@ def prepare_canonical_pr(
                 },
                 checks={
                     "readiness": readiness,
+                    "automation_inventory": latest_inventory,
                     "canonical_candidate_count": 0,
                     "lineage_verified": True,
                     "base_sha_verified": True,
@@ -2456,6 +2651,7 @@ def prepare_canonical_pr(
                     "remote_mutation_started": True,
                     "branch_pushed": True,
                     "pr_created": True,
+                    "created_pr_head_verified": True,
                     "optional_labels_missing": not bool(_record_value(created, "labels")),
                 },
                 changed_paths_digest=local["changed_paths_digest"],
@@ -2503,6 +2699,13 @@ def prepare_canonical_pr(
         )
         if _private_data_in_bytes(body.encode("utf-8")):
             raise MaintenanceError("candidate_private_data", "non_transient")
+        latest_inventory = _automation_inventory_summary(
+            _gateway_call(github, "list_automation_inventory", repository, branch_prefix, marker),
+            branch=branch,
+            marker=marker,
+        )
+        if latest_inventory["conflicting_pr_ids"]:
+            raise MaintenanceError("automation_pr_inventory_conflict", "non_transient")
         pushed = _gateway_call(
             github,
             "push_branch",
@@ -2515,6 +2718,14 @@ def prepare_canonical_pr(
         pushed_head = pushed.get("head_sha")
         if pushed_head != local["head_sha"]:
             raise MaintenanceError("github_push_head_mismatch", "non_transient")
+        latest_inventory = _automation_inventory_summary(
+            _gateway_call(github, "list_automation_inventory", repository, branch_prefix, marker),
+            branch=branch,
+            marker=marker,
+        )
+        if latest_inventory["conflicting_pr_ids"]:
+            raise MaintenanceError("automation_pr_inventory_conflict", "non_transient")
+        _verify_pre_create_state(github, repository, branch, marker, local["head_sha"])
         try:
             created = _gateway_call(
                 github,
@@ -2538,6 +2749,7 @@ def prepare_canonical_pr(
                 },
                 checks={
                     "readiness": readiness,
+                    "automation_inventory": latest_inventory,
                     "remote_mutation_started": True,
                     "branch_pushed": True,
                     "pr_created": False,
@@ -2548,6 +2760,28 @@ def prepare_canonical_pr(
             )
         if not isinstance(created, Mapping):
             raise MaintenanceError("github_pr_create_result_invalid", "transient")
+        if not _created_pr_matches(created, branch=branch, expected_head=local["head_sha"]):
+            return _lane_result(
+                classification="partial",
+                result="created_pr_head_mismatch",
+                reason="created_pr_head_mismatch",
+                pr_state={
+                    "status": "created_unverified",
+                    "number": _record_value(created, "number", "id"),
+                    "url": _record_value(created, "url", "html_url", "htmlUrl"),
+                },
+                checks={
+                    "readiness": readiness,
+                    "automation_inventory": latest_inventory,
+                    "remote_mutation_started": True,
+                    "branch_pushed": True,
+                    "pr_created": True,
+                    "created_pr_head_verified": False,
+                    "recoverable_stage": True,
+                },
+                changed_paths_digest=local["changed_paths_digest"],
+                stage_retained=True,
+            )
         return _lane_result(
             classification="prepared",
             result="draft_pr_created",
@@ -2566,6 +2800,7 @@ def prepare_canonical_pr(
             },
             checks={
                 "readiness": readiness,
+                "automation_inventory": latest_inventory,
                 "canonical_candidate_count": 0,
                 "lineage_verified": True,
                 "base_sha_verified": True,
@@ -2576,6 +2811,7 @@ def prepare_canonical_pr(
                 "remote_mutation_started": True,
                 "branch_pushed": True,
                 "pr_created": True,
+                "created_pr_head_verified": True,
                 "optional_labels_missing": not bool(_record_value(created, "labels")),
             },
             changed_paths_digest=local["changed_paths_digest"],

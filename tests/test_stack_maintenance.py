@@ -962,20 +962,45 @@ def _candidate_fixture(tmp_path: Path):
 
 
 class _FakeGitHub:
-    def __init__(self, maintenance, *, records=None, push_error=None, create_error=None):
+    def __init__(
+        self,
+        maintenance,
+        *,
+        records=None,
+        automation_records=None,
+        push_error=None,
+        create_error=None,
+        advance_remote_on_query=None,
+        created_head_override=None,
+    ):
         self.maintenance = maintenance
         self.records = list(records or [])
+        self.automation_records = None if automation_records is None else list(automation_records)
         self.remote = None
         self.push_error = push_error
         self.create_error = create_error
+        self.advance_remote_on_query = advance_remote_on_query
+        self.created_head_override = created_head_override
         self.push_calls = 0
         self.create_calls = 0
+        self.remote_query_calls = 0
         self.remote_content_digest = None
+
+    def list_automation_inventory(self, repository, branch_prefix, marker):
+        records = self.records if self.automation_records is None else self.automation_records
+        return {
+            "pull_requests": list(records),
+            "local_branches": [],
+            "remote_branches": [],
+        }
 
     def list_open_candidates(self, repository, branch, marker):
         return list(self.records)
 
     def remote_branch(self, repository, branch):
+        self.remote_query_calls += 1
+        if self.remote_query_calls == self.advance_remote_on_query:
+            self.remote = {"sha": "e" * 40}
         return self.remote
 
     def compare_candidate(self, repository, base_sha, head_sha):
@@ -1002,7 +1027,7 @@ class _FakeGitHub:
         self.create_calls += 1
         if self.create_error:
             raise self.maintenance.MaintenanceError(self.create_error, "transient")
-        head = self.remote["sha"]
+        head = self.created_head_override or self.remote["sha"]
         self.records = [{
             "number": 41,
             "head_ref_name": branch,
@@ -1015,7 +1040,7 @@ class _FakeGitHub:
             "body": body,
             "url": "https://github.com/thecolormaroun/stack/pull/41",
         }]
-        return {"number": 41, "url": self.records[0]["url"]}
+        return {**self.records[0], "is_draft": True}
 
 
 def _lane(
@@ -1174,6 +1199,25 @@ def test_canonical_lane_blocks_duplicate_candidates_before_remote_mutation(tmp_p
     assert github.create_calls == 0
 
 
+def test_canonical_lane_blocks_noncanonical_automation_pr_before_remote_mutation(tmp_path: Path):
+    maintenance, root, stage, base = _candidate_fixture(tmp_path)
+    github = _FakeGitHub(
+        maintenance,
+        automation_records=[{
+            "number": 9,
+            "head_ref_name": "automation/legacy-stack-update",
+            "body": "legacy automation candidate",
+        }],
+    )
+
+    result = _lane(maintenance, root, stage, base, github)
+
+    assert result["terminal_classification"] == "blocked"
+    assert result["result"] == "automation_pr_inventory_conflict"
+    assert github.push_calls == 0
+    assert github.create_calls == 0
+
+
 def test_canonical_lane_rejects_unrelated_staged_path_before_commit_or_push(tmp_path: Path):
     maintenance, root, stage, base = _candidate_fixture(tmp_path)
     (stage / "README.md").write_text("unrelated\n", encoding="utf-8")
@@ -1231,6 +1275,42 @@ def test_canonical_lane_resumes_pr_creation_for_verified_remote_branch(tmp_path:
     assert resumed["checks"]["remote_candidate_verified"] is True
     assert github.push_calls == 1
     assert github.create_calls == 2
+
+
+def test_canonical_lane_revalidates_orphan_branch_immediately_before_pr_creation(tmp_path: Path):
+    maintenance, root, stage, base = _candidate_fixture(tmp_path)
+    github = _FakeGitHub(maintenance, create_error="github_pr_create_failed")
+    failed = _lane(maintenance, root, stage, base, github)
+    assert failed["terminal_classification"] == "partial"
+
+    retry_stage = tmp_path / "retry-stage-race"
+    maintenance.stage_candidate(
+        root,
+        retry_stage,
+        base_sha=base,
+        allowlist=["docs/candidate.md"],
+        proposed_files={"docs/candidate.md": "candidate\n"},
+        run_readiness_checks=False,
+    )
+    github.create_error = None
+    github.advance_remote_on_query = github.remote_query_calls + 2
+
+    raced = _lane(maintenance, root, retry_stage, base, github)
+
+    assert raced["terminal_classification"] == "blocked"
+    assert raced["result"] == "canonical_remote_head_changed"
+    assert github.create_calls == 1
+
+
+def test_canonical_lane_rejects_created_pr_with_unverified_head(tmp_path: Path):
+    maintenance, root, stage, base = _candidate_fixture(tmp_path)
+    github = _FakeGitHub(maintenance, created_head_override="e" * 40)
+
+    result = _lane(maintenance, root, stage, base, github)
+
+    assert result["terminal_classification"] == "partial"
+    assert result["result"] == "created_pr_head_mismatch"
+    assert result["checks"]["pr_created"] is True
 
 
 def test_canonical_lane_resumes_pr_creation_from_retained_candidate_stage(tmp_path: Path):

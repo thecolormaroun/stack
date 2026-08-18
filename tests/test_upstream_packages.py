@@ -31,6 +31,26 @@ class UpstreamPackageTests(unittest.TestCase):
                 self.assertEqual(set(provider["export_paths"]), set(provider["exports"]))
                 self.assertTrue(all(path.endswith("/SKILL.md") and not path.startswith("/") and ".." not in Path(path).parts for path in provider["export_paths"].values()))
 
+    def test_maintenance_inventory_is_catalog_bound_and_non_mutating_rows_are_explicit(self) -> None:
+        inventory = json.loads((ROOT / "registry/maintenance-sources.json").read_text())
+        providers = {provider["id"]: provider for provider in self.registry["providers"]}
+        self.assertEqual(len(inventory["sources"]), len({source["id"] for source in inventory["sources"]}))
+        for source in inventory["sources"]:
+            self.assertEqual(
+                set(source),
+                {"id", "target", "disposition", "provider_ref", "pin_source", "provider_id", "target_paths", "required_exports"},
+            )
+            if source["disposition"] == "catalog-managed-provider":
+                provider = providers[source["provider_id"]]
+                self.assertEqual(source["pin_source"], f"registry/upstreams.json:{source['provider_id']}")
+                self.assertTrue(set(source["required_exports"]).issubset(provider["exports"]))
+                self.assertEqual(provider["pin"]["value"], self.lock["providers"][source["provider_id"]])
+            else:
+                self.assertIsNone(source["provider_id"])
+                if source["disposition"] in {"report-only-external-plugin", "retired-legacy-target"}:
+                    self.assertEqual(source["target_paths"], [])
+                    self.assertEqual(source["required_exports"], [])
+
     def test_packages_declare_adapters_without_copying_source(self) -> None:
         for package in ("compound-engineering", "gstack", "stack-codex", "imported-skills"):
             manifest = json.loads((ROOT / "packages" / package / "package.json").read_text())

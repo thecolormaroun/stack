@@ -117,11 +117,12 @@ after-check is not a pass.
 
 ## U2 maintenance state machine
 
-The versioned runner is `scripts/stack-maintenance.py`. Its `audit` and
-`prepare` modes currently stop at policy and authority preflight; they do not
-fetch a provider, create a worktree, stage a candidate, contact GitHub, write a
-runtime, or publish a plugin. Later source and candidate units consume the same
-receipt contract rather than adding a second state store.
+The versioned runner is `scripts/stack-maintenance.py`. Its `audit` mode is
+read-only. Its `prepare` mode may clone a disposable clean candidate and run
+catalog/bootstrap readiness checks, but it does not fetch a provider, mutate a
+caller checkout, contact GitHub, write a runtime, or publish a plugin. The
+source and candidate units consume the same receipt contract rather than
+adding a second state store.
 
 The policy in [`config/stack-maintenance.json`](../config/stack-maintenance.json)
 and the complete target inventory in
@@ -162,6 +163,41 @@ python3 scripts/stack-maintenance.py audit --state-dir "$STACK_MAINTENANCE_STATE
 If state initialization is unsafe or cannot be persisted, the runner fails
 closed and emits one redacted structured terminal record on stderr with
 `receipt_persisted: false`; it never selects a fallback filesystem path.
+
+## U3 source audit and candidate staging
+
+The source audit resolves every legacy target through
+[`registry/maintenance-sources.json`](../registry/maintenance-sources.json).
+Catalog-managed rows must name a provider in `registry/upstreams.json`, match
+the immutable value in `upstreams.lock.json`, retain the last-known-good pin,
+and declare the exports they are allowed to consume. Repository-owned rows
+are checked-in Stack content. Report-only plugin rows are recorded with an
+empty command list; they never invoke a plugin, marketplace, or raw skill-root
+command. Retired rows remain visible so a removed legacy target cannot be
+silently reintroduced.
+
+Every catalog provider is represented, including the Matt and David imported
+collections and the Stack-owned Codex bundle that the legacy task omitted.
+`--observe-upstreams` reads each public Git provider's current `HEAD` and
+reports drift without promoting that mutable observation to a trusted pin.
+Observed drift is `awaiting_approval` until the isolated candidate and PR gates
+validate it; an unchanged observation remains a deterministic `no_action`.
+
+The audit verifies the caller's public `origin` and `origin/main` identity but
+does not require the caller checkout to be clean. A dirty protected vendor is
+an exact blocker unless an owner-approved hold is bound to its current head and
+status digest. Provider checkout evidence is read-only and cannot become a new
+trusted pin. Mutable refs, origin mismatches, missing exports, unregistered
+targets, missing declared paths, and symlinks fail closed.
+
+`prepare` may create a disposable candidate clone outside the caller checkout
+from the recorded `origin/main` SHA. Only explicit policy-allowlisted files can
+be proposed, and candidate content is checked for private machine paths and
+secrets. The candidate runs the catalog drift check and bootstrap dry-run, but
+never installs a runtime or calls a plugin. JSON provenance fingerprints ignore
+observation-only fields such as `checked_at`, so a timestamp refresh is a true
+no-op. Candidate output remains local evidence for the canonical PR lane; U3
+does not commit, push, merge, or publish it.
 
 ## Receipt and closeout
 

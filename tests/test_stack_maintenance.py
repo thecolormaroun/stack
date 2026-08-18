@@ -202,6 +202,157 @@ def test_unsafe_state_permissions_emit_only_redacted_terminal_record(tmp_path: P
     assert not (state / "receipts").exists()
 
 
+def test_source_audit_resolves_catalog_local_report_only_and_retired_rows(tmp_path: Path):
+    maintenance = _module()
+    policy = maintenance.load_policy(POLICY)
+    sources = maintenance.load_sources(SOURCES)
+    report = maintenance.audit_sources(ROOT, policy=policy, sources=sources)
+    assert report["status"] == "passed"
+    rows = {row["source_id"]: row for row in report["sources"]}
+    assert rows["gstack"]["provider_id"] == "gstack"
+    assert rows["impeccable"]["disposition"] == "repository-owned-capability"
+    assert rows["illo-skill"]["plugin_commands_invoked"] == []
+    assert rows["global-skill-roots"]["retired"] is True
+    assert report["plugin_commands_invoked"] == []
+    assert {row.get("provider_id") for row in rows.values() if row.get("provider_id")} == {
+        "compound-engineering",
+        "david",
+        "emil",
+        "gstack",
+        "matt",
+        "stack-codex",
+    }
+    assert all("/Users/" not in json.dumps(report) for _ in (0,))
+
+
+def test_source_audit_rejects_mutable_pin_and_unregistered_target(tmp_path: Path):
+    maintenance = _module()
+    policy = maintenance.load_policy(POLICY)
+    sources = maintenance.load_sources(SOURCES)
+    registry, lock = maintenance.load_upstream_metadata()
+    mutable = json.loads(json.dumps(registry))
+    mutable["providers"][0]["pin"] = {"type": "branch", "value": "main"}
+    with unittest.TestCase().assertRaisesRegex(maintenance.PolicyError, "mutable_upstream_pin"):
+        maintenance.validate_source_catalog(ROOT, policy, sources, mutable, lock)
+    incomplete = json.loads(json.dumps(sources))
+    incomplete["sources"] = incomplete["sources"][:-1]
+    with unittest.TestCase().assertRaisesRegex(maintenance.PolicyError, "source_inventory_incomplete"):
+        maintenance.validate_policy(policy, incomplete)
+
+
+def test_upstream_observation_reports_drift_without_trusting_mutable_head(tmp_path: Path):
+    maintenance = _module()
+    registry, _ = maintenance.load_upstream_metadata()
+    refs = {
+        provider["id"]: provider["pin"]["value"]
+        for provider in registry["providers"]
+        if provider["pin"]["type"] == "git-commit"
+    }
+    refs["gstack"] = "f" * 40
+    report = maintenance.audit_sources(ROOT, observed_refs=refs)
+    observation = report["upstream_observation"]
+    assert observation["status"] == "updates_available"
+    assert observation["updates_available"] == ["gstack"]
+    gstack = next(item for item in observation["observations"] if item["provider_id"] == "gstack")
+    assert gstack["pin"] != gstack["observed_head"]
+    assert report["plugin_commands_invoked"] == []
+    with unittest.TestCase().assertRaisesRegex(maintenance.PolicyError, "observed_provider_set_invalid"):
+        maintenance.audit_sources(ROOT, observed_refs={"gstack": "f" * 40})
+
+
+def _git_fixture(path: Path) -> Path:
+    path.mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(path)], check=True)
+    subprocess.run(["git", "-C", str(path), "config", "user.email", "test@example.invalid"], check=True)
+    subprocess.run(["git", "-C", str(path), "config", "user.name", "Test"], check=True)
+    (path / "README.md").write_text("fixture\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(path), "add", "README.md"], check=True)
+    subprocess.run(["git", "-C", str(path), "commit", "-qm", "fixture"], check=True)
+    return path
+
+
+def test_dirty_protected_vendor_blocks_and_verified_hold_allows_unrelated_audit(tmp_path: Path):
+    vendor = _git_fixture(tmp_path / "vendor")
+    (vendor / "README.md").write_text("held user work\n", encoding="utf-8")
+    blocked = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "audit",
+            "--state-dir",
+            str(tmp_path / "blocked-state"),
+            "--policy",
+            str(POLICY),
+            "--sources",
+            str(SOURCES),
+            "--vendor-path",
+            str(vendor),
+            "--run-id",
+            "vendor-blocked",
+            "--now",
+            "1000",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert blocked.returncode != 0
+    assert json.loads(blocked.stdout)["result"] == "protected_vendor_ambiguous"
+    maintenance = _module()
+    status_digest, _ = maintenance._git_status(vendor)
+    head = maintenance._git(vendor, "rev-parse", "HEAD")
+    hold = {
+        "verified": True,
+        "vendor_identity_digest": maintenance._vendor_identity(vendor),
+        "status_digest": status_digest,
+        "head": head,
+    }
+    report = maintenance.audit_sources(ROOT, protected_vendor=vendor, vendor_hold=hold)
+    assert report["protected_vendor"]["status"] == "held"
+
+
+def test_disposable_candidate_is_clean_base_allowlisted_and_private_data_safe(tmp_path: Path):
+    maintenance = _module()
+    caller_before = subprocess.run(["git", "status", "--porcelain=v1", "--untracked-files=all"], cwd=ROOT, text=True, capture_output=True, check=True).stdout
+    stage = tmp_path / "candidate"
+    candidate = maintenance.stage_candidate(
+        ROOT,
+        stage,
+        allowlist=["docs/stack-maintenance.md"],
+        proposed_files={"docs/stack-maintenance.md": "# candidate\n"},
+        run_readiness_checks=False,
+    )
+    assert candidate["status"] == "changed"
+    assert candidate["base_sha"] == subprocess.run(["git", "rev-parse", "origin/main"], cwd=ROOT, text=True, capture_output=True, check=True).stdout.strip()
+    assert candidate["changed_paths"] == ["docs/stack-maintenance.md"]
+    caller_after = subprocess.run(["git", "status", "--porcelain=v1", "--untracked-files=all"], cwd=ROOT, text=True, capture_output=True, check=True).stdout
+    assert caller_before == caller_after
+    with unittest.TestCase().assertRaisesRegex(maintenance.MaintenanceError, "candidate_private_data"):
+        maintenance.stage_candidate(
+            ROOT,
+            tmp_path / "private-candidate",
+            allowlist=["docs/stack-maintenance.md"],
+            proposed_files={"docs/stack-maintenance.md": "secret /Users/maroun/private\n"},
+            run_readiness_checks=False,
+        )
+    with unittest.TestCase().assertRaisesRegex(maintenance.MaintenanceError, "candidate_path_not_allowlisted"):
+        maintenance.stage_candidate(
+            ROOT,
+            tmp_path / "unallowlisted-candidate",
+            allowlist=["docs/stack-maintenance.md"],
+            proposed_files={"README.md": "unexpected\n"},
+            run_readiness_checks=False,
+        )
+
+
+def test_semantic_json_digest_ignores_observation_only_provenance_fields(tmp_path: Path):
+    maintenance = _module()
+    first = b'{"checked_at":"2026-08-18T00:00:00Z","latest_commit":{"sha":"abc"}}\n'
+    second = b'{"checked_at":"2026-08-19T00:00:00Z","latest_commit":{"sha":"abc"}}\n'
+    assert maintenance.semantic_bytes_digest(first, Path("source.json")) == maintenance.semantic_bytes_digest(second, Path("source.json"))
+
+
 class StackMaintenanceTests(unittest.TestCase):
     """Expose pytest-style scenario functions to the repository unittest gate."""
 

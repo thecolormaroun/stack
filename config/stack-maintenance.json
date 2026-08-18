@@ -1,12 +1,15 @@
 {
   "schema_version": 1,
   "policy_id": "stack-maintenance",
-  "revision": "2026-08-18-u2",
+  "revision": "2026-08-18-u3",
   "allowed_modes": ["audit", "prepare"],
   "legacy_target_ids": [
     "last30days",
     "gstack",
     "compound-engineering",
+    "stack-codex-bundle",
+    "matt-skills",
+    "david-skills",
     "impeccable",
     "emil-design-eng",
     "review-animations",
@@ -65,8 +68,15 @@
     "config/stack-maintenance.json",
     "registry/maintenance-sources.json",
     "registry/stack-maintenance-receipt.schema.json",
+    "registry/upstreams.json",
+    "upstreams.lock.json",
     "scripts/stack-maintenance.py",
     "tests/test_stack_maintenance.py",
+    "tests/test_upstream_packages.py",
+    "tests/test_fresh_clone.py",
+    "registry/capabilities.json",
+    "skills/imported/emil/",
+    "skills/design/review-animations/",
     "docs/stack-maintenance.md"
   ],
   "authority": {

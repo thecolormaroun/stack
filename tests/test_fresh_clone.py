@@ -31,7 +31,10 @@ class FreshCloneTests(unittest.TestCase):
             home.mkdir()
             result = subprocess.run(
                 ["python3", str(clone / "scripts/bootstrap-stack.py"), "--root", str(clone)],
-                text=True, capture_output=True, check=False, env={**os.environ, "HOME": str(home)},
+                text=True,
+                capture_output=True,
+                check=False,
+                env={**os.environ, "HOME": str(home), "PYTHONDONTWRITEBYTECODE": "1"},
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(list(home.iterdir()), [])

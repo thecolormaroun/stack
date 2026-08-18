@@ -83,6 +83,17 @@ def test_policy_inventory_and_schema_are_valid(tmp_path: Path):
     }
 
 
+def test_stack_verification_fetches_origin_main_for_maintenance_tests(tmp_path: Path):
+    workflow = (ROOT / ".github/workflows/security-scan.yml").read_text(encoding="utf-8")
+    stack_verification = workflow.split("  gitleaks:", maxsplit=1)[0]
+    assert (
+        "      - name: Checkout\n"
+        "        uses: actions/checkout@v6\n"
+        "        with:\n"
+        "          fetch-depth: 0\n"
+    ) in stack_verification
+
+
 def test_audit_receipt_is_owner_only_and_fingerprint_ignores_observation_time(tmp_path: Path):
     first = _run(tmp_path / "state", "--run-id", "proof-one", now=1000.0)
     assert first.returncode == 0, first.stderr

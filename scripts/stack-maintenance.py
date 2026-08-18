@@ -3111,6 +3111,8 @@ def run(
     readiness_runner: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """Run deterministic source audit/prepare and return the public receipt."""
+    if manual_audit and mode != "audit":
+        raise PolicyError("manual_recovery_requires_audit")
     run_id_safe = _safe_id(run_id, "run")
     owner_safe = _safe_owner(owner_id or TASK_ID)
     observed_now = time.time() if now is None else float(now)
@@ -3267,15 +3269,7 @@ def run(
                 }
         except MaintenanceError as error:
             receipt = _base_receipt(run_id=run_id_safe, mode=mode, manual_audit=manual_audit, now=observed_now, input_fp=input_fp, provider_refs=refs, policy_digest=policy_digest, catalog_digest=catalog_digest)
-            if error.code in {
-                "protected_vendor_ambiguous",
-                "protected_vendor_missing",
-                "protected_vendor_unreadable",
-                "origin_mismatch",
-                "origin_main_missing",
-                "origin_main_invalid",
-                "caller_not_repository",
-            }:
+            if error.retry_class == "non_transient":
                 receipt = _record_blocker(
                     paths,
                     policy=policy,
@@ -3284,7 +3278,11 @@ def run(
                     input_fp=input_fp,
                     run_id=run_id_safe,
                     now=observed_now,
+                    retry_class=error.retry_class,
                 )
+                stage_present = bool(stage_dir is not None and Path(stage_dir).exists())
+                receipt["checks"]["disposable_stage_not_created"] = not stage_present
+                receipt["checks"]["candidate_stage_retained"] = stage_present
             else:
                 receipt["terminal_classification"] = "failed"
                 receipt["result"] = error.code
@@ -3421,6 +3419,8 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     try:
         if args.mode is not None and args.mode_option is not None and args.mode != args.mode_option:
             raise PolicyError("conflicting_mode_arguments")
+        if mode != "audit" and (args.manual_audit or args.clear_circuit):
+            raise PolicyError("manual_recovery_requires_audit")
         if mode != "prepare" and (args.audit_receipt is not None or args.proposal_dir is not None):
             raise PolicyError("proposal_inputs_require_prepare")
         if mode == "prepare" and (

@@ -151,9 +151,12 @@ active lease or live lock produces `blocked` with `duplicate_active_run` and
 performs no disposable write. After the prior process exits, an expired lease
 is recoverable only when both its owner and input fingerprint match; a mismatch
 remains `blocked` with `stale_lease_mismatch` until an explicit
-`--manual-audit` validates recovery.
+`audit --manual-audit` validates recovery. Manual recovery flags are rejected
+in `prepare` mode, so recovery cannot cross into materialization or GitHub
+mutation before a successful audit re-establishes the safety baseline.
 Three consecutive non-transient blockers with the same fingerprint open the
-local circuit. Scheduled invocations exit cheaply with `circuit_open`; a
+local circuit, including persistent import, license, deletion, and candidate
+staging failures. Scheduled invocations exit cheaply with `circuit_open`; a
 successful manual audit clears the circuit and appends a new receipt without
 rewriting prior records.
 

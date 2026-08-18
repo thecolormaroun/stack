@@ -246,9 +246,14 @@ def source_metadata_json(*, source: str, source_path: str, commit: str, files: l
     ).encode("utf-8")
 
 
-def discover_targets(stage: Path, rule: Mapping[str, Any], expected_pin: str) -> list[tuple[Path, Path]]:
+def discover_targets(
+    stage: Path,
+    rule: Mapping[str, Any],
+    expected_pin: str,
+    retained_targets: Mapping[tuple[Path, Path], str],
+) -> list[tuple[Path, Path, str]]:
     mapping = rule.get("mapping")
-    targets: list[tuple[Path, Path]] = []
+    targets: list[tuple[Path, Path, str]] = []
     if mapping == "explicit-source-json":
         rows = rule.get("targets")
         if not isinstance(rows, list):
@@ -256,7 +261,11 @@ def discover_targets(stage: Path, rule: Mapping[str, Any], expected_pin: str) ->
         for row in rows:
             if not isinstance(row, Mapping):
                 raise ProposalError("import_rule_invalid")
-            targets.append((safe_relative(str(row.get("source", ""))), safe_relative(str(row.get("target", "")))))
+            targets.append((
+                safe_relative(str(row.get("source", ""))),
+                safe_relative(str(row.get("target", ""))),
+                expected_pin,
+            ))
         return targets
     if mapping != "existing-source-markdown":
         raise ProposalError("import_rule_invalid")
@@ -271,9 +280,18 @@ def discover_targets(stage: Path, rule: Mapping[str, Any], expected_pin: str) ->
         metadata = (target / metadata_path).read_text(encoding="utf-8")
         source_match = SOURCE_PATH_LINE.search(metadata)
         commit_match = SOURCE_COMMIT_LINE.search(metadata)
-        if source_match is None or commit_match is None or commit_match.group(1) != expected_pin:
+        if source_match is None or commit_match is None:
             raise ProposalError("import_metadata_invalid")
-        targets.append((safe_relative(source_match.group(1)), target.relative_to(stage)))
+        source_relative = safe_relative(source_match.group(1))
+        target_relative = target.relative_to(stage)
+        inspected_pin = commit_match.group(1)
+        allowed_pins = {expected_pin}
+        retained_pin = retained_targets.get((source_relative, target_relative))
+        if retained_pin is not None:
+            allowed_pins.add(retained_pin)
+        if inspected_pin not in allowed_pins:
+            raise ProposalError("import_metadata_invalid")
+        targets.append((source_relative, target_relative, inspected_pin))
     if not targets:
         raise ProposalError("import_targets_missing")
     return targets
@@ -303,12 +321,17 @@ def materialize_provider(stage: Path, checkout: Path, provider: dict[str, Any], 
     ):
         raise ProposalError("import_rule_invalid")
     retained_files = {safe_relative(str(path)) for path in retained_file_rows}
-    for source_relative, target_relative in discover_targets(stage, rule, str(provider["pin"]["value"])):
+    for source_relative, target_relative, inspected_pin in discover_targets(
+        stage,
+        rule,
+        str(provider["pin"]["value"]),
+        retained_targets,
+    ):
         source_root = checkout / source_relative
         target_root = stage / target_relative
         if not source_root.is_dir():
             retained_pin = retained_targets.get((source_relative, target_relative))
-            if retained_pin != provider["pin"]["value"] or not target_root.is_dir():
+            if retained_pin is None or inspected_pin != retained_pin or not target_root.is_dir():
                 raise ProposalError("mapped_skill_missing")
             continue
         if not target_root.is_dir():

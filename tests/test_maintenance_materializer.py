@@ -121,6 +121,55 @@ class MaintenanceMaterializerTests(unittest.TestCase):
             with self.assertRaisesRegex(materializer.ProposalError, "upstream_deletion_requires_approval"):
                 materializer.materialize_provider(stage, checkout, provider, rule, "b" * 40)
 
+    def test_retained_target_uses_its_own_pin_after_provider_advances(self) -> None:
+        import tempfile
+
+        materializer = _module()
+        with tempfile.TemporaryDirectory() as temporary:
+            temporary_root = Path(temporary)
+            stage = temporary_root / "stage"
+            checkout = temporary_root / "checkout"
+            target = stage / "skills/imported/matt/matt-writing-great-skills"
+            (target / "references").mkdir(parents=True)
+            checkout.mkdir()
+            (checkout / "LICENSE").write_text(
+                "MIT License\nPermission is hereby granted, free of charge\n",
+                encoding="utf-8",
+            )
+            retained_pin = "a" * 40
+            (target / "SKILL.md").write_text("retained\n", encoding="utf-8")
+            (target / "references/source.md").write_text(
+                "\n".join([
+                    "- Upstream path: `skills/productivity/writing-great-skills`",
+                    f"- Inspected commit: `{retained_pin}`",
+                ]),
+                encoding="utf-8",
+            )
+            provider = {
+                "id": "matt",
+                "canonical_source": "https://github.com/mattpocock/skills.git",
+                "pin": {"type": "git-commit", "value": "b" * 40},
+            }
+            rule = {
+                "id": "matt",
+                "display_name": "Matt Pocock",
+                "target_root": "skills/imported/matt",
+                "target_prefix": "matt-",
+                "mapping": "existing-source-markdown",
+                "source_metadata": "references/source.md",
+                "license": "MIT",
+                "retained_targets": [{
+                    "source": "skills/productivity/writing-great-skills",
+                    "target": "skills/imported/matt/matt-writing-great-skills",
+                    "pin": retained_pin,
+                }],
+            }
+
+            self.assertEqual(
+                materializer.materialize_provider(stage, checkout, provider, rule, "c" * 40),
+                {},
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

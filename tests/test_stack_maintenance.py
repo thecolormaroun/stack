@@ -288,6 +288,42 @@ def test_failed_manual_audit_does_not_clear_open_circuit(tmp_path: Path):
     assert json.loads((state / "stack-maintenance.circuit.json").read_text())["open"] is True
 
 
+def test_non_transient_proposal_failures_open_circuit(tmp_path: Path):
+    maintenance = _module()
+    base_sha = maintenance._git(ROOT, "rev-parse", "origin/main")
+    state = tmp_path / "state"
+    checks = {
+        "source_audit": {"checkout": {"base_sha": base_sha}},
+        "source_updates_available": True,
+        "caller_checkout": {"status": "clean", "base_sha": base_sha, "head_sha": base_sha},
+    }
+    with (
+        mock.patch.object(maintenance, "_preflight", return_value=checks),
+        mock.patch.object(
+            maintenance,
+            "materialize_proposal_from_receipt",
+            side_effect=maintenance.MaintenanceError("mapped_skill_missing", "non_transient"),
+        ),
+    ):
+        for index in range(3):
+            receipt = maintenance.run(
+                mode="prepare",
+                state_dir=state,
+                run_id=f"proposal-failure-{index}",
+                owner_id="test-owner",
+                now=1000.0 + index,
+                stage_dir=tmp_path / f"stage-{index}",
+                root=ROOT,
+                audit_receipt_path=tmp_path / "audit-receipt.json",
+                proposal_dir=tmp_path / f"proposal-{index}",
+            )
+            assert receipt["terminal_classification"] == "blocked"
+            assert receipt["result"] == "mapped_skill_missing"
+    circuit = json.loads((state / "stack-maintenance.circuit.json").read_text())
+    assert circuit["open"] is True
+    assert circuit["strike_count"] == 3
+
+
 def test_success_resets_closed_circuit_strikes(tmp_path: Path):
     state = tmp_path / "state"
     _write_lease(state, owner="different-owner", fingerprint="same-input", expires_at=900.0)
@@ -781,6 +817,42 @@ def test_cli_rejects_external_proposal_manifest_before_any_write(tmp_path: Path)
     assert "unrecognized arguments: --proposal-manifest" in result.stderr
     assert not state.exists()
     assert not stage.exists()
+
+
+def test_manual_recovery_flags_are_rejected_for_prepare(tmp_path: Path):
+    for flag in ("--manual-audit", "--clear-circuit"):
+        state = tmp_path / flag.removeprefix("--")
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT),
+                "prepare",
+                "--state-dir",
+                str(state),
+                "--audit-receipt",
+                str(tmp_path / "audit-receipt.json"),
+                "--proposal-dir",
+                str(tmp_path / "proposal"),
+                "--stage-dir",
+                str(tmp_path / "stage"),
+                flag,
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode != 0
+        assert json.loads(result.stderr)["error_code"] == "manual_recovery_requires_audit"
+        assert not state.exists()
+
+
+def test_embedded_prepare_rejects_manual_recovery_before_state_write(tmp_path: Path):
+    maintenance = _module()
+    state = tmp_path / "state"
+    with unittest.TestCase().assertRaisesRegex(maintenance.PolicyError, "manual_recovery_requires_audit"):
+        maintenance.run(mode="prepare", state_dir=state, manual_audit=True)
+    assert not state.exists()
 
 
 def test_blocked_receipt_stays_visible(tmp_path: Path):

@@ -144,11 +144,14 @@ Observation time is receipt metadata only and is excluded from the input
 fingerprint, so repeated unchanged runs do not create timestamp-driven input
 churn.
 
-One task-scoped lease protects the source, runtime, and PR lane. An active
-lease produces `blocked` with `duplicate_active_run` and performs no
-disposable write. An expired lease is recoverable only when both its owner and
-input fingerprint match; a mismatch remains `blocked` with
-`stale_lease_mismatch` until an explicit `--manual-audit` validates recovery.
+One task-scoped lease and a kernel-backed liveness lock protect the source,
+runtime, and PR lane. The lock is held for the complete process lifetime, so a
+long run cannot be displaced merely because the lease timestamp expires. An
+active lease or live lock produces `blocked` with `duplicate_active_run` and
+performs no disposable write. After the prior process exits, an expired lease
+is recoverable only when both its owner and input fingerprint match; a mismatch
+remains `blocked` with `stale_lease_mismatch` until an explicit
+`--manual-audit` validates recovery.
 Three consecutive non-transient blockers with the same fingerprint open the
 local circuit. Scheduled invocations exit cheaply with `circuit_open`; a
 successful manual audit clears the circuit and appends a new receipt without
@@ -224,11 +227,15 @@ local readiness checks while the stage is clean before calling the injected
 GitHub boundary.
 
 Exactly one safe open candidate is reused; no candidate creates one draft PR.
-Multiple candidates, a branch without its PR, unexpected lineage, a changed
-remote head, an unrelated path, or a missing marker blocks before remote
-mutation. Optional labels do not participate in identity or convergence. The
-adapter never force-pushes or targets `main`. If push or PR creation fails, the
-receipt is `partial` and the stage remains available for recovery.
+If a successful canonical-branch push is followed by a transient PR-creation
+failure, the next run resumes PR creation only after proving the branch's base,
+single-commit ancestry, changed-path digest, and blob-content digest against
+the regenerated or retained candidate. Multiple candidates, an unverifiable
+branch without its PR, unexpected lineage, a changed remote head, an unrelated
+path, or a missing marker blocks before remote mutation. Optional labels do not
+participate in identity or convergence. The adapter never force-pushes or
+targets `main`. If push or PR creation fails, the receipt is `partial` and the
+stage remains available for recovery.
 
 ## U5 protected vendor hold
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as _datetime
+import fcntl
 import hashlib
 import json
 import os
@@ -1702,6 +1703,76 @@ def _commit_candidate(
     }
 
 
+def _load_or_commit_candidate(
+    stage_dir: Path,
+    *,
+    base_sha: str,
+    branch: str,
+    allowlist: Iterable[str],
+    expected_changed_paths_digest: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Load a retained candidate commit or create it from a fresh stage."""
+    if _git(stage_dir, "rev-parse", "HEAD") == base_sha:
+        return _commit_candidate(
+            stage_dir,
+            base_sha=base_sha,
+            branch=branch,
+            allowlist=allowlist,
+            expected_changed_paths_digest=expected_changed_paths_digest,
+        )
+    if _git(stage_dir, "rev-parse", "--abbrev-ref", "HEAD") != branch:
+        raise MaintenanceError("candidate_branch_mismatch", "non_transient")
+    metadata = _assert_expected_commit_ancestry(stage_dir, base_sha=base_sha)
+    paths = _candidate_changed_paths(stage_dir, base_sha)
+    if not paths or any(not _allowlisted_path(Path(path), allowlist) for path in paths):
+        raise MaintenanceError("candidate_diff_not_allowlisted", "non_transient")
+    changed_paths_digest = digest(paths)
+    if expected_changed_paths_digest is not None and changed_paths_digest != expected_changed_paths_digest:
+        raise MaintenanceError("changed_paths_digest_mismatch", "non_transient")
+    return {
+        "status": "changed",
+        "base_sha": base_sha,
+        **metadata,
+        "changed_paths": paths,
+        "changed_paths_digest": changed_paths_digest,
+        "candidate_content_digest": _candidate_content_digest(stage_dir, paths),
+    }
+
+
+def _verify_remote_candidate_branch(
+    remote_branch: Mapping[str, Any],
+    remote_comparison: Mapping[str, Any],
+    *,
+    base_sha: str,
+    changed_paths_digest: str,
+    candidate_content_digest: str,
+) -> Dict[str, Any]:
+    """Prove an orphaned canonical branch is the exact generated candidate."""
+    remote_sha = _record_value(remote_branch, "head_sha", "headSha", "sha", "object_sha", "objectSha")
+    if not isinstance(remote_sha, str) or SHA1_PATTERN.fullmatch(remote_sha) is None:
+        raise MaintenanceError("canonical_remote_head_changed", "non_transient")
+    merge_base_sha = _record_value(remote_comparison, "merge_base_sha", "mergeBaseSha")
+    ahead_by = _record_value(remote_comparison, "ahead_by", "aheadBy")
+    remote_paths = _record_value(remote_comparison, "changed_paths", "changedPaths")
+    if merge_base_sha != base_sha:
+        raise MaintenanceError("canonical_remote_ancestry_invalid", "non_transient")
+    if ahead_by != 1:
+        raise MaintenanceError("canonical_commit_count_invalid", "non_transient")
+    if not isinstance(remote_paths, list) or not all(isinstance(path, str) for path in remote_paths):
+        raise MaintenanceError("canonical_remote_diff_invalid", "non_transient")
+    remote_paths_digest = digest(sorted({_candidate_path(path).as_posix() for path in remote_paths}))
+    if remote_paths_digest != changed_paths_digest:
+        raise MaintenanceError("canonical_changed_paths_digest_mismatch", "non_transient")
+    remote_content_digest = _record_value(remote_comparison, "changed_content_digest", "changedContentDigest")
+    if remote_content_digest != candidate_content_digest:
+        raise MaintenanceError("canonical_remote_content_mismatch", "non_transient")
+    return {
+        "head_sha": remote_sha,
+        "changed_paths_digest": remote_paths_digest,
+        "candidate_content_digest": remote_content_digest,
+    }
+
+
 def _pr_marker_body(
     *,
     marker: str,
@@ -2184,13 +2255,122 @@ def prepare_canonical_pr(
                 changed_paths_digest=safe["changed_paths_digest"],
             )
         if remote is not None:
+            if stage_dir is None:
+                return _lane_result(
+                    classification="blocked",
+                    result="canonical_branch_without_pr",
+                    reason="canonical_branch_without_pr",
+                    pr_state={"status": "blocked"},
+                    checks={"remote_mutation_started": False, "remote_branch_present": True},
+                    changed_paths_digest=expected_changed_paths_digest or digest([]),
+                )
+            local = _load_or_commit_candidate(
+                Path(stage_dir),
+                base_sha=base_sha,
+                branch=branch,
+                allowlist=allowlist,
+                expected_changed_paths_digest=expected_changed_paths_digest,
+            )
+            if (
+                expected_candidate_content_digest is not None
+                and local["candidate_content_digest"] != expected_candidate_content_digest
+            ):
+                raise MaintenanceError("candidate_content_digest_mismatch", "non_transient")
+            remote_head = _record_value(remote, "head_sha", "headSha", "sha", "object_sha", "objectSha")
+            if not isinstance(remote_head, str) or SHA1_PATTERN.fullmatch(remote_head) is None:
+                raise MaintenanceError("canonical_remote_head_changed", "non_transient")
+            comparison = _gateway_call(github, "compare_candidate", repository, base_sha, remote_head)
+            if not isinstance(comparison, Mapping):
+                raise MaintenanceError("canonical_remote_comparison_missing", "non_transient")
+            verified_remote = _verify_remote_candidate_branch(
+                remote,
+                comparison,
+                base_sha=base_sha,
+                changed_paths_digest=local["changed_paths_digest"],
+                candidate_content_digest=local["candidate_content_digest"],
+            )
+            readiness = _run_pr_readiness(Path(stage_dir), readiness_runner=readiness_runner)
+            body = _pr_marker_body(
+                marker=marker,
+                base_sha=base_sha,
+                input_fingerprint_value=input_fingerprint_value,
+                changed_paths_digest=local["changed_paths_digest"],
+                candidate_content_digest=local["candidate_content_digest"],
+                commits=[verified_remote["head_sha"]],
+            )
+            if _private_data_in_bytes(body.encode("utf-8")):
+                raise MaintenanceError("candidate_private_data", "non_transient")
+            try:
+                created = _gateway_call(
+                    github,
+                    "create_draft_pr",
+                    repository,
+                    branch,
+                    "chore: prepare Stack maintenance candidate",
+                    body,
+                    labels=labels,
+                )
+            except MaintenanceError as error:
+                return _lane_result(
+                    classification="partial",
+                    result="github_pr_create_failed",
+                    reason=error.code,
+                    pr_state={
+                        "status": "branch_pushed",
+                        "head_sha": verified_remote["head_sha"],
+                        "base_sha": base_sha,
+                        "candidate_content_digest": local["candidate_content_digest"],
+                    },
+                    checks={
+                        "readiness": readiness,
+                        "remote_mutation_started": True,
+                        "branch_pushed": True,
+                        "pr_created": False,
+                        "remote_candidate_verified": True,
+                        "recoverable_stage": True,
+                    },
+                    changed_paths_digest=local["changed_paths_digest"],
+                    stage_retained=True,
+                )
+            if not isinstance(created, Mapping):
+                raise MaintenanceError("github_pr_create_result_invalid", "transient")
             return _lane_result(
-                classification="blocked",
-                result="canonical_branch_without_pr",
-                reason="canonical_branch_without_pr",
-                pr_state={"status": "blocked"},
-                checks={"remote_mutation_started": False, "remote_branch_present": True},
-                changed_paths_digest=expected_changed_paths_digest or digest([]),
+                classification="prepared",
+                result="draft_pr_resumed",
+                reason=None,
+                pr_state={
+                    "status": "created",
+                    "number": _record_value(created, "number", "id"),
+                    "url": _record_value(created, "url", "html_url", "htmlUrl"),
+                    "branch": branch,
+                    "marker": marker,
+                    "base_sha": base_sha,
+                    "head_sha": verified_remote["head_sha"],
+                    "changed_paths_digest": local["changed_paths_digest"],
+                    "candidate_content_digest": local["candidate_content_digest"],
+                    "commit_count": 1,
+                },
+                checks={
+                    "readiness": readiness,
+                    "canonical_candidate_count": 0,
+                    "lineage_verified": True,
+                    "base_sha_verified": True,
+                    "remote_head_verified": True,
+                    "remote_ancestry_verified": True,
+                    "remote_diff_verified": True,
+                    "remote_content_verified": True,
+                    "remote_candidate_verified": True,
+                    "expected_commit_count": 1,
+                    "allowlist_verified": True,
+                    "changed_paths_digest_verified": True,
+                    "candidate_content_digest_verified": True,
+                    "remote_mutation_started": True,
+                    "branch_pushed": True,
+                    "pr_created": True,
+                    "optional_labels_missing": not bool(_record_value(created, "labels")),
+                },
+                changed_paths_digest=local["changed_paths_digest"],
+                stage_retained=True,
             )
         if stage_dir is None:
             return _lane_result(
@@ -2201,7 +2381,7 @@ def prepare_canonical_pr(
                 checks={"remote_mutation_started": False},
                 changed_paths_digest=digest([]),
             )
-        local = _commit_candidate(
+        local = _load_or_commit_candidate(
             Path(stage_dir),
             base_sha=base_sha,
             branch=branch,
@@ -2429,6 +2609,7 @@ def _state_paths(state_dir: Path, policy: Optional[Mapping[str, Any]] = None) ->
         "root": state_dir,
         "receipts": state_dir / str(receipts_name),
         "lease": state_dir / str(lease_name),
+        "lock": state_dir / f"{lease_name}.lock",
         "circuit": state_dir / str(circuit_name),
     }
 
@@ -2554,46 +2735,106 @@ def _lease_payload(run_id: str, owner_id: str, fingerprint: str, now: float, sec
     }
 
 
-def acquire_lease(paths: Mapping[str, Path], *, run_id: str, owner_id: str, input_fp: str, now: float, lease_seconds: int, manual_audit: bool = False) -> Dict[str, Any]:
-    """Acquire one task lease, recovering only a proven stale owner/input."""
-    lease_path = paths["lease"]
-    candidate = _lease_payload(run_id, owner_id, input_fp, now, lease_seconds)
-    if _write_new_json(lease_path, candidate, 0o600):
-        return {"status": "acquired", "recovered": False, "manual_validated": False}
-    existing = _read_state(lease_path)
-    if not existing or existing.get("task_id") != TASK_ID:
-        raise MaintenanceError("lease_record_invalid", "non_transient")
+def _acquire_execution_lock(path: Path) -> Optional[int]:
+    """Hold one kernel-backed liveness lock for the complete run."""
+    flags = os.O_RDWR | os.O_CREAT
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
     try:
-        expires_at = float(existing["expires_at"])
-    except (KeyError, TypeError, ValueError):
-        raise MaintenanceError("lease_record_invalid", "non_transient")
-    if expires_at > now:
-        return {"status": "active", "lease": existing, "recovered": False, "manual_validated": False}
-    owner_matches = existing.get("owner_id") == owner_id
-    input_matches = existing.get("input_fingerprint") == input_fp
-    if not (owner_matches and input_matches) and not manual_audit:
-        return {"status": "stale_mismatch", "lease": existing, "recovered": False, "manual_validated": False}
-    try:
-        _assert_secure_state_file(lease_path)
-        lease_path.unlink()
+        descriptor = os.open(str(path), flags, 0o600)
     except OSError:
-        raise StateInitializationError("stale_lease_recovery_failed")
-    if not _write_new_json(lease_path, candidate, 0o600):
-        return {"status": "active", "lease": _read_state(lease_path), "recovered": False, "manual_validated": False}
-    return {"status": "acquired", "recovered": True, "manual_validated": not (owner_matches and input_matches)}
+        raise StateInitializationError("state_lock_failed")
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o077:
+            raise StateInitializationError("state_lock_permissions_unsafe")
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            os.close(descriptor)
+            return None
+        return descriptor
+    except Exception:
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+        raise
 
 
-def release_lease(paths: Mapping[str, Path], *, run_id: str, owner_id: str) -> None:
-    lease_path = paths["lease"]
-    if not lease_path.exists():
+def _release_execution_lock(descriptor: Optional[int]) -> None:
+    if descriptor is None:
         return
     try:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+    except OSError:
+        pass
+    finally:
+        os.close(descriptor)
+
+
+def acquire_lease(paths: Mapping[str, Path], *, run_id: str, owner_id: str, input_fp: str, now: float, lease_seconds: int, manual_audit: bool = False) -> Dict[str, Any]:
+    """Acquire one task lease plus a process-liveness lock."""
+    lock_fd = _acquire_execution_lock(paths["lock"])
+    if lock_fd is None:
+        return {
+            "status": "active",
+            "liveness": "locked",
+            "recovered": False,
+            "manual_validated": False,
+        }
+    lease_path = paths["lease"]
+    candidate = _lease_payload(run_id, owner_id, input_fp, now, lease_seconds)
+    try:
+        if _write_new_json(lease_path, candidate, 0o600):
+            return {"status": "acquired", "recovered": False, "manual_validated": False, "lock_fd": lock_fd}
+        existing = _read_state(lease_path)
+        if not existing or existing.get("task_id") != TASK_ID:
+            raise MaintenanceError("lease_record_invalid", "non_transient")
+        try:
+            expires_at = float(existing["expires_at"])
+        except (KeyError, TypeError, ValueError):
+            raise MaintenanceError("lease_record_invalid", "non_transient")
+        if expires_at > now:
+            _release_execution_lock(lock_fd)
+            return {"status": "active", "lease": existing, "recovered": False, "manual_validated": False}
+        owner_matches = existing.get("owner_id") == owner_id
+        input_matches = existing.get("input_fingerprint") == input_fp
+        if not (owner_matches and input_matches) and not manual_audit:
+            _release_execution_lock(lock_fd)
+            return {"status": "stale_mismatch", "lease": existing, "recovered": False, "manual_validated": False}
+        try:
+            _assert_secure_state_file(lease_path)
+            lease_path.unlink()
+        except OSError:
+            raise StateInitializationError("stale_lease_recovery_failed")
+        if not _write_new_json(lease_path, candidate, 0o600):
+            _release_execution_lock(lock_fd)
+            return {"status": "active", "lease": _read_state(lease_path), "recovered": False, "manual_validated": False}
+        return {
+            "status": "acquired",
+            "recovered": True,
+            "manual_validated": not (owner_matches and input_matches),
+            "lock_fd": lock_fd,
+        }
+    except Exception:
+        _release_execution_lock(lock_fd)
+        raise
+
+
+def release_lease(paths: Mapping[str, Path], *, run_id: str, owner_id: str, lock_fd: Optional[int] = None) -> None:
+    lease_path = paths["lease"]
+    try:
+        if not lease_path.exists():
+            return
         lease = _read_state(lease_path)
         if lease and lease.get("task_id") == TASK_ID and lease.get("run_id") == run_id and lease.get("owner_id") == owner_id:
             _assert_secure_state_file(lease_path)
             lease_path.unlink()
     except FileNotFoundError:
         return
+    finally:
+        _release_execution_lock(lock_fd)
 
 
 def _default_circuit() -> Dict[str, Any]:
@@ -3131,7 +3372,7 @@ def run(
             receipt["manual_audit_cleared"] = True
         return _safe_append(paths, receipt)
     finally:
-        release_lease(paths, run_id=run_id_safe, owner_id=owner_safe)
+        release_lease(paths, run_id=run_id_safe, owner_id=owner_safe, lock_fd=lease.get("lock_fd"))
 
 
 def _failure_record(run_id: str, code: str) -> Dict[str, Any]:

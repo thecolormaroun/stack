@@ -201,6 +201,39 @@ def test_duplicate_active_lease_is_blocked_without_stage_write(tmp_path: Path):
     assert (state / "stack-maintenance.lease.json").exists()
 
 
+def test_live_execution_lock_blocks_recovery_after_lease_expiry(tmp_path: Path):
+    maintenance = _module()
+    paths = maintenance.initialize_state_dir(tmp_path / "state")
+    first = maintenance.acquire_lease(
+        paths,
+        run_id="first-run",
+        owner_id="same-owner",
+        input_fp="same-input",
+        now=1000.0,
+        lease_seconds=600,
+    )
+    try:
+        second = maintenance.acquire_lease(
+            paths,
+            run_id="second-run",
+            owner_id="same-owner",
+            input_fp="same-input",
+            now=2000.0,
+            lease_seconds=600,
+        )
+        assert second["status"] == "active"
+        assert second["liveness"] == "locked"
+    finally:
+        maintenance.release_lease(
+            paths,
+            run_id="first-run",
+            owner_id="same-owner",
+            lock_fd=first.get("lock_fd"),
+        )
+    assert paths["lock"].is_file()
+    assert stat.S_IMODE(paths["lock"].stat().st_mode) == 0o600
+
+
 def test_stale_lease_mismatch_requires_manual_audit_then_recovers(tmp_path: Path):
     state = tmp_path / "state"
     maintenance = _module()
@@ -1034,7 +1067,73 @@ def test_canonical_lane_pr_create_failure_records_remote_branch_and_retains_stag
     assert stage.exists()
 
 
-def test_blocked_pr_lane_increments_circuit(tmp_path: Path):
+def test_canonical_lane_resumes_pr_creation_for_verified_remote_branch(tmp_path: Path):
+    maintenance, root, stage, base = _candidate_fixture(tmp_path)
+    github = _FakeGitHub(maintenance, create_error="github_pr_create_failed")
+    failed = _lane(maintenance, root, stage, base, github)
+    assert failed["terminal_classification"] == "partial"
+
+    retry_stage = tmp_path / "retry-stage"
+    maintenance.stage_candidate(
+        root,
+        retry_stage,
+        base_sha=base,
+        allowlist=["docs/candidate.md"],
+        proposed_files={"docs/candidate.md": "candidate\n"},
+        run_readiness_checks=False,
+    )
+    github.create_error = None
+    resumed = _lane(maintenance, root, retry_stage, base, github)
+
+    assert resumed["terminal_classification"] == "prepared"
+    assert resumed["result"] == "draft_pr_resumed"
+    assert resumed["checks"]["remote_candidate_verified"] is True
+    assert github.push_calls == 1
+    assert github.create_calls == 2
+
+
+def test_canonical_lane_resumes_pr_creation_from_retained_candidate_stage(tmp_path: Path):
+    maintenance, root, stage, base = _candidate_fixture(tmp_path)
+    github = _FakeGitHub(maintenance, create_error="github_pr_create_failed")
+    failed = _lane(maintenance, root, stage, base, github)
+    assert failed["terminal_classification"] == "partial"
+
+    github.create_error = None
+    resumed = _lane(maintenance, root, stage, base, github)
+
+    assert resumed["terminal_classification"] == "prepared"
+    assert resumed["result"] == "draft_pr_resumed"
+    assert resumed["checks"]["remote_candidate_verified"] is True
+    assert github.push_calls == 1
+    assert github.create_calls == 2
+
+
+def test_canonical_lane_blocks_unverified_remote_branch_without_pr(tmp_path: Path):
+    maintenance, root, stage, base = _candidate_fixture(tmp_path)
+    github = _FakeGitHub(maintenance, create_error="github_pr_create_failed")
+    failed = _lane(maintenance, root, stage, base, github)
+    assert failed["terminal_classification"] == "partial"
+
+    retry_stage = tmp_path / "retry-stage"
+    maintenance.stage_candidate(
+        root,
+        retry_stage,
+        base_sha=base,
+        allowlist=["docs/candidate.md"],
+        proposed_files={"docs/candidate.md": "candidate\n"},
+        run_readiness_checks=False,
+    )
+    github.remote_content_digest = "f" * 64
+    github.create_error = None
+    blocked = _lane(maintenance, root, retry_stage, base, github)
+
+    assert blocked["terminal_classification"] == "blocked"
+    assert blocked["result"] == "canonical_remote_content_mismatch"
+    assert github.push_calls == 1
+    assert github.create_calls == 1
+
+
+def test_unverified_orphan_branch_increments_circuit(tmp_path: Path):
     maintenance = _module()
     github = _FakeGitHub(maintenance)
     github.remote = {"sha": "e" * 40}
@@ -1067,7 +1166,7 @@ def test_blocked_pr_lane_increments_circuit(tmp_path: Path):
             readiness_runner=lambda _stage: {"status": "passed", "checks": ["fixture-gate"]},
         )
     assert receipt["terminal_classification"] == "blocked"
-    assert receipt["result"] == "canonical_branch_without_pr"
+    assert receipt["result"] == "canonical_changed_paths_digest_mismatch"
     circuit = json.loads((tmp_path / "state/stack-maintenance.circuit.json").read_text())
     assert circuit["strike_count"] == 1
     assert circuit["blocker_fingerprint"] is not None

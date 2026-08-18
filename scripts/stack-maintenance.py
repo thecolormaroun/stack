@@ -1173,13 +1173,14 @@ def stage_candidate(
         destination = stage_dir / relative
         _assert_no_symlinks(stage_dir, relative, allow_missing=True)
         current = destination.read_bytes() if destination.is_file() and not destination.is_symlink() else None
-        if current is not None and semantic_bytes_digest(current, relative) == semantic_bytes_digest(data, relative):
+        content_digest = semantic_bytes_digest(data, relative)
+        if current is not None and semantic_bytes_digest(current, relative) == content_digest:
             continue
         destination.parent.mkdir(parents=True, exist_ok=True)
         if destination.exists() and not destination.is_file():
             raise MaintenanceError("candidate_destination_invalid", "non_transient")
         destination.write_bytes(data)
-        changed.append({"path": relative.as_posix(), "digest": semantic_bytes_digest(data, relative)})
+        changed.append({"path": relative.as_posix(), "digest": content_digest})
 
     final_status_digest, final_status_lines = _git_status(stage_dir)
     _assert_tree_no_symlinks(stage_dir)
@@ -1194,7 +1195,6 @@ def stage_candidate(
     readiness = {"status": "not_run", "checks": []}
     if run_readiness_checks:
         readiness = run_candidate_readiness(stage_dir)
-    changed_digest = digest(sorted(item["path"] for item in changed))
     return {
         "status": "changed" if final_relative else "no_action",
         "base_sha": base_sha,
@@ -1563,8 +1563,7 @@ class GitHubCommandBoundary:
     use ``git add -A``, force-push, or push ``main``.
     """
 
-    def __init__(self, repository: str, *, root: Optional[Path] = None, command_runner: Any = subprocess.run) -> None:
-        self.repository = repository
+    def __init__(self, *, root: Optional[Path] = None, command_runner: Any = subprocess.run) -> None:
         self.root = Path(root or ROOT)
         self.command_runner = command_runner
 
@@ -1589,6 +1588,8 @@ class GitHubCommandBoundary:
                 "open",
                 "--head",
                 branch,
+                "--limit",
+                "2",
                 "--json",
                 "number,headRefName,baseRefName,headRefOid,baseRefOid,isDraft,body,labels,url,commits",
             ],
@@ -1627,23 +1628,15 @@ class GitHubCommandBoundary:
         repository: str,
         branch: str,
         stage_dir: Path,
-        *,
-        expected_remote_head: Optional[str] = None,
     ) -> Mapping[str, Any]:
         if branch in {"main", "master"} or not BRANCH_PATTERN.fullmatch(branch):
             raise MaintenanceError("push_protected_branch", "non_transient")
         remote_url = _git(self.root, "remote", "get-url", "origin")
         _git_mutate(stage_dir, "remote", "set-url", "origin", remote_url, error_code="candidate_remote_config_failed")
-        if expected_remote_head is None:
-            arguments = ["push", "--set-upstream", "origin", f"refs/heads/{branch}:refs/heads/{branch}"]
-        else:
-            # A non-force push is the only permitted update shape.  The
-            # expected remote SHA is checked by the caller before this call;
-            # ``--force`` and ref deletion are intentionally impossible here.
-            arguments = ["push", "--set-upstream", "origin", f"refs/heads/{branch}:refs/heads/{branch}"]
+        arguments = ["push", "--set-upstream", "origin", f"refs/heads/{branch}:refs/heads/{branch}"]
         _git_mutate(stage_dir, *arguments, error_code="github_push_failed")
         head = _git(stage_dir, "rev-parse", "HEAD")
-        return {"branch": branch, "head_sha": head, "expected_remote_head": expected_remote_head}
+        return {"branch": branch, "head_sha": head}
 
     def create_draft_pr(self, repository: str, branch: str, title: str, body: str, *, labels: Optional[list[str]] = None) -> Mapping[str, Any]:
         command = ["gh", "pr", "create", "--repo", repository, "--draft", "--base", "main", "--head", branch, "--title", title, "--body", body]
@@ -1858,7 +1851,6 @@ def prepare_canonical_pr(
             repository,
             branch,
             Path(stage_dir),
-            expected_remote_head=None,
         )
         if not isinstance(pushed, Mapping):
             raise MaintenanceError("github_push_result_invalid", "transient")
@@ -1949,6 +1941,7 @@ def audit_sources(
     provider_checkouts: Optional[Mapping[str, Path]] = None,
     observe_remotes: bool = False,
     observed_refs: Optional[Mapping[str, str]] = None,
+    upstream_metadata: Optional[tuple[Mapping[str, Any], Mapping[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Audit all declared sources with no writes outside caller-provided stage."""
     root = Path(root).resolve()
@@ -1957,7 +1950,7 @@ def audit_sources(
     validate_policy(policy, sources)
     registry_path = Path(registry_path) if registry_path is not None else root / "registry" / "upstreams.json"
     lock_path = Path(lock_path) if lock_path is not None else root / "upstreams.lock.json"
-    registry, lock = load_upstream_metadata(registry_path, lock_path)
+    registry, lock = upstream_metadata or load_upstream_metadata(registry_path, lock_path)
     providers = validate_upstream_metadata(registry, lock)
     source_rows = validate_source_catalog(root, policy, sources, registry, lock)
     checkout_state = _verify_origin_and_base(root, str(policy["authority"]["project_identity"]))
@@ -2272,6 +2265,23 @@ def clear_circuit(paths: Mapping[str, Path], *, run_id: str, now: float) -> bool
     return True
 
 
+def reset_closed_circuit_after_success(paths: Mapping[str, Path], *, run_id: str, now: float) -> Dict[str, Any]:
+    """Make blocker strikes consecutive without letting success clear an open circuit."""
+    current = read_circuit(paths)
+    if current.get("open"):
+        raise MaintenanceError("circuit_manual_clear_required", "non_transient")
+    if current.get("strike_count", 0) == 0 and current.get("blocker_fingerprint") is None:
+        return current
+    reset = {
+        **_default_circuit(),
+        "last_run_id": run_id,
+        "cleared_at": now,
+        "cleared_by": "successful-run",
+    }
+    _replace_json(paths["circuit"], reset)
+    return reset
+
+
 def _base_receipt(*, run_id: str, mode: str, manual_audit: bool, now: float, input_fp: Optional[str], provider_refs: List[Dict[str, str]], policy_digest: str, catalog_digest: str) -> Dict[str, Any]:
     empty_digest = digest([])
     state = {"status": "not_observed_in_u2", "digest": digest("not-observed")}
@@ -2388,6 +2398,8 @@ def _preflight(
     vendor_hold: Optional[Mapping[str, Any]] = None,
     observe_remotes: bool = False,
     proposed_files: Optional[Mapping[str, Any]] = None,
+    upstream_metadata: Optional[tuple[Mapping[str, Any], Mapping[str, Any]]] = None,
+    run_stage_readiness: bool = True,
 ) -> Dict[str, Any]:
     if mode not in policy.get("allowed_modes", []):
         raise PolicyError("mode_not_allowed")
@@ -2400,6 +2412,7 @@ def _preflight(
         protected_vendor=protected_vendor,
         vendor_hold=vendor_hold,
         observe_remotes=observe_remotes,
+        upstream_metadata=upstream_metadata,
     )
     candidate: Dict[str, Any] = {
         "status": "not_requested" if mode == "audit" or stage_dir is None else "not_started",
@@ -2414,6 +2427,7 @@ def _preflight(
             base_sha=audit["checkout"]["base_sha"],
             allowlist=policy.get("diff_allowlist", []),
             proposed_files=proposed_files,
+            run_readiness_checks=run_stage_readiness,
         )
     return {
         "policy_valid": True,
@@ -2490,8 +2504,10 @@ def run(
     initialize_state_dir(state_root, policy)
     resolved_registry_path = Path(registry_path) if registry_path is not None else Path(root) / "registry" / "upstreams.json"
     resolved_lock_path = Path(lock_path) if lock_path is not None else Path(root) / "upstreams.lock.json"
+    upstream_metadata: Optional[tuple[Mapping[str, Any], Mapping[str, Any]]] = None
     try:
         upstream_registry, upstream_lock = load_upstream_metadata(resolved_registry_path, resolved_lock_path)
+        upstream_metadata = (upstream_registry, upstream_lock)
         upstream_inputs: Mapping[str, Any] = {
             "registry": _without_volatile(upstream_registry),
             "lock": _without_volatile(upstream_lock),
@@ -2573,6 +2589,8 @@ def run(
                 vendor_hold=vendor_hold,
                 observe_remotes=observe_remotes,
                 proposed_files=proposed_files,
+                upstream_metadata=upstream_metadata,
+                run_stage_readiness=github is None,
             )
         except MaintenanceError as error:
             receipt = _base_receipt(run_id=run_id_safe, mode=mode, manual_audit=manual_audit, now=observed_now, input_fp=input_fp, provider_refs=refs, policy_digest=policy_digest, catalog_digest=catalog_digest)
@@ -2642,7 +2660,12 @@ def run(
             receipt["checks"]["pr_lane"] = lane["checks"]
             receipt["checks"]["candidate_stage_retained"] = lane.get("stage_retained", False)
             receipt["changed_paths_digest"] = lane["changed_paths_digest"]
-        receipt["circuit"] = {"status": "closed", "strike_count": 0, "digest": digest(_default_circuit())}
+        successful_circuit = reset_closed_circuit_after_success(paths, run_id=run_id_safe, now=observed_now)
+        receipt["circuit"] = {
+            "status": "closed",
+            "strike_count": successful_circuit.get("strike_count", 0),
+            "digest": digest(successful_circuit),
+        }
         if lease.get("manual_validated"):
             receipt["result"] = "manual_audit_validated_stale_lease"
         if manual_cleared or lease.get("manual_validated"):
@@ -2705,7 +2728,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             else None
         )
         github = (
-            GitHubCommandBoundary("thecolormaroun/stack", root=args.root)
+            GitHubCommandBoundary(root=args.root)
             if args.github
             else None
         )

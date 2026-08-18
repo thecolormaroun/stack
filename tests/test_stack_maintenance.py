@@ -189,6 +189,21 @@ def test_three_identical_non_transient_blockers_open_circuit_and_manual_clear(tm
     assert json.loads((state / "stack-maintenance.circuit.json").read_text())["open"] is False
 
 
+def test_success_resets_closed_circuit_strikes(tmp_path: Path):
+    state = tmp_path / "state"
+    _write_lease(state, owner="different-owner", fingerprint="same-input", expires_at=900.0)
+    blocked = _run(state, "--owner-id", "current-owner", now=1000.0)
+    assert blocked.returncode != 0
+    assert json.loads((state / "stack-maintenance.circuit.json").read_text())["strike_count"] == 1
+    (state / "stack-maintenance.lease.json").unlink()
+    succeeded = _run(state, "--owner-id", "current-owner", now=1100.0)
+    assert succeeded.returncode == 0, succeeded.stderr
+    circuit = json.loads((state / "stack-maintenance.circuit.json").read_text())
+    assert circuit["open"] is False
+    assert circuit["strike_count"] == 0
+    assert circuit["blocker_fingerprint"] is None
+
+
 def test_unsafe_state_permissions_emit_only_redacted_terminal_record(tmp_path: Path):
     state = tmp_path / "unsafe-state"
     state.mkdir(mode=0o755)
@@ -580,7 +595,7 @@ class _FakeGitHub:
     def remote_branch(self, repository, branch):
         return self.remote
 
-    def push_branch(self, repository, branch, stage_dir, *, expected_remote_head=None):
+    def push_branch(self, repository, branch, stage_dir):
         self.push_calls += 1
         if self.push_error:
             raise self.maintenance.MaintenanceError(self.push_error, "transient")

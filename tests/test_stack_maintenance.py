@@ -390,6 +390,80 @@ def test_vendor_restoration_plan_is_exact_target_and_approval_bound(tmp_path: Pa
         maintenance.build_vendor_restoration_plan(Path("/"), hold_path=hold, manifest_path=manifest, approval_token=token)
 
 
+def _reconciliation_fixture():
+    return [
+        {
+            "item_id": "pr-23",
+            "item_type": "pr",
+            "base_sha": "1" * 40,
+            "head_sha": "2" * 40,
+            "content_class": "unique",
+            "disposition": "excluded",
+            "protected": True,
+            "actions": [],
+            "preservation": [{"kind": "active-branch", "reference": "codex/sol-high-default-routing"}],
+        },
+        {
+            "item_id": "pr-25",
+            "item_type": "pr",
+            "base_sha": "1" * 40,
+            "head_sha": "3" * 40,
+            "content_class": "unique",
+            "disposition": "replace",
+            "actions": ["close_pr", "delete_branch"],
+            "preservation": [
+                {"kind": "git-bundle", "reference": "sha256:" + "4" * 64},
+                {"kind": "active-branch", "reference": "codex/cost-effective-model-routing"},
+            ],
+            "content_groups": [
+                {"class": "duplicate", "paths": ["skills/imported/emil/emil-design-eng/SKILL.md"]},
+                {"class": "unique", "paths": ["scripts/codex-quota-preflight.sh"]},
+            ],
+        },
+    ]
+
+
+def test_reconciliation_splits_mixed_pr_and_protects_unrelated_pr(tmp_path: Path):
+    maintenance = _module()
+    packet = maintenance.build_reconciliation_packet(_reconciliation_fixture())
+    assert packet["protected_exclusions"] == ["pr-23"]
+    pr25 = next(item for item in packet["items"] if item["item_id"] == "pr-25")
+    assert {group["class"] for group in pr25["content_groups"]} == {"duplicate", "unique"}
+    assert packet["cleanup_targets"] == [{"item_id": "pr-25", "head_sha": "3" * 40, "actions": ["close_pr", "delete_branch"]}]
+
+
+def test_reconciliation_refuses_unique_cleanup_without_preservation(tmp_path: Path):
+    maintenance = _module()
+    item = _reconciliation_fixture()[1]
+    item["preservation"] = []
+    with unittest.TestCase().assertRaisesRegex(maintenance.MaintenanceError, "unique_content_not_preserved"):
+        maintenance.build_reconciliation_packet([item])
+
+
+def test_cleanup_approval_is_bound_to_exact_live_sha(tmp_path: Path):
+    maintenance = _module()
+    packet = maintenance.build_reconciliation_packet(_reconciliation_fixture())
+    token = maintenance.cleanup_approval_token(packet)
+    with unittest.TestCase().assertRaisesRegex(maintenance.MaintenanceError, "cleanup_target_changed"):
+        maintenance.build_cleanup_plan(packet, live_heads={"pr-25": "9" * 40}, approval_token=token)
+    plan = maintenance.build_cleanup_plan(packet, live_heads={"pr-25": "3" * 40, "pr-23": "2" * 40}, approval_token=token)
+    assert plan["protected_exclusions"] == ["pr-23"]
+    assert plan["scheduled_execution_allowed"] is False
+
+
+def test_partial_cleanup_result_never_claims_success(tmp_path: Path):
+    maintenance = _module()
+    packet = maintenance.build_reconciliation_packet(_reconciliation_fixture())
+    plan = maintenance.build_cleanup_plan(
+        packet,
+        live_heads={"pr-25": "3" * 40},
+        approval_token=maintenance.cleanup_approval_token(packet),
+    )
+    result = maintenance.classify_cleanup_result(plan, [])
+    assert result["terminal_classification"] == "partial"
+    assert result["remaining_item_ids"] == ["pr-25"]
+
+
 def test_disposable_candidate_is_clean_base_allowlisted_and_private_data_safe(tmp_path: Path):
     maintenance = _module()
     caller_before = subprocess.run(["git", "status", "--porcelain=v1", "--untracked-files=all"], cwd=ROOT, text=True, capture_output=True, check=True).stdout

@@ -86,6 +86,22 @@ SOURCE_FIELDS = {
     "required_exports",
 }
 
+# Reconciliation is deliberately a pure, data-only lane.  These constants are
+# kept separate from the source/update policy above because a cleanup packet is
+# an approval-bound description of live state, not an instruction to mutate it.
+RECONCILIATION_SCHEMA_VERSION = 1
+RECONCILIATION_DISPOSITIONS = {
+    "preserve",
+    "replace",
+    "no_change",
+    "hold",
+    "excluded",
+}
+RECONCILIATION_CONTENT_CLASSES = {"unique", "duplicate", "invalid", "unknown"}
+RECONCILIATION_ITEM_TYPES = {"pr", "branch"}
+CLEANUP_ACTIONS = {"close_pr", "delete_branch"}
+RECONCILIATION_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$")
+
 
 class MaintenanceError(Exception):
     """A redacted, user-safe maintenance failure."""
@@ -853,6 +869,152 @@ def build_vendor_restoration_plan(
         "preservation_manifest_digest": evidence["manifest_digest"],
         "actions": ["restore_recorded_worktree_to_head", "fast_forward_recorded_checkout_only"],
         "scheduled_execution_allowed": False,
+    }
+
+
+def _reconciliation_item(value: Any) -> Dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise MaintenanceError("reconciliation_item_invalid", "non_transient")
+    item = dict(value)
+    required = {"item_id", "item_type", "base_sha", "head_sha", "content_class", "disposition"}
+    if not required.issubset(item):
+        raise MaintenanceError("reconciliation_item_incomplete", "non_transient")
+    if not isinstance(item["item_id"], str) or RECONCILIATION_ID_PATTERN.fullmatch(item["item_id"]) is None:
+        raise MaintenanceError("reconciliation_item_id_invalid", "non_transient")
+    if item["item_type"] not in RECONCILIATION_ITEM_TYPES:
+        raise MaintenanceError("reconciliation_item_type_invalid", "non_transient")
+    for field in ("base_sha", "head_sha"):
+        if not isinstance(item[field], str) or SHA1_PATTERN.fullmatch(item[field]) is None:
+            raise MaintenanceError("reconciliation_sha_invalid", "non_transient")
+    if item["content_class"] not in RECONCILIATION_CONTENT_CLASSES:
+        raise MaintenanceError("reconciliation_content_class_invalid", "non_transient")
+    if item["disposition"] not in RECONCILIATION_DISPOSITIONS:
+        raise MaintenanceError("reconciliation_disposition_invalid", "non_transient")
+    actions = item.get("actions", [])
+    if not isinstance(actions, list) or any(action not in CLEANUP_ACTIONS for action in actions):
+        raise MaintenanceError("reconciliation_actions_invalid", "non_transient")
+    preservation = item.get("preservation", [])
+    if not isinstance(preservation, list) or not all(
+        isinstance(entry, Mapping)
+        and isinstance(entry.get("kind"), str)
+        and isinstance(entry.get("reference"), str)
+        and bool(entry["reference"])
+        for entry in preservation
+    ):
+        raise MaintenanceError("reconciliation_preservation_invalid", "non_transient")
+    content_groups = item.get("content_groups", [])
+    if not isinstance(content_groups, list) or not all(
+        isinstance(group, Mapping)
+        and group.get("class") in RECONCILIATION_CONTENT_CLASSES
+        and isinstance(group.get("paths"), list)
+        and all(isinstance(path, str) and path for path in group["paths"])
+        for group in content_groups
+    ):
+        raise MaintenanceError("reconciliation_content_groups_invalid", "non_transient")
+    protected = item.get("protected", False)
+    if not isinstance(protected, bool):
+        raise MaintenanceError("reconciliation_protection_invalid", "non_transient")
+    if protected and (item["disposition"] != "excluded" or actions):
+        raise MaintenanceError("protected_cleanup_target", "non_transient")
+    if item["content_class"] == "unique" and actions and not preservation:
+        raise MaintenanceError("unique_content_not_preserved", "non_transient")
+    item["actions"] = sorted(set(actions))
+    item["preservation"] = sorted(
+        (dict(entry) for entry in preservation),
+        key=lambda entry: (entry["kind"], entry["reference"]),
+    )
+    item["content_groups"] = sorted(
+        (dict(group) for group in content_groups),
+        key=lambda group: (group["class"], tuple(group["paths"])),
+    )
+    item["protected"] = protected
+    return item
+
+
+def build_reconciliation_packet(items: Iterable[Mapping[str, Any]]) -> Dict[str, Any]:
+    """Return a deterministic, non-mutating inventory and cleanup proposal."""
+    normalized = [_reconciliation_item(item) for item in items]
+    normalized.sort(key=lambda item: (item["item_type"], item["item_id"]))
+    identifiers = [item["item_id"] for item in normalized]
+    if len(identifiers) != len(set(identifiers)):
+        raise MaintenanceError("duplicate_reconciliation_item", "non_transient")
+    packet = {
+        "schema_version": RECONCILIATION_SCHEMA_VERSION,
+        "items": normalized,
+        "cleanup_targets": [
+            {"item_id": item["item_id"], "head_sha": item["head_sha"], "actions": item["actions"]}
+            for item in normalized
+            if item["actions"]
+        ],
+        "protected_exclusions": [item["item_id"] for item in normalized if item["protected"]],
+    }
+    packet["packet_digest"] = digest(packet)
+    return packet
+
+
+def cleanup_approval_token(packet: Mapping[str, Any]) -> str:
+    packet_digest = packet.get("packet_digest")
+    if not isinstance(packet_digest, str) or DIGEST_PATTERN.fullmatch(packet_digest) is None:
+        raise MaintenanceError("reconciliation_packet_invalid", "non_transient")
+    expected = digest({key: packet[key] for key in packet if key != "packet_digest"})
+    if packet_digest != expected:
+        raise MaintenanceError("reconciliation_packet_changed", "non_transient")
+    return "approve-cleanup-" + packet_digest[:24]
+
+
+def build_cleanup_plan(
+    packet: Mapping[str, Any],
+    *,
+    live_heads: Mapping[str, str],
+    approval_token: Optional[str],
+) -> Dict[str, Any]:
+    """Bind an approved cleanup batch to the exact revalidated remote heads."""
+    expected_token = cleanup_approval_token(packet)
+    if approval_token != expected_token:
+        raise MaintenanceError("cleanup_approval_required", "non_transient")
+    targets = packet.get("cleanup_targets")
+    if not isinstance(targets, list):
+        raise MaintenanceError("reconciliation_packet_invalid", "non_transient")
+    actions: list[Dict[str, Any]] = []
+    for target in targets:
+        if not isinstance(target, Mapping):
+            raise MaintenanceError("reconciliation_packet_invalid", "non_transient")
+        item_id = target.get("item_id")
+        expected_head = target.get("head_sha")
+        if live_heads.get(item_id) != expected_head:
+            raise MaintenanceError("cleanup_target_changed", "non_transient")
+        actions.append({
+            "item_id": item_id,
+            "head_sha": expected_head,
+            "actions": list(target.get("actions", [])),
+        })
+    protected = packet.get("protected_exclusions", [])
+    if any(item_id in live_heads and item_id in {action["item_id"] for action in actions} for item_id in protected):
+        raise MaintenanceError("protected_cleanup_target", "non_transient")
+    return {
+        "status": "approved_plan",
+        "packet_digest": packet["packet_digest"],
+        "actions": actions,
+        "protected_exclusions": list(protected),
+        "scheduled_execution_allowed": False,
+    }
+
+
+def classify_cleanup_result(plan: Mapping[str, Any], completed_item_ids: Iterable[str]) -> Dict[str, Any]:
+    """Classify remote cleanup without ever upgrading a partial result."""
+    actions = plan.get("actions")
+    if not isinstance(actions, list):
+        raise MaintenanceError("cleanup_plan_invalid", "non_transient")
+    expected = [item.get("item_id") for item in actions if isinstance(item, Mapping)]
+    completed = sorted(set(completed_item_ids))
+    if any(item_id not in expected for item_id in completed):
+        raise MaintenanceError("cleanup_result_invalid", "non_transient")
+    remaining = [item_id for item_id in expected if item_id not in completed]
+    return {
+        "terminal_classification": "no_action" if not expected else ("prepared" if not remaining else "partial"),
+        "result": "cleanup_not_needed" if not expected else ("cleanup_completed" if not remaining else "cleanup_partial"),
+        "completed_item_ids": completed,
+        "remaining_item_ids": remaining,
     }
 
 

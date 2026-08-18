@@ -170,6 +170,15 @@ Do not report a pass when an after-check is missing.
 | PR #23 | `BEFORE_DIGEST` | Preserve | `AFTER_DIGEST` | `MATCH \| DRIFT \| MISSING` |
 | Every proposed cleanup target | `BEFORE_DIGEST` | No cleanup in U1 | `AFTER_DIGEST` | `MATCH \| DRIFT \| MISSING` |
 
+## Approved cleanup outcome
+
+Fill this only after an exact-target approval and immediate live-state recheck.
+An interrupted batch remains `partial`; completed targets are never inferred.
+
+| Packet digest | Completed item IDs | Remaining item IDs | Protected exclusions | Classification |
+| --- | --- | --- | --- | --- |
+| `PACKET_DIGEST` | `COMPLETED_IDS` | `REMAINING_IDS` | `PROTECTED_IDS` | `prepared \| partial \| no_action` |
+
 ## Receipt summary and closeout
 
 Append a redacted, owner-only receipt with these R10 fields:
@@ -198,4 +207,3 @@ U1 closeout checklist:
 - [ ] Approval binding is absent or records exact targets; no action is implied.
 - [ ] All before/after checks match and show no non-disposable mutation.
 - [ ] The receipt is redacted, append-only, owner-only, and complete.
-

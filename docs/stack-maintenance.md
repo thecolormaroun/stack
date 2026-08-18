@@ -232,6 +232,23 @@ only that exact target and requires a token derived from the current evidence;
 it never performs restoration and scheduled execution is forbidden. No stash,
 reset, restore, fast-forward, or vendor deletion is part of the recurring task.
 
+## U6 backlog reconciliation
+
+`build_reconciliation_packet` classifies each pull request and branch by exact
+base/head identity, content class, disposition, preservation evidence, and
+permitted cleanup action. Mixed history is split into content groups so a
+duplicate automation snapshot cannot make unrelated commits eligible for a
+replacement candidate. Unique content is never eligible for cleanup until a
+reachable branch or verified recovery artifact preserves it.
+
+Protected items use the `excluded` disposition and carry no cleanup actions.
+The approval token binds the canonical packet digest and every recorded head;
+`build_cleanup_plan` rejects a changed or missing live head before any remote
+operation. Cleanup execution remains outside scheduled code. Its result is
+classified from the exact completed set, so an interrupted batch remains
+`partial` with explicit remaining targets rather than being reported as a
+successful cleanup.
+
 ## Receipt and closeout
 
 Append one redacted, owner-only structured receipt for each run. It records the

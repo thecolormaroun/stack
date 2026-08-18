@@ -450,7 +450,33 @@ def test_caller_origin_identity_is_bound_to_github_host(tmp_path: Path):
     )
 
 
-def test_dirty_protected_vendor_blocks_and_verified_hold_allows_unrelated_audit(tmp_path: Path):
+def test_caller_preflight_fingerprints_every_linked_worktree(tmp_path: Path):
+    maintenance = _module()
+    repository = _git_fixture(tmp_path / "repository")
+    subprocess.run(
+        ["git", "-C", str(repository), "remote", "add", "origin", "https://github.com/thecolormaroun/stack.git"],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(repository), "update-ref", "refs/remotes/origin/main", "HEAD"],
+        check=True,
+    )
+    secondary = tmp_path / "secondary"
+    subprocess.run(
+        ["git", "-C", str(repository), "worktree", "add", "-qb", "secondary", str(secondary)],
+        check=True,
+    )
+    (secondary / "README.md").write_text("dirty secondary worktree\n", encoding="utf-8")
+
+    checkout = maintenance._verify_origin_and_base(repository, "thecolormaroun/stack")
+
+    assert checkout["worktrees"]["count"] == 2
+    assert checkout["worktrees"]["dirty_count"] == 1
+    assert all("path" not in item for item in checkout["worktrees"]["entries"])
+    assert all(len(item["identity_digest"]) == 64 for item in checkout["worktrees"]["entries"])
+
+
+def test_dirty_protected_vendor_blocks_without_complete_preservation_evidence(tmp_path: Path):
     vendor = _git_fixture(tmp_path / "vendor")
     (vendor / "README.md").write_text("held user work\n", encoding="utf-8")
     blocked = subprocess.run(
@@ -478,17 +504,6 @@ def test_dirty_protected_vendor_blocks_and_verified_hold_allows_unrelated_audit(
     )
     assert blocked.returncode != 0
     assert json.loads(blocked.stdout)["result"] == "protected_vendor_ambiguous"
-    maintenance = _module()
-    status_digest, _ = maintenance._git_status(vendor)
-    head = maintenance._git(vendor, "rev-parse", "HEAD")
-    hold = {
-        "verified": True,
-        "vendor_identity_digest": maintenance._vendor_identity(vendor),
-        "status_digest": status_digest,
-        "head": head,
-    }
-    report = maintenance.audit_sources(ROOT, protected_vendor=vendor, vendor_hold=hold)
-    assert report["protected_vendor"]["status"] == "held"
 
 
 def _vendor_evidence_fixture(tmp_path: Path):
@@ -541,10 +556,27 @@ def test_vendor_preservation_is_owner_only_and_reconstructable(tmp_path: Path):
     assert evidence["reconstruction_verified"] is True
     assert proof["status"] == "verified"
     assert maintenance._git_status(vendor) == before
+    report = maintenance.audit_sources(
+        ROOT,
+        protected_vendor=vendor,
+        vendor_hold_path=hold,
+        vendor_manifest_path=manifest,
+    )
+    assert report["protected_vendor"]["status"] == "held"
+    assert report["protected_vendor"]["reconstruction_verified"] is True
 
 
 def test_vendor_preservation_rejects_incomplete_or_changed_evidence(tmp_path: Path):
     maintenance, vendor, hold, manifest, patch = _vendor_evidence_fixture(tmp_path)
+    hold_value = json.loads(hold.read_text())
+    hold_value["vendor_identity_digest"] = "0" * 64
+    hold.write_text(json.dumps(hold_value), encoding="utf-8")
+    hold.chmod(0o600)
+    with unittest.TestCase().assertRaisesRegex(maintenance.MaintenanceError, "vendor_target_mismatch"):
+        maintenance.validate_vendor_preservation(vendor, hold_path=hold, manifest_path=manifest)
+    hold_value["vendor_identity_digest"] = maintenance._vendor_identity(vendor)
+    hold.write_text(json.dumps(hold_value), encoding="utf-8")
+    hold.chmod(0o600)
     patch.write_bytes(patch.read_bytes() + b"\n")
     patch.chmod(0o600)
     with unittest.TestCase().assertRaisesRegex(maintenance.MaintenanceError, "vendor_patch_digest_mismatch"):
@@ -552,6 +584,17 @@ def test_vendor_preservation_rejects_incomplete_or_changed_evidence(tmp_path: Pa
     patch.chmod(0o644)
     with unittest.TestCase().assertRaisesRegex(maintenance.MaintenanceError, "vendor_evidence_permissions_unsafe"):
         maintenance.validate_vendor_preservation(vendor, hold_path=hold, manifest_path=manifest)
+
+
+def test_vendor_audit_rejects_hold_without_manifest(tmp_path: Path):
+    maintenance, vendor, hold, _manifest, _patch = _vendor_evidence_fixture(tmp_path)
+    with unittest.TestCase().assertRaisesRegex(maintenance.MaintenanceError, "vendor_evidence_missing"):
+        maintenance.audit_sources(
+            ROOT,
+            protected_vendor=vendor,
+            vendor_hold_path=hold,
+            vendor_manifest_path=tmp_path / "missing-manifest.json",
+        )
 
 
 def test_vendor_restoration_plan_is_exact_target_and_approval_bound(tmp_path: Path):

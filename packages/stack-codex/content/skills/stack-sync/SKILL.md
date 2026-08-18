@@ -18,7 +18,9 @@ Run only the maintenance tools shipped by this repository:
 
 1. `python3 scripts/stack-maintenance.py audit --observe-upstreams` performs
    the unattended source audit and writes an owner-only receipt. Pass a
-   protected vendor path only with its current verified hold artifact.
+   protected vendor only with all three current evidence paths:
+   `--vendor-path`, `--vendor-hold`, and `--vendor-manifest`. Reuse the same
+   three flags for `prepare`; an incomplete evidence set must block.
 2. `python3 scripts/sync-upstreams.py` verifies immutable metadata, the
    repository bundle digest, and last-known-good pins without downloading or
    staging anything.

@@ -193,7 +193,10 @@ The audit verifies the caller's public `origin` host, repository, and
 `origin/main` identity but
 does not require the caller checkout to be clean. A dirty protected vendor is
 an exact blocker unless an owner-approved hold is bound to its current head and
-status digest. Provider checkout evidence is read-only and cannot become a new
+status digest. The same preflight enumerates every linked worktree and records
+its path identity as a digest plus its branch, head, status digest, and dirty
+entry count; machine paths and changed filenames never enter the receipt.
+Provider checkout evidence is read-only and cannot become a new
 trusted pin. Mutable refs, origin mismatches, missing exports, unregistered
 targets, missing declared paths, and symlinks fail closed.
 
@@ -206,8 +209,8 @@ curated existing-import rules in
 `registry/maintenance-imports.json`. It never discovers or activates new
 skills. Every fetched license must match the exact reviewed SHA-256 digest in
 the provider registry; matching a license phrase is not sufficient. Missing
-mappings, changed licenses, symlinks, upstream deletions, or
-renames fail closed for review.
+mappings, changed licenses, file, directory, or dangling symlinks, upstream
+deletions, or renames fail closed for review.
 
 `prepare` creates a disposable candidate clone outside the caller checkout
 from that recorded `origin/main` SHA. Only explicit policy-allowlisted files
@@ -253,8 +256,11 @@ unique uncommitted content. The original checkout remains untouched under a
 verified hold; unrelated catalog audit and candidate preparation can proceed.
 
 `validate_vendor_preservation` binds the exact checkout identity, HEAD, status
-digest, patch digest, manifest digest, and reconstruction proof. A changed or
-incomplete artifact fails closed. `build_vendor_restoration_plan` can describe
+digest, patch digest, manifest digest, and reconstruction proof. The audit
+accepts a dirty vendor only when `--vendor-path`, `--vendor-hold`, and
+`--vendor-manifest` name that complete owner-only evidence set; a synthetic
+in-memory hold is not accepted. A changed or incomplete artifact fails closed.
+`build_vendor_restoration_plan` can describe
 only that exact target and requires a token derived from the current evidence;
 it never performs restoration and scheduled execution is forbidden. No stash,
 reset, restore, fast-forward, or vendor deletion is part of the recurring task.

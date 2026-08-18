@@ -70,6 +70,17 @@ def validate_upstream_license(checkout: Path, provider: Mapping[str, Any]) -> st
     return license_text
 
 
+def validated_source_files(source_root: Path) -> list[Path]:
+    """Return regular import files only after rejecting every symlink entry."""
+    entries = sorted(source_root.rglob("*"))
+    if any(path.is_symlink() for path in entries):
+        raise ProposalError("mapped_skill_invalid")
+    files = [path for path in entries if path.is_file()]
+    if not files:
+        raise ProposalError("mapped_skill_invalid")
+    return files
+
+
 def read_object(path: Path, code: str) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -355,9 +366,7 @@ def materialize_provider(stage: Path, checkout: Path, provider: dict[str, Any], 
         if not target_root.is_dir():
             raise ProposalError("mapped_skill_missing")
         target_name = target_root.name
-        source_files = sorted(path for path in source_root.rglob("*") if path.is_file())
-        if not source_files or any(path.is_symlink() for path in source_files):
-            raise ProposalError("mapped_skill_invalid")
+        source_files = validated_source_files(source_root)
         generated: set[Path] = {Path("capability.json"), metadata_relative}
         upstream_names: list[str] = []
         for source_file in source_files:

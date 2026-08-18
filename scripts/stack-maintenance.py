@@ -646,14 +646,65 @@ def _verify_origin_and_base(root: Path, expected_project: str) -> Dict[str, Any]
         raise MaintenanceError("origin_main_missing", "non_transient")
     if SHA1_PATTERN.fullmatch(base_sha) is None:
         raise MaintenanceError("origin_main_invalid", "non_transient")
-    status_digest, status_lines = _git_status(root)
-    head_sha = _git(root, "rev-parse", "HEAD")
+    worktrees = _inspect_linked_worktrees(root)
+    current = next((entry for entry in worktrees["entries"] if entry["is_current"]), None)
+    if current is None:
+        raise MaintenanceError("caller_worktree_missing", "non_transient")
     return {
-        "status": "dirty" if status_lines else "clean",
-        "digest": status_digest,
-        "changed_entry_count": len(status_lines),
+        "status": current["status"],
+        "digest": current["status_digest"],
+        "changed_entry_count": current["changed_entry_count"],
         "base_sha": base_sha,
-        "head_sha": head_sha,
+        "head_sha": current["head"],
+        "worktrees": worktrees,
+    }
+
+
+def _inspect_linked_worktrees(root: Path) -> Dict[str, Any]:
+    """Fingerprint every linked worktree without persisting machine paths."""
+    listing = _git(root, "worktree", "list", "--porcelain")
+    entries: list[dict[str, Any]] = []
+    root_identity = sha256_bytes(str(root.resolve()).encode("utf-8"))
+    for block in re.split(r"\n\s*\n", listing):
+        lines = [line for line in block.splitlines() if line]
+        worktree_line = next((line for line in lines if line.startswith("worktree ")), None)
+        if worktree_line is None:
+            raise MaintenanceError("worktree_inventory_invalid", "non_transient")
+        worktree = Path(worktree_line.removeprefix("worktree ")).resolve()
+        identity = sha256_bytes(str(worktree).encode("utf-8"))
+        prunable = any(line.startswith("prunable") for line in lines)
+        head_line = next((line for line in lines if line.startswith("HEAD ")), "")
+        head = head_line.removeprefix("HEAD ")
+        if SHA1_PATTERN.fullmatch(head) is None:
+            raise MaintenanceError("worktree_inventory_invalid", "non_transient")
+        branch_line = next((line for line in lines if line.startswith("branch ")), "")
+        branch = branch_line.removeprefix("branch ") or "detached"
+        if prunable:
+            status_digest = digest("prunable")
+            status = "prunable"
+            changed_entry_count = 0
+        else:
+            status_digest, status_lines = _git_status(worktree)
+            status = "dirty" if status_lines else "clean"
+            changed_entry_count = len(status_lines)
+        entries.append(
+            {
+                "identity_digest": identity,
+                "is_current": identity == root_identity,
+                "head": head,
+                "branch": branch,
+                "status": status,
+                "status_digest": status_digest,
+                "changed_entry_count": changed_entry_count,
+            }
+        )
+    entries.sort(key=lambda item: item["identity_digest"])
+    return {
+        "count": len(entries),
+        "dirty_count": sum(entry["status"] == "dirty" for entry in entries),
+        "prunable_count": sum(entry["status"] == "prunable" for entry in entries),
+        "digest": digest(entries),
+        "entries": entries,
     }
 
 
@@ -743,19 +794,16 @@ def _vendor_identity(path: Path) -> str:
     return sha256_bytes(str(path.resolve()).encode("utf-8"))
 
 
-def _verify_vendor_hold(vendor: Path, hold: Optional[Mapping[str, Any]], status_digest: str, head: str) -> bool:
-    if not isinstance(hold, Mapping) or hold.get("verified") is not True:
-        return False
-    return (
-        hold.get("vendor_identity_digest") == _vendor_identity(vendor)
-        and hold.get("status_digest") == status_digest
-        and hold.get("head") == head
-    )
-
-
-def inspect_protected_vendor(vendor: Optional[Path], hold: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
+def inspect_protected_vendor(
+    vendor: Optional[Path],
+    *,
+    hold_path: Optional[Path] = None,
+    manifest_path: Optional[Path] = None,
+) -> Dict[str, Any]:
     """Fingerprint a protected vendor checkout; never repair or write it."""
     if vendor is None:
+        if hold_path is not None or manifest_path is not None:
+            raise MaintenanceError("protected_vendor_missing", "non_transient")
         return {"status": "not_configured", "digest": digest("not-configured")}
     vendor = Path(vendor)
     if vendor.is_symlink() or not vendor.exists():
@@ -765,14 +813,21 @@ def inspect_protected_vendor(vendor: Optional[Path], hold: Optional[Mapping[str,
         status_digest, status_lines = _git_status(vendor)
     except MaintenanceError:
         raise MaintenanceError("protected_vendor_unreadable", "non_transient")
-    if status_lines and not _verify_vendor_hold(vendor, hold, status_digest, head):
-        raise MaintenanceError("protected_vendor_ambiguous", "non_transient")
+    if status_lines:
+        if hold_path is None or manifest_path is None:
+            raise MaintenanceError("protected_vendor_ambiguous", "non_transient")
+        evidence = validate_vendor_preservation(vendor, hold_path=hold_path, manifest_path=manifest_path)
+        return {
+            **evidence,
+            "digest": evidence["status_digest"],
+            "hold_verified": True,
+        }
     return {
-        "status": "held" if status_lines else "clean",
+        "status": "clean",
         "digest": status_digest,
         "head": head,
-        "changed_entry_count": len(status_lines),
-        "hold_verified": bool(status_lines),
+        "changed_entry_count": 0,
+        "hold_verified": False,
     }
 
 
@@ -816,7 +871,7 @@ def validate_vendor_preservation(
         recorded_vendor = Path(str(source["checkout"])).resolve()
     except (KeyError, OSError):
         raise MaintenanceError("vendor_target_invalid", "non_transient")
-    if recorded_vendor != vendor:
+    if recorded_vendor != vendor or hold.get("vendor_identity_digest") != _vendor_identity(vendor):
         raise MaintenanceError("vendor_target_mismatch", "non_transient")
     patch_name = artifact.get("file")
     if not isinstance(patch_name, str) or Path(patch_name).name != patch_name:
@@ -831,6 +886,8 @@ def validate_vendor_preservation(
     matching_commit = classification.get("matching_commit")
     if not isinstance(matching_commit, str) or SHA1_PATTERN.fullmatch(matching_commit) is None:
         raise MaintenanceError("vendor_matching_commit_invalid", "non_transient")
+    if reconstruction.get("expected_commit") != matching_commit:
+        raise MaintenanceError("vendor_reconstruction_unverified", "non_transient")
     head = _git(vendor, "rev-parse", "HEAD")
     status_digest, status_lines = _git_status(vendor)
     if (
@@ -840,6 +897,17 @@ def validate_vendor_preservation(
         or source.get("head") != head
     ):
         raise MaintenanceError("vendor_hold_state_changed", "non_transient")
+    try:
+        comparison = subprocess.run(
+            ["git", "-C", str(vendor), "diff", "--quiet", matching_commit, "--"],
+            capture_output=True,
+            check=False,
+            timeout=COMMAND_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        raise MaintenanceError("vendor_reconstruction_failed", "transient")
+    if comparison.returncode or _git(vendor, "ls-files", "--others", "--exclude-standard"):
+        raise MaintenanceError("vendor_reconstruction_unverified", "non_transient")
     return {
         "status": "held",
         "vendor_identity_digest": _vendor_identity(vendor),
@@ -2534,7 +2602,8 @@ def audit_sources(
     registry_path: Optional[Path] = None,
     lock_path: Optional[Path] = None,
     protected_vendor: Optional[Path] = None,
-    vendor_hold: Optional[Mapping[str, Any]] = None,
+    vendor_hold_path: Optional[Path] = None,
+    vendor_manifest_path: Optional[Path] = None,
     provider_checkouts: Optional[Mapping[str, Path]] = None,
     observe_remotes: bool = False,
     observed_refs: Optional[Mapping[str, str]] = None,
@@ -2551,7 +2620,11 @@ def audit_sources(
     providers = validate_upstream_metadata(registry, lock)
     source_rows = validate_source_catalog(root, policy, sources, registry, lock)
     checkout_state = _verify_origin_and_base(root, str(policy["authority"]["project_identity"]))
-    vendor_state = inspect_protected_vendor(protected_vendor, vendor_hold)
+    vendor_state = inspect_protected_vendor(
+        protected_vendor,
+        hold_path=vendor_hold_path,
+        manifest_path=vendor_manifest_path,
+    )
     checkout_map = provider_checkouts or {}
     verified_checkouts: Dict[str, Any] = {}
     for provider_id, checkout in sorted(checkout_map.items()):
@@ -3056,7 +3129,8 @@ def _preflight(
     registry_path: Optional[Path] = None,
     lock_path: Optional[Path] = None,
     protected_vendor: Optional[Path] = None,
-    vendor_hold: Optional[Mapping[str, Any]] = None,
+    vendor_hold_path: Optional[Path] = None,
+    vendor_manifest_path: Optional[Path] = None,
     observe_remotes: bool = False,
     proposed_files: Optional[Mapping[str, Any]] = None,
     upstream_metadata: Optional[tuple[Mapping[str, Any], Mapping[str, Any]]] = None,
@@ -3071,7 +3145,8 @@ def _preflight(
         registry_path=registry_path,
         lock_path=lock_path,
         protected_vendor=protected_vendor,
-        vendor_hold=vendor_hold,
+        vendor_hold_path=vendor_hold_path,
+        vendor_manifest_path=vendor_manifest_path,
         observe_remotes=observe_remotes,
         upstream_metadata=upstream_metadata,
     )
@@ -3125,6 +3200,7 @@ def run(
     lock_path: Optional[Path] = None,
     protected_vendor: Optional[Path] = None,
     vendor_hold_path: Optional[Path] = None,
+    vendor_manifest_path: Optional[Path] = None,
     observe_remotes: bool = False,
     audit_receipt_path: Optional[Path] = None,
     proposal_dir: Optional[Path] = None,
@@ -3182,6 +3258,10 @@ def run(
             "lock_digest": _file_digest(resolved_lock_path),
         }
     fingerprint_extra: Dict[str, Any] = {"upstream": upstream_inputs}
+    if vendor_hold_path is not None:
+        fingerprint_extra["vendor_hold_sha256"] = _file_digest(Path(vendor_hold_path))
+    if vendor_manifest_path is not None:
+        fingerprint_extra["vendor_manifest_sha256"] = _file_digest(Path(vendor_manifest_path))
     if audit_receipt_path is not None:
         fingerprint_extra["audit_receipt_sha256"] = _file_digest(Path(audit_receipt_path))
     input_fp = input_fingerprint(policy, sources, extra=fingerprint_extra)
@@ -3244,9 +3324,6 @@ def run(
 
     try:
         try:
-            vendor_hold: Optional[Mapping[str, Any]] = None
-            if vendor_hold_path is not None:
-                vendor_hold = _load_object(Path(vendor_hold_path), "vendor_hold")
             # Source and protected-surface checks complete before proposal or
             # candidate bytes are generated.
             checks = _preflight(
@@ -3258,7 +3335,8 @@ def run(
                 registry_path=registry_path,
                 lock_path=lock_path,
                 protected_vendor=protected_vendor,
-                vendor_hold=vendor_hold,
+                vendor_hold_path=vendor_hold_path,
+                vendor_manifest_path=vendor_manifest_path,
                 observe_remotes=observe_remotes,
                 upstream_metadata=upstream_metadata,
             )
@@ -3425,6 +3503,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--upstreams-lock", type=Path)
     parser.add_argument("--vendor-path", type=Path, help="optional protected vendor checkout to audit read-only")
     parser.add_argument("--vendor-hold", type=Path, help="owner-approved vendor hold evidence")
+    parser.add_argument("--vendor-manifest", type=Path, help="owner-only vendor preservation manifest")
     parser.add_argument("--observe-upstreams", action="store_true", help="read public provider HEADs without trusting them")
     parser.add_argument("--audit-receipt", type=Path, help="owner-only audit receipt for prepare mode")
     parser.add_argument("--proposal-dir", type=Path, help="empty owner-only output for generated proposal evidence")
@@ -3450,6 +3529,11 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             raise PolicyError("prepare_inputs_missing")
         if args.github and mode != "prepare":
             raise PolicyError("github_requires_prepare")
+        if (
+            (args.vendor_hold is None) != (args.vendor_manifest is None)
+            or (args.vendor_hold is not None and args.vendor_path is None)
+        ):
+            raise PolicyError("vendor_preservation_inputs_incomplete")
         github = (
             GitHubCommandBoundary(root=args.root)
             if args.github
@@ -3471,6 +3555,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             lock_path=args.upstreams_lock,
             protected_vendor=args.vendor_path,
             vendor_hold_path=args.vendor_hold,
+            vendor_manifest_path=args.vendor_manifest,
             observe_remotes=args.observe_upstreams,
             audit_receipt_path=args.audit_receipt,
             proposal_dir=args.proposal_dir,

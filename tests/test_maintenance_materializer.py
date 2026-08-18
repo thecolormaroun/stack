@@ -187,6 +187,28 @@ class MaintenanceMaterializerTests(unittest.TestCase):
             with self.assertRaisesRegex(materializer.ProposalError, "upstream_license_changed"):
                 materializer.validate_upstream_license(checkout, provider)
 
+    def test_import_refuses_directory_and_dangling_symlinks(self) -> None:
+        import os
+        import tempfile
+
+        materializer = _module()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            external = root / "external"
+            source.mkdir()
+            external.mkdir()
+            (source / "SKILL.md").write_text("skill\n", encoding="utf-8")
+
+            os.symlink(external, source / "linked-directory")
+            with self.assertRaisesRegex(materializer.ProposalError, "mapped_skill_invalid"):
+                materializer.validated_source_files(source)
+
+            (source / "linked-directory").unlink()
+            os.symlink(root / "missing", source / "dangling")
+            with self.assertRaisesRegex(materializer.ProposalError, "mapped_skill_invalid"):
+                materializer.validated_source_files(source)
+
 
 if __name__ == "__main__":
     unittest.main()

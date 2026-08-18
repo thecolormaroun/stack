@@ -5,7 +5,7 @@
   "source_mode": "repository-bundle",
   "canonical_source": "https://github.com/thecolormaroun/stack.git",
   "bundled_content": "packages/stack-codex/content",
-  "content_sha256": "cd1083d07bb625a66e396fa1725aa5775adc7c82a08e3d4ec67b8839de81c1b4",
+  "content_sha256": "5d232fafdd2cbf9263d6c83ae706ec6bf80d6877b7f8b0f6911493a84c85d7c9",
   "bundled_stack_owned_source": true,
   "copy_upstream_source": false,
   "exports": [

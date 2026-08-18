@@ -9,6 +9,7 @@ import stat
 import subprocess
 import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -137,6 +138,41 @@ def test_malformed_policy_fails_closed_with_a_terminal_receipt(tmp_path: Path):
     assert str(policy) not in result.stdout
 
 
+def test_missing_or_nonpositive_policy_lease_fails_into_receipt(tmp_path: Path):
+    for index, lease_value in enumerate((None, 0, -1, 300)):
+        policy = tmp_path / f"lease-policy-{index}.json"
+        data = json.loads(POLICY.read_text())
+        if lease_value is None:
+            data["state"].pop("lease_seconds")
+        else:
+            data["state"]["lease_seconds"] = lease_value
+        policy.write_text(json.dumps(data), encoding="utf-8")
+        state = tmp_path / f"state-{index}"
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT),
+                "audit",
+                "--state-dir",
+                str(state),
+                "--policy",
+                str(policy),
+                "--sources",
+                str(SOURCES),
+                "--run-id",
+                f"bad-lease-{index}",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode != 0
+        receipt = json.loads((state / "receipts" / f"bad-lease-{index}.json").read_text())
+        assert receipt["terminal_classification"] == "failed"
+        assert receipt["reason_code"] == "lease_seconds_invalid"
+
+
 def test_duplicate_active_lease_is_blocked_without_stage_write(tmp_path: Path):
     state = tmp_path / "state"
     state.mkdir(mode=0o700)
@@ -187,6 +223,25 @@ def test_three_identical_non_transient_blockers_open_circuit_and_manual_clear(tm
     assert cleared.returncode == 0, cleared.stderr
     assert json.loads(cleared.stdout)["manual_audit_cleared"] is True
     assert json.loads((state / "stack-maintenance.circuit.json").read_text())["open"] is False
+
+
+def test_failed_manual_audit_does_not_clear_open_circuit(tmp_path: Path):
+    state = tmp_path / "state"
+    for index in range(3):
+        _write_lease(state, owner="different-owner", fingerprint="same-input", expires_at=900.0)
+        result = _run(state, "--owner-id", "current-owner", now=1000.0 + index)
+        assert result.returncode != 0
+    failed = _run(
+        state,
+        "--owner-id",
+        "current-owner",
+        "--manual-audit",
+        "--vendor-path",
+        str(tmp_path / "missing-vendor"),
+        now=2000.0,
+    )
+    assert failed.returncode != 0
+    assert json.loads((state / "stack-maintenance.circuit.json").read_text())["open"] is True
 
 
 def test_success_resets_closed_circuit_strikes(tmp_path: Path):
@@ -502,9 +557,22 @@ def test_disposable_candidate_is_clean_base_allowlisted_and_private_data_safe(tm
             ROOT,
             tmp_path / "private-candidate",
             allowlist=["docs/stack-maintenance.md"],
-            proposed_files={"docs/stack-maintenance.md": "secret /Users/maroun/private\n"},
+            proposed_files={"docs/stack-maintenance.md": "secret /Users/" + "maroun/private\n"},
             run_readiness_checks=False,
         )
+
+
+def test_candidate_secret_scan_covers_standard_github_token_prefixes(tmp_path: Path):
+    maintenance = _module()
+    for index, token in enumerate(("ghp_" + "a" * 36, "github_pat_" + "a" * 40)):
+        with unittest.TestCase().assertRaisesRegex(maintenance.MaintenanceError, "candidate_private_data"):
+            maintenance.stage_candidate(
+                ROOT,
+                tmp_path / f"secret-{index}",
+                allowlist=["docs/stack-maintenance.md"],
+                proposed_files={"docs/stack-maintenance.md": token + "\n"},
+                run_readiness_checks=False,
+            )
     with unittest.TestCase().assertRaisesRegex(maintenance.MaintenanceError, "candidate_path_not_allowlisted"):
         maintenance.stage_candidate(
             ROOT,
@@ -521,25 +589,154 @@ def test_proposal_manifest_is_confined_and_bound_to_origin_main(tmp_path: Path):
     payload = proposal / "payload"
     payload.mkdir(parents=True)
     (payload / "runbook.md").write_text("# proposed\n", encoding="utf-8")
+    registry_payload = payload / "registry.json"
+    lock_payload = payload / "lock.json"
+    registry_payload.write_bytes((ROOT / "registry/upstreams.json").read_bytes())
+    lock_payload.write_bytes((ROOT / "upstreams.lock.json").read_bytes())
+    gstack = next(row for row in json.loads(registry_payload.read_text())["providers"] if row["id"] == "gstack")
     base = subprocess.run(
         ["git", "rev-parse", "origin/main"], cwd=ROOT, text=True, capture_output=True, check=True
     ).stdout.strip()
+    receipt_digest = "e" * 64
     manifest = proposal / "manifest.json"
     manifest.write_text(
         json.dumps({
-            "schema_version": 1,
+            "schema_version": 2,
+            "generator": "scripts/materialize-maintenance-proposal.py",
             "base_sha": base,
-            "files": [{"path": "docs/stack-maintenance.md", "source": "payload/runbook.md"}],
+            "audit_receipt_sha256": receipt_digest,
+            "observation_digest": "a" * 64,
+            "providers": [{
+                "id": "gstack",
+                "source": "https://github.com/garrytan/gstack.git",
+                "pin": gstack["pin"]["value"],
+                "license": gstack["license"],
+                "content_digest": gstack["last_known_good"]["metadata_digest"],
+            }],
+            "files": [
+                {
+                    "path": "docs/stack-maintenance.md",
+                    "source": "payload/runbook.md",
+                    "sha256": hashlib.sha256(b"# proposed\n").hexdigest(),
+                },
+                {
+                    "path": "registry/upstreams.json",
+                    "source": "payload/registry.json",
+                    "sha256": hashlib.sha256(registry_payload.read_bytes()).hexdigest(),
+                },
+                {
+                    "path": "upstreams.lock.json",
+                    "source": "payload/lock.json",
+                    "sha256": hashlib.sha256(lock_payload.read_bytes()).hexdigest(),
+                },
+            ],
         }),
         encoding="utf-8",
     )
-    loaded = maintenance.load_proposal_manifest(manifest)
-    assert loaded == {"docs/stack-maintenance.md": (payload / "runbook.md").resolve()}
+    loaded = maintenance._load_generated_proposal_manifest(
+        manifest,
+        expected_receipt_digest=receipt_digest,
+    )
+    assert loaded["docs/stack-maintenance.md"] == (payload / "runbook.md").resolve()
+    assert set(loaded) == {"docs/stack-maintenance.md", "registry/upstreams.json", "upstreams.lock.json"}
     value = json.loads(manifest.read_text())
     value["base_sha"] = "f" * 40
     manifest.write_text(json.dumps(value), encoding="utf-8")
     with unittest.TestCase().assertRaisesRegex(maintenance.MaintenanceError, "proposal_base_changed"):
-        maintenance.load_proposal_manifest(manifest)
+        maintenance._load_generated_proposal_manifest(
+            manifest,
+            expected_receipt_digest=receipt_digest,
+        )
+
+
+def test_proposal_manifest_rejects_payload_digest_mismatch(tmp_path: Path):
+    maintenance = _module()
+    proposal = tmp_path / "proposal"
+    payload = proposal / "payload"
+    payload.mkdir(parents=True)
+    source = payload / "runbook.md"
+    source.write_text("# proposed\n", encoding="utf-8")
+    base = maintenance._git(ROOT, "rev-parse", "origin/main")
+    manifest = proposal / "manifest.json"
+    manifest.write_text(json.dumps({
+        "schema_version": 2,
+        "generator": "scripts/materialize-maintenance-proposal.py",
+        "base_sha": base,
+        "audit_receipt_sha256": "e" * 64,
+        "observation_digest": "a" * 64,
+        "providers": [{
+            "id": "gstack",
+            "source": "https://github.com/garrytan/gstack.git",
+            "pin": "b" * 40,
+            "license": "MIT",
+            "content_digest": "c" * 64,
+        }],
+        "files": [{"path": "docs/stack-maintenance.md", "source": "payload/runbook.md", "sha256": "d" * 64}],
+    }), encoding="utf-8")
+    with unittest.TestCase().assertRaisesRegex(maintenance.MaintenanceError, "proposal_source_digest_mismatch"):
+        maintenance._load_generated_proposal_manifest(
+            manifest,
+            expected_receipt_digest="e" * 64,
+        )
+
+
+def test_generated_proposal_rejects_audit_receipt_digest_mismatch(tmp_path: Path):
+    maintenance = _module()
+    proposal = tmp_path / "proposal"
+    proposal.mkdir()
+    manifest = proposal / "manifest.json"
+    manifest.write_text(json.dumps({
+        "schema_version": 2,
+        "generator": "scripts/materialize-maintenance-proposal.py",
+        "base_sha": maintenance._git(ROOT, "rev-parse", "origin/main"),
+        "audit_receipt_sha256": "a" * 64,
+        "observation_digest": "b" * 64,
+        "providers": [{
+            "id": "gstack",
+            "source": "https://github.com/garrytan/gstack.git",
+            "pin": "c" * 40,
+            "license": "MIT",
+            "content_digest": "d" * 64,
+        }],
+        "files": [],
+    }), encoding="utf-8")
+    with unittest.TestCase().assertRaisesRegex(
+        maintenance.MaintenanceError,
+        "proposal_receipt_digest_mismatch",
+    ):
+        maintenance._load_generated_proposal_manifest(
+            manifest,
+            expected_receipt_digest="f" * 64,
+        )
+
+
+def test_cli_rejects_external_proposal_manifest_before_any_write(tmp_path: Path):
+    forged = tmp_path / "forged-manifest.json"
+    forged.write_text("{}\n", encoding="utf-8")
+    state = tmp_path / "state"
+    stage = tmp_path / "stage"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "prepare",
+            "--state-dir",
+            str(state),
+            "--stage-dir",
+            str(stage),
+            "--proposal-manifest",
+            str(forged),
+            "--github",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert "unrecognized arguments: --proposal-manifest" in result.stderr
+    assert not state.exists()
+    assert not stage.exists()
 
 
 def test_blocked_receipt_stays_visible(tmp_path: Path):
@@ -588,6 +785,7 @@ class _FakeGitHub:
         self.create_error = create_error
         self.push_calls = 0
         self.create_calls = 0
+        self.remote_content_digest = None
 
     def list_open_candidates(self, repository, branch, marker):
         return list(self.records)
@@ -595,12 +793,24 @@ class _FakeGitHub:
     def remote_branch(self, repository, branch):
         return self.remote
 
+    def compare_candidate(self, repository, base_sha, head_sha):
+        return {
+            "merge_base_sha": base_sha,
+            "ahead_by": 1,
+            "changed_paths": ["docs/candidate.md"],
+            "changed_content_digest": self.remote_content_digest,
+        }
+
     def push_branch(self, repository, branch, stage_dir):
         self.push_calls += 1
         if self.push_error:
             raise self.maintenance.MaintenanceError(self.push_error, "transient")
         head = self.maintenance._git(stage_dir, "rev-parse", "HEAD")
         self.remote = {"sha": head}
+        self.remote_content_digest = self.maintenance._candidate_content_digest(
+            stage_dir,
+            ["docs/candidate.md"],
+        )
         return {"branch": branch, "head_sha": head}
 
     def create_draft_pr(self, repository, branch, title, body, *, labels=None):
@@ -623,7 +833,21 @@ class _FakeGitHub:
         return {"number": 41, "url": self.records[0]["url"]}
 
 
-def _lane(maintenance, root, stage, base, github, *, expected_digest=None):
+def _lane(
+    maintenance,
+    root,
+    stage,
+    base,
+    github,
+    *,
+    expected_digest=None,
+    expected_content_digest=None,
+):
+    if stage is not None and expected_content_digest is None:
+        expected_content_digest = maintenance._candidate_content_digest(
+            stage,
+            ["docs/candidate.md"],
+        )
     return maintenance.prepare_canonical_pr(
         root,
         stage,
@@ -633,6 +857,7 @@ def _lane(maintenance, root, stage, base, github, *, expected_digest=None):
         github=github,
         readiness_runner=lambda _stage: {"status": "passed", "checks": ["fixture-gate"]},
         expected_changed_paths_digest=expected_digest,
+        expected_candidate_content_digest=expected_content_digest,
     )
 
 
@@ -655,12 +880,102 @@ def test_canonical_lane_reuses_safe_candidate_and_missing_labels_are_information
     github = _FakeGitHub(maintenance)
     created = _lane(maintenance, root, stage, base, github)
     digest_value = created["changed_paths_digest"]
-    reused = _lane(maintenance, root, None, base, github, expected_digest=digest_value)
+    reused = _lane(
+        maintenance,
+        root,
+        None,
+        base,
+        github,
+        expected_digest=digest_value,
+        expected_content_digest=created["pr_state"]["candidate_content_digest"],
+    )
     assert reused["terminal_classification"] == "prepared"
     assert reused["result"] == "canonical_pr_reused"
     assert reused["checks"]["optional_labels_missing"] is True
     assert github.push_calls == 1
     assert github.create_calls == 1
+
+
+def test_canonical_lane_recomputes_remote_diff_before_reuse(tmp_path: Path):
+    maintenance, root, stage, base = _candidate_fixture(tmp_path)
+    github = _FakeGitHub(maintenance)
+    created = _lane(maintenance, root, stage, base, github)
+    github.compare_candidate = lambda _repository, _base, _head: {
+        "merge_base_sha": base,
+        "ahead_by": 1,
+        "changed_paths": ["README.md"],
+    }
+    reused = _lane(
+        maintenance,
+        root,
+        None,
+        base,
+        github,
+        expected_digest=created["changed_paths_digest"],
+        expected_content_digest=created["pr_state"]["candidate_content_digest"],
+    )
+    assert reused["terminal_classification"] == "blocked"
+    assert reused["result"] == "canonical_changed_paths_digest_mismatch"
+
+
+def test_canonical_lane_rejects_stale_same_path_content(tmp_path: Path):
+    maintenance, root, stage, base = _candidate_fixture(tmp_path)
+    github = _FakeGitHub(maintenance)
+    created = _lane(maintenance, root, stage, base, github)
+    stale_stage = tmp_path / "stale-stage"
+    maintenance.stage_candidate(
+        root,
+        stale_stage,
+        base_sha=base,
+        allowlist=["docs/candidate.md"],
+        proposed_files={"docs/candidate.md": "new candidate bytes\n"},
+        run_readiness_checks=False,
+    )
+    result = _lane(
+        maintenance,
+        root,
+        stale_stage,
+        base,
+        github,
+        expected_digest=created["changed_paths_digest"],
+    )
+    assert result["terminal_classification"] == "blocked"
+    assert result["result"] == "canonical_content_digest_mismatch"
+    assert github.push_calls == 1
+    assert github.create_calls == 1
+
+
+def test_canonical_lane_recomputes_remote_content_before_reuse(tmp_path: Path):
+    maintenance, root, stage, base = _candidate_fixture(tmp_path)
+    github = _FakeGitHub(maintenance)
+    created = _lane(maintenance, root, stage, base, github)
+    github.remote_content_digest = "f" * 64
+    result = _lane(
+        maintenance,
+        root,
+        None,
+        base,
+        github,
+        expected_digest=created["changed_paths_digest"],
+        expected_content_digest=created["pr_state"]["candidate_content_digest"],
+    )
+    assert result["terminal_classification"] == "blocked"
+    assert result["result"] == "canonical_remote_content_mismatch"
+    assert github.push_calls == 1
+    assert github.create_calls == 1
+
+
+def test_conflicting_cli_modes_are_rejected_before_a_run(tmp_path: Path):
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "audit", "--mode", "prepare", "--state-dir", str(tmp_path / "state")],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "conflicting_mode_arguments" in result.stderr
+    assert not (tmp_path / "state").exists()
 
 
 def test_canonical_lane_blocks_duplicate_candidates_before_remote_mutation(tmp_path: Path):
@@ -706,6 +1021,45 @@ def test_canonical_lane_pr_create_failure_records_remote_branch_and_retains_stag
     assert result["checks"]["remote_mutation_started"] is True
     assert result["checks"]["recoverable_stage"] is True
     assert stage.exists()
+
+
+def test_blocked_pr_lane_increments_circuit(tmp_path: Path):
+    maintenance = _module()
+    github = _FakeGitHub(maintenance)
+    github.remote = {"sha": "e" * 40}
+    state = tmp_path / "state"
+    maintenance.run(
+        mode="audit",
+        state_dir=state,
+        run_id="source-audit",
+        owner_id="test-owner",
+        now=900.0,
+        root=ROOT,
+    )
+    audit_receipt = state / "receipts/source-audit.json"
+    with mock.patch.object(
+        maintenance,
+        "materialize_proposal_from_receipt",
+        return_value={"docs/stack-maintenance.md": "# candidate\n"},
+    ):
+        receipt = maintenance.run(
+            mode="prepare",
+            state_dir=state,
+            run_id="blocked-pr-lane",
+            owner_id="test-owner",
+            now=1000.0,
+            stage_dir=tmp_path / "stage",
+            root=ROOT,
+            audit_receipt_path=audit_receipt,
+            proposal_dir=tmp_path / "proposal",
+            github=github,
+            readiness_runner=lambda _stage: {"status": "passed", "checks": ["fixture-gate"]},
+        )
+    assert receipt["terminal_classification"] == "blocked"
+    assert receipt["result"] == "canonical_branch_without_pr"
+    circuit = json.loads((tmp_path / "state/stack-maintenance.circuit.json").read_text())
+    assert circuit["strike_count"] == 1
+    assert circuit["blocker_fingerprint"] is not None
 
 
 class StackMaintenanceTests(unittest.TestCase):

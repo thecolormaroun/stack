@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "policy_id": "stack-maintenance",
-  "revision": "2026-08-18-u7",
+  "revision": "2026-08-18-u8",
   "allowed_modes": ["audit", "prepare"],
   "legacy_target_ids": [
     "last30days",
@@ -75,6 +75,8 @@
     "tests/test_upstream_packages.py",
     "tests/test_fresh_clone.py",
     "registry/capabilities.json",
+    "skills/imported/matt/",
+    "skills/imported/david/",
     "skills/imported/emil/",
     "skills/design/review-animations/",
     "docs/stack-maintenance.md"

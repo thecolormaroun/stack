@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "providers": [
+    {
+      "id": "matt",
+      "display_name": "Matt Pocock",
+      "target_root": "skills/imported/matt",
+      "target_prefix": "matt-",
+      "mapping": "existing-source-markdown",
+      "source_metadata": "references/source.md",
+      "license": "MIT",
+      "retained_targets": [
+        {
+          "source": "skills/productivity/writing-great-skills",
+          "target": "skills/imported/matt/matt-writing-great-skills",
+          "pin": "391a2701dd948f94f56a39f7533f8eea9a859c87"
+        }
+      ],
+      "retained_files": []
+    },
+    {
+      "id": "david",
+      "display_name": "David Ondrej",
+      "target_root": "skills/imported/david",
+      "target_prefix": "david-",
+      "mapping": "existing-source-markdown",
+      "source_metadata": "references/source.md",
+      "license": "MIT",
+      "retained_targets": [
+        {
+          "source": "skills/ops-and-setup/cyber-audit",
+          "target": "skills/imported/david/david-cyber-audit",
+          "pin": "5c99080334072075eb9e0a17837f7d24e4f3e6ae"
+        }
+      ],
+      "retained_files": ["agents/openai.yaml"]
+    },
+    {
+      "id": "emil",
+      "display_name": "Emil Kowalski",
+      "target_root": ".",
+      "target_prefix": "",
+      "mapping": "explicit-source-json",
+      "source_metadata": "references/source.json",
+      "license": "MIT",
+      "retained_targets": [],
+      "retained_files": ["references/STANDARDS.md"],
+      "targets": [
+        {
+          "source": "skills/emil-design-eng",
+          "target": "skills/imported/emil/emil-design-eng"
+        },
+        {
+          "source": "skills/review-animations",
+          "target": "skills/design/review-animations"
+        }
+      ]
+    }
+  ]
+}

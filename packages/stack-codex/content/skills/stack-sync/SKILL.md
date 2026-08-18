@@ -29,20 +29,30 @@ Run only the maintenance tools shipped by this repository:
 For a scheduled maintenance run, do not ask the operator routine questions.
 Run the audit, report the receipt, and stop with the exact classified blocker
 when safety or provenance is ambiguous. If the audit reports upstream drift,
-build proposed files only in owner-only temporary storage from the receipt's
-exact observed commits and the repository's existing provider layout. Create a
-path-confined proposal manifest with this shape:
+do not author or edit proposal bytes. Give the exact persisted owner-only audit
+receipt to `prepare`:
 
-```json
-{"schema_version":1,"base_sha":"ORIGIN_MAIN_SHA","files":[{"path":"ALLOWLISTED_REPOSITORY_PATH","source":"RELATIVE_PAYLOAD_PATH"}]}
+```bash
+PROPOSAL_DIR="$(mktemp -d "${TMPDIR:-/tmp}/stack-maintenance-proposal.XXXXXX")"
+STAGE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/stack-maintenance-stage.XXXXXX")"
+python3 scripts/stack-maintenance.py prepare \
+  --audit-receipt "${AUDIT_RECEIPT}" \
+  --proposal-dir "${PROPOSAL_DIR}" \
+  --stage-dir "${STAGE_DIR}" \
+  --github
 ```
 
-Then run `prepare` with an unused disposable stage, `--proposal-manifest`, and
-`--github`. The runner validates the clean base, manifest confinement, diff
-allowlist, repository gates, and canonical PR lineage before any remote write.
-If an upstream change requires a new import rule, license decision, capability
-activation, deletion, or other judgment not already encoded in Stack, leave it
-`awaiting_approval`; do not invent policy.
+The runner checks that the receipt came from its receipt store, clones the
+receipt's exact audited Stack base, and invokes that base's checked-in
+`scripts/materialize-maintenance-proposal.py` itself. External proposal
+manifests are not accepted. The materializer follows only the curated import
+rules in
+`registry/maintenance-imports.json` and emits a receipt-bound,
+content-addressed manifest. The runner then validates payload hashes, the diff
+allowlist, complete repository gates, and canonical PR lineage before any
+remote write. If an upstream change requires a new import rule, license
+decision, capability activation, deletion, or other judgment not already
+encoded in Stack, leave it `awaiting_approval`; do not invent policy.
 
 If the user explicitly requests installation, use the documented
 `scripts/bootstrap-stack.py --install` flow with explicit deployment, staging,
@@ -55,6 +65,7 @@ scripts; they are not part of this repository.
 - repository and package-integrity verification
 - owner-only receipts, lease/circuit handling, and upstream drift audit
 - isolated proposal validation and one canonical draft maintenance PR
+- exact-commit, deterministic materialization of existing curated imports
 - clean-clone bootstrap readiness
 - explicit, approval-aware runtime installation
 - reporting missing packages, drift, or failed health gates

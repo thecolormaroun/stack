@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Fail-closed Stack maintenance policy, source audit, and candidate runner.
 
-The runner audits catalog and lock metadata read-only.  ``prepare`` may create
-an isolated candidate clone and run dry-run readiness checks; it never mutates
-the caller checkout, installs a runtime, invokes a plugin, or calls GitHub.
+The runner audits catalog and lock metadata read-only. ``prepare`` may create
+an isolated candidate and, only with the explicit GitHub boundary, create or
+reuse one draft PR. It never mutates the caller checkout, installs a runtime,
+invokes a plugin, merges, or publishes.
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ import secrets
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 from urllib.parse import urlparse
 from pathlib import Path
@@ -31,8 +33,12 @@ DEFAULT_UPSTREAMS = ROOT / "registry" / "upstreams.json"
 DEFAULT_LOCK = ROOT / "upstreams.lock.json"
 DEFAULT_RECEIPT_SCHEMA = ROOT / "registry" / "stack-maintenance-receipt.schema.json"
 
+COMMAND_TIMEOUT_SECONDS = 300
+NETWORK_TIMEOUT_SECONDS = 120
+
 TASK_ID = "stack-maintenance"
 SCHEMA_VERSION = 1
+PROPOSAL_SCHEMA_VERSION = 2
 TERMINAL_CLASSIFICATIONS = {
     "no_action",
     "prepared",
@@ -72,7 +78,7 @@ PRIVATE_DATA_PATTERNS = (
     re.compile(r"(?:^|[^A-Za-z])CODEX_HOME(?:$|[^A-Za-z])"),
     re.compile(r"(?:^|[^A-Za-z])HOME=/"),
     re.compile(r"-----BEGIN (?:OPENSSH|RSA|EC|DSA|PRIVATE) KEY-----"),
-    re.compile(r"(?:ghp|github_pat|sk)-[A-Za-z0-9_\-]{12,}"),
+    re.compile(r"(?:ghp_[A-Za-z0-9]{12,}|github_pat_[A-Za-z0-9_]{12,}|sk-[A-Za-z0-9_\-]{12,})"),
 )
 SAFE_REPOSITORY_PATH = re.compile(r"^(?!/)(?!.*(?:^|/)\.\.(?:/|$))[A-Za-z0-9._/-]+$")
 SOURCE_FIELDS = {
@@ -241,6 +247,12 @@ def validate_policy(policy: Mapping[str, Any], sources: Mapping[str, Any]) -> No
         raise PolicyError("state_policy_invalid")
     if not isinstance(state.get("circuit_threshold"), int) or state["circuit_threshold"] < 1:
         raise PolicyError("circuit_threshold_invalid")
+    if (
+        not isinstance(state.get("lease_seconds"), int)
+        or isinstance(state.get("lease_seconds"), bool)
+        or state["lease_seconds"] <= COMMAND_TIMEOUT_SECONDS
+    ):
+        raise PolicyError("lease_seconds_invalid")
     for state_name in ("lease_file", "circuit_file", "receipts_directory"):
         value = state.get(state_name)
         if not isinstance(value, str) or not value or Path(value).name != value or value in {".", ".."}:
@@ -322,12 +334,16 @@ def _origin_identity(value: str) -> str:
 
 def _git(root: Path, *arguments: str) -> str:
     """Run a read-only Git query and return normalized stdout."""
-    result = subprocess.run(
-        ["git", "-C", str(root), *arguments],
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), *arguments],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=COMMAND_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        raise MaintenanceError("git_query_failed", "transient")
     if result.returncode:
         raise MaintenanceError("git_query_failed", "transient")
     return result.stdout.strip()
@@ -335,12 +351,16 @@ def _git(root: Path, *arguments: str) -> str:
 
 def _git_mutate(root: Path, *arguments: str, error_code: str = "git_mutation_failed") -> str:
     """Run one explicitly-scoped Git mutation and redact command failures."""
-    result = subprocess.run(
-        ["git", "-C", str(root), *arguments],
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), *arguments],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=COMMAND_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        raise MaintenanceError(error_code, "transient")
     if result.returncode:
         raise MaintenanceError(error_code, "transient")
     return result.stdout.strip()
@@ -349,12 +369,16 @@ def _git_mutate(root: Path, *arguments: str, error_code: str = "git_mutation_fai
 def _git_status(root: Path) -> tuple[str, list[str]]:
     # Do not use ``_git`` here: its normalizing ``strip`` would remove the
     # leading porcelain status column and turn `` M docs/x`` into ``M docs/x``.
-    result = subprocess.run(
-        ["git", "-C", str(root), "status", "--porcelain=v1", "--untracked-files=all"],
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "status", "--porcelain=v1", "--untracked-files=all"],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=COMMAND_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        raise MaintenanceError("git_query_failed", "transient")
     if result.returncode:
         raise MaintenanceError("git_query_failed", "transient")
     status = result.stdout.rstrip("\n")
@@ -826,11 +850,15 @@ def verify_vendor_reconstruction(manifest_path: Path, proof_checkout: Path) -> D
         raise MaintenanceError("vendor_matching_commit_invalid", "non_transient")
     if proof_checkout.is_symlink() or not (proof_checkout / ".git").exists():
         raise MaintenanceError("vendor_reconstruction_missing", "non_transient")
-    comparison = subprocess.run(
-        ["git", "-C", str(proof_checkout), "diff", "--quiet", expected, "--"],
-        capture_output=True,
-        check=False,
-    )
+    try:
+        comparison = subprocess.run(
+            ["git", "-C", str(proof_checkout), "diff", "--quiet", expected, "--"],
+            capture_output=True,
+            check=False,
+            timeout=COMMAND_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        raise MaintenanceError("vendor_reconstruction_failed", "transient")
     if comparison.returncode or _git(proof_checkout, "ls-files", "--others", "--exclude-standard"):
         raise MaintenanceError("vendor_reconstruction_mismatch", "non_transient")
     return {"status": "verified", "matching_commit": expected, "tree_diff_exit": 0, "untracked_paths": 0}
@@ -1076,16 +1104,57 @@ def _candidate_bytes(value: Any) -> bytes:
     raise MaintenanceError("candidate_content_invalid", "non_transient")
 
 
-def load_proposal_manifest(path: Path, *, root: Path = ROOT) -> Dict[str, Path]:
-    """Load an agent-produced proposal through a path-confined manifest.
+def _load_generated_proposal_manifest(
+    path: Path,
+    *,
+    expected_receipt_digest: str,
+    root: Path = ROOT,
+) -> Dict[str, Path]:
+    """Load a receipt-bound manifest generated by the checked-in materializer.
 
     Proposal payloads stay outside the repository until ``stage_candidate``
     copies their explicit allowlisted files into a disposable clean clone.
     """
     path = Path(path)
     manifest = _read_json(path, "proposal_manifest")
-    if set(manifest) != {"schema_version", "base_sha", "files"} or manifest.get("schema_version") != SCHEMA_VERSION:
+    if set(manifest) != {
+        "schema_version",
+        "generator",
+        "base_sha",
+        "audit_receipt_sha256",
+        "observation_digest",
+        "providers",
+        "files",
+    } or manifest.get("schema_version") != PROPOSAL_SCHEMA_VERSION:
         raise PolicyError("proposal_manifest_invalid")
+    if manifest.get("generator") != "scripts/materialize-maintenance-proposal.py":
+        raise PolicyError("proposal_generator_invalid")
+    if not isinstance(expected_receipt_digest, str) or DIGEST_PATTERN.fullmatch(expected_receipt_digest) is None:
+        raise PolicyError("audit_receipt_digest_invalid")
+    if manifest.get("audit_receipt_sha256") != expected_receipt_digest:
+        raise MaintenanceError("proposal_receipt_digest_mismatch", "non_transient")
+    observation_digest = manifest.get("observation_digest")
+    if not isinstance(observation_digest, str) or DIGEST_PATTERN.fullmatch(observation_digest) is None:
+        raise PolicyError("proposal_observation_invalid")
+    provider_rows = manifest.get("providers")
+    if not isinstance(provider_rows, list) or not provider_rows:
+        raise PolicyError("proposal_providers_invalid")
+    provider_ids: set[str] = set()
+    for provider in provider_rows:
+        if not isinstance(provider, Mapping) or set(provider) != {"id", "source", "pin", "license", "content_digest"}:
+            raise PolicyError("proposal_provider_invalid")
+        provider_id = provider.get("id")
+        if not isinstance(provider_id, str) or not provider_id or provider_id in provider_ids:
+            raise PolicyError("proposal_provider_invalid")
+        if not isinstance(provider.get("source"), str) or not str(provider["source"]).startswith("https://"):
+            raise PolicyError("proposal_provider_invalid")
+        if not isinstance(provider.get("pin"), str) or SHA1_PATTERN.fullmatch(provider["pin"]) is None:
+            raise PolicyError("proposal_provider_invalid")
+        if not isinstance(provider.get("license"), str) or not provider["license"]:
+            raise PolicyError("proposal_provider_invalid")
+        if not isinstance(provider.get("content_digest"), str) or DIGEST_PATTERN.fullmatch(provider["content_digest"]) is None:
+            raise PolicyError("proposal_provider_invalid")
+        provider_ids.add(provider_id)
     base_sha = manifest.get("base_sha")
     if not isinstance(base_sha, str) or SHA1_PATTERN.fullmatch(base_sha) is None:
         raise PolicyError("proposal_base_invalid")
@@ -1098,7 +1167,7 @@ def load_proposal_manifest(path: Path, *, root: Path = ROOT) -> Dict[str, Path]:
     source_root = path.parent.resolve()
     proposals: Dict[str, Path] = {}
     for entry in files:
-        if not isinstance(entry, Mapping) or set(entry) != {"path", "source"}:
+        if not isinstance(entry, Mapping) or set(entry) != {"path", "source", "sha256"}:
             raise PolicyError("proposal_file_invalid")
         relative = _candidate_path(str(entry.get("path", ""))).as_posix()
         source_value = entry.get("source")
@@ -1110,10 +1179,159 @@ def load_proposal_manifest(path: Path, *, root: Path = ROOT) -> Dict[str, Path]:
             raise PolicyError("proposal_source_invalid")
         if source.is_symlink() or not source.is_file():
             raise MaintenanceError("proposal_source_missing", "non_transient")
+        expected_digest = entry.get("sha256")
+        if not isinstance(expected_digest, str) or DIGEST_PATTERN.fullmatch(expected_digest) is None:
+            raise PolicyError("proposal_source_digest_invalid")
+        if sha256_bytes(source.read_bytes()) != expected_digest:
+            raise MaintenanceError("proposal_source_digest_mismatch", "non_transient")
         if relative in proposals:
             raise PolicyError("proposal_path_duplicate")
         proposals[relative] = source
+    registry_source = proposals.get("registry/upstreams.json")
+    lock_source = proposals.get("upstreams.lock.json")
+    if registry_source is None or lock_source is None:
+        raise PolicyError("proposal_provenance_files_missing")
+    try:
+        proposed_registry = json.loads(registry_source.read_text(encoding="utf-8"))
+        proposed_lock = json.loads(lock_source.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        raise PolicyError("proposal_provenance_invalid")
+    registry_providers = {
+        row.get("id"): row
+        for row in proposed_registry.get("providers", [])
+        if isinstance(row, Mapping)
+    } if isinstance(proposed_registry, Mapping) else {}
+    lock_providers = proposed_lock.get("providers", {}) if isinstance(proposed_lock, Mapping) else {}
+    if not isinstance(lock_providers, Mapping):
+        raise PolicyError("proposal_provenance_invalid")
+    for provider in provider_rows:
+        provider_id = provider["id"]
+        proposed = registry_providers.get(provider_id)
+        if not isinstance(proposed, Mapping):
+            raise PolicyError("proposal_provenance_invalid")
+        if (
+            proposed.get("canonical_source") != provider["source"]
+            or proposed.get("pin", {}).get("value") != provider["pin"]
+            or proposed.get("license") != provider["license"]
+            or proposed.get("last_known_good", {}).get("pin") != provider["pin"]
+            or proposed.get("last_known_good", {}).get("metadata_digest") != provider["content_digest"]
+            or lock_providers.get(provider_id) != provider["pin"]
+        ):
+            raise PolicyError("proposal_provenance_mismatch")
     return proposals
+
+
+def _load_audit_receipt(path: Path, *, receipts_dir: Path) -> tuple[Dict[str, Any], str]:
+    """Load one persisted owner-only audit receipt and verify its semantic seal."""
+    path = Path(path)
+    receipts_dir = Path(receipts_dir).resolve()
+    try:
+        resolved = path.resolve(strict=True)
+    except OSError:
+        raise MaintenanceError("audit_receipt_missing", "non_transient")
+    if path.is_symlink() or resolved.parent != receipts_dir:
+        raise MaintenanceError("audit_receipt_outside_state", "non_transient")
+    _assert_secure_state_file(resolved)
+    receipt = _read_json(resolved, "audit_receipt")
+    validate_receipt(receipt)
+    if (
+        receipt.get("mode") != "audit"
+        or receipt.get("terminal_classification") != "awaiting_approval"
+        or receipt.get("result") != "upstream_updates_detected"
+    ):
+        raise MaintenanceError("audit_receipt_not_actionable", "non_transient")
+    checks = receipt.get("checks")
+    recorded_digest = checks.get("semantic_output_digest") if isinstance(checks, Mapping) else None
+    semantic_receipt = {
+        key: value
+        for key, value in receipt.items()
+        if key not in {"run_id", "observed_at", "receipt_persisted"}
+    }
+    semantic_checks = dict(semantic_receipt.get("checks", {}))
+    semantic_checks.pop("semantic_output_digest", None)
+    semantic_receipt["checks"] = _without_volatile(semantic_checks)
+    if recorded_digest != digest(_without_volatile(semantic_receipt)):
+        raise MaintenanceError("audit_receipt_semantic_digest_mismatch", "non_transient")
+    return receipt, sha256_bytes(resolved.read_bytes())
+
+
+def materialize_proposal_from_receipt(
+    root: Path,
+    receipt_path: Path,
+    proposal_dir: Path,
+    *,
+    receipts_dir: Path,
+) -> Dict[str, Path]:
+    """Generate proposal bytes using only code from the receipt's exact base."""
+    root = Path(root).resolve()
+    proposal_dir = Path(proposal_dir).resolve()
+    if proposal_dir == root or root in proposal_dir.parents:
+        raise MaintenanceError("proposal_directory_inside_caller", "non_transient")
+    receipt, receipt_digest = _load_audit_receipt(receipt_path, receipts_dir=receipts_dir)
+    source_audit = receipt.get("checks", {}).get("source_audit", {})
+    checkout = source_audit.get("checkout", {}) if isinstance(source_audit, Mapping) else {}
+    base_sha = checkout.get("base_sha") if isinstance(checkout, Mapping) else None
+    if not isinstance(base_sha, str) or SHA1_PATTERN.fullmatch(base_sha) is None:
+        raise MaintenanceError("audit_receipt_base_invalid", "non_transient")
+    if _git(root, "rev-parse", "--verify", "origin/main^{commit}") != base_sha:
+        raise MaintenanceError("audit_receipt_base_changed", "non_transient")
+
+    with tempfile.TemporaryDirectory(prefix="stack-maintenance-code-") as temporary:
+        code_checkout = Path(temporary) / "stack"
+        try:
+            clone = subprocess.run(
+                ["git", "clone", "--no-local", "--no-checkout", str(root), str(code_checkout)],
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=COMMAND_TIMEOUT_SECONDS,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            raise MaintenanceError("proposal_code_clone_failed", "transient")
+        if clone.returncode:
+            raise MaintenanceError("proposal_code_clone_failed", "transient")
+        _git_mutate(code_checkout, "checkout", "--detach", "-q", base_sha, error_code="proposal_code_checkout_failed")
+        _git_mutate(
+            code_checkout,
+            "update-ref",
+            "refs/remotes/origin/main",
+            base_sha,
+            error_code="proposal_code_checkout_failed",
+        )
+        materializer = code_checkout / "scripts" / "materialize-maintenance-proposal.py"
+        if materializer.is_symlink() or not materializer.is_file():
+            raise MaintenanceError("proposal_materializer_missing", "non_transient")
+        try:
+            generated = subprocess.run(
+                [
+                    sys.executable,
+                    str(materializer),
+                    "--root",
+                    str(code_checkout),
+                    "--receipt",
+                    str(Path(receipt_path).resolve()),
+                    "--output-dir",
+                    str(proposal_dir),
+                ],
+                cwd=code_checkout,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=COMMAND_TIMEOUT_SECONDS,
+                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            raise MaintenanceError("proposal_materialization_failed", "transient")
+        if generated.returncode:
+            code = generated.stderr.strip()
+            if not re.fullmatch(r"[a-z0-9_]+", code):
+                code = "proposal_materialization_failed"
+            raise MaintenanceError(code, "non_transient")
+    return _load_generated_proposal_manifest(
+        proposal_dir / "manifest.json",
+        expected_receipt_digest=receipt_digest,
+        root=root,
+    )
 
 
 def stage_candidate(
@@ -1138,22 +1356,49 @@ def stage_candidate(
     if SHA1_PATTERN.fullmatch(base_sha) is None:
         raise MaintenanceError("candidate_base_invalid", "non_transient")
     stage_dir.parent.mkdir(parents=True, exist_ok=True)
-    clone = subprocess.run(
-        ["git", "clone", "--no-local", "--no-checkout", str(root), str(stage_dir)],
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        clone = subprocess.run(
+            ["git", "clone", "--no-local", "--no-checkout", str(root), str(stage_dir)],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=COMMAND_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        raise MaintenanceError("candidate_clone_failed", "transient")
     if clone.returncode:
         raise MaintenanceError("candidate_clone_failed", "transient")
-    checkout = subprocess.run(
-        ["git", "-C", str(stage_dir), "checkout", "--detach", base_sha],
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        checkout = subprocess.run(
+            ["git", "-C", str(stage_dir), "checkout", "--detach", base_sha],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=COMMAND_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        raise MaintenanceError("candidate_base_unavailable", "transient")
     if checkout.returncode:
         raise MaintenanceError("candidate_base_unavailable", "non_transient")
+    # The local clone is only a transport. Preserve the caller's verified
+    # canonical origin so repository-identity tests and the later push boundary
+    # observe the public authority, not a machine-local path.
+    try:
+        source_origin = _git(root, "remote", "get-url", "origin")
+    except MaintenanceError:
+        source_origin = None
+    if source_origin is not None:
+        _git_mutate(stage_dir, "remote", "set-url", "origin", source_origin, error_code="candidate_remote_config_failed")
+    # Local clone transport does not copy the caller's remote-tracking refs.
+    # Recreate only the already-audited canonical base so readiness checks see
+    # the same origin/main identity without fetching a mutable branch.
+    _git_mutate(
+        stage_dir,
+        "update-ref",
+        "refs/remotes/origin/main",
+        base_sha,
+        error_code="candidate_remote_config_failed",
+    )
     status_digest, status_lines = _git_status(stage_dir)
     if status_lines:
         raise MaintenanceError("candidate_base_dirty", "non_transient")
@@ -1200,6 +1445,10 @@ def stage_candidate(
         "base_sha": base_sha,
         "changed_paths": sorted(path.as_posix() for path in final_relative),
         "changed_paths_digest": digest(sorted(path.as_posix() for path in final_relative)),
+        "candidate_content_digest": _candidate_content_digest(
+            stage_dir,
+            (path.as_posix() for path in final_relative),
+        ),
         "semantic_outputs_digest": digest(changed),
         "status_digest": final_status_digest,
         "readiness": readiness,
@@ -1208,24 +1457,40 @@ def stage_candidate(
 
 
 def run_candidate_readiness(stage_dir: Path) -> Dict[str, Any]:
-    """Run read-only catalog and bootstrap checks inside the disposable clone."""
+    """Run the complete checked-in gate set inside the disposable clone."""
     checks: list[str] = []
-    build = stage_dir / "scripts" / "build-capability-registry.py"
-    bootstrap = stage_dir / "scripts" / "bootstrap-stack.py"
-    if not build.is_file() or not bootstrap.is_file():
+    commands = (
+        ([sys.executable, "scripts/sync-upstreams.py"], "upstream-metadata"),
+        ([sys.executable, "scripts/classify-capabilities.py", "--check"], "capability-classification"),
+        ([sys.executable, "scripts/build-capability-registry.py", "--check"], "catalog"),
+        ([sys.executable, "scripts/apply-skill-layout.py", "--dry-run"], "skill-layout"),
+        ([sys.executable, "scripts/bootstrap-stack.py", "--root", str(stage_dir)], "bootstrap"),
+        ([sys.executable, "scripts/stack-doctor.py"], "doctor"),
+        ([sys.executable, "-m", "unittest", "discover", "-s", "tests"], "tests"),
+        (["bash", "scripts/security/scan-sensitive-content.sh"], "sensitive-content"),
+        (["git", "diff", "--check"], "git-diff-check"),
+    )
+    required = {
+        argument
+        for command, _name in commands
+        for argument in command
+        if argument.startswith("scripts/")
+    }
+    if any(not (stage_dir / relative).is_file() for relative in required):
         raise MaintenanceError("candidate_readiness_scripts_missing", "non_transient")
-    for script, arguments, name in (
-        (build, ["--root", str(stage_dir), "--check"], "catalog"),
-        (bootstrap, ["--root", str(stage_dir)], "bootstrap"),
-    ):
-        result = subprocess.run(
-            [sys.executable, str(script), *arguments],
-            cwd=stage_dir,
-            text=True,
-            capture_output=True,
-            check=False,
-            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-        )
+    for command, name in commands:
+        try:
+            result = subprocess.run(
+                command,
+                cwd=stage_dir,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=COMMAND_TIMEOUT_SECONDS,
+                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            raise MaintenanceError(f"candidate_{name}_check_failed", "non_transient")
         if result.returncode:
             raise MaintenanceError(f"candidate_{name}_check_failed", "non_transient")
         checks.append(name)
@@ -1282,6 +1547,23 @@ def _validate_candidate_allowlist(root: Path, allowlist: Iterable[str]) -> list[
     return paths
 
 
+def _candidate_content_digest(root: Path, paths: Iterable[str]) -> str:
+    """Hash the exact candidate path/blob identities used by GitHub compare."""
+    rows: list[dict[str, str]] = []
+    for value in sorted(set(paths)):
+        relative = _candidate_path(value)
+        source = Path(root) / relative
+        if source.is_symlink() or not source.is_file():
+            raise MaintenanceError("candidate_content_unreadable", "non_transient")
+        try:
+            data = source.read_bytes()
+        except OSError:
+            raise MaintenanceError("candidate_content_unreadable", "non_transient")
+        blob = hashlib.sha1(b"blob " + str(len(data)).encode("ascii") + b"\0" + data).hexdigest()
+        rows.append({"path": relative.as_posix(), "blob_sha": blob})
+    return digest(rows)
+
+
 def _assert_expected_commit_ancestry(
     stage_dir: Path,
     *,
@@ -1294,12 +1576,16 @@ def _assert_expected_commit_ancestry(
     head_sha = _git(stage_dir, "rev-parse", "HEAD")
     if SHA1_PATTERN.fullmatch(head_sha) is None:
         raise MaintenanceError("candidate_head_invalid", "non_transient")
-    ancestry = subprocess.run(
-        ["git", "-C", str(stage_dir), "merge-base", "--is-ancestor", base_sha, head_sha],
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        ancestry = subprocess.run(
+            ["git", "-C", str(stage_dir), "merge-base", "--is-ancestor", base_sha, head_sha],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=COMMAND_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        raise MaintenanceError("candidate_ancestry_invalid", "transient")
     if ancestry.returncode:
         raise MaintenanceError("candidate_ancestry_invalid", "non_transient")
     commits = [
@@ -1324,12 +1610,7 @@ def _run_pr_readiness(
     *,
     readiness_runner: Optional[Any] = None,
 ) -> Dict[str, Any]:
-    """Run local gates through an injectable boundary before remote mutation.
-
-    The default keeps the U3 catalog/bootstrap checks as the minimum local
-    gate.  The scheduler supplies a checked-in full-gate runner when it is
-    enabled; tests inject a deterministic runner and never contact GitHub.
-    """
+    """Run the authoritative gate set through an injectable boundary."""
     if readiness_runner is not None:
         try:
             result = readiness_runner(Path(stage_dir))
@@ -1347,10 +1628,7 @@ def _run_pr_readiness(
     result = run_candidate_readiness(stage_dir)
     if result.get("status") != "passed":
         raise MaintenanceError("candidate_readiness_failed", "non_transient")
-    # This check is intentionally local and deterministic; no network or
-    # GitHub authority is required to prove whitespace safety.
-    _git_mutate(stage_dir, "diff", "--check", error_code="candidate_diff_check_failed")
-    return {**result, "checks": [*result.get("checks", []), "git-diff-check"]}
+    return result
 
 
 def _commit_candidate(
@@ -1376,6 +1654,7 @@ def _commit_candidate(
             "commit_count": 0,
             "changed_paths": [],
             "changed_paths_digest": digest([]),
+            "candidate_content_digest": digest([]),
         }
     changed_digest = digest(paths)
     if expected_changed_paths_digest is not None and changed_digest != expected_changed_paths_digest:
@@ -1419,6 +1698,7 @@ def _commit_candidate(
         "commit_count": metadata["commit_count"],
         "changed_paths": actual_paths,
         "changed_paths_digest": actual_digest,
+        "candidate_content_digest": _candidate_content_digest(stage_dir, actual_paths),
     }
 
 
@@ -1428,12 +1708,14 @@ def _pr_marker_body(
     base_sha: str,
     input_fingerprint_value: Optional[str],
     changed_paths_digest: str,
+    candidate_content_digest: str,
     commits: Iterable[str],
 ) -> str:
     values = [
         f"<!-- {marker} -->",
         f"<!-- stack-maintenance/base-sha: {base_sha} -->",
         f"<!-- stack-maintenance/changed-paths-digest: {changed_paths_digest} -->",
+        f"<!-- stack-maintenance/candidate-content-digest: {candidate_content_digest} -->",
         f"<!-- stack-maintenance/input-fingerprint: {input_fingerprint_value or 'unknown'} -->",
         f"<!-- stack-maintenance/commits: {','.join(commits)} -->",
     ]
@@ -1488,7 +1770,9 @@ def _verify_existing_candidate(
     marker: str,
     base_sha: str,
     changed_paths_digest: Optional[str],
+    candidate_content_digest: Optional[str],
     remote_branch: Optional[Mapping[str, Any]],
+    remote_comparison: Optional[Mapping[str, Any]],
 ) -> Dict[str, Any]:
     """Validate an existing PR before allowing reuse."""
     head_ref = _record_value(record, "head_ref_name", "headRefName", "head")
@@ -1513,12 +1797,36 @@ def _verify_existing_candidate(
         raise MaintenanceError("canonical_changed_paths_digest_missing", "non_transient")
     if changed_paths_digest is not None and recorded_digest != changed_paths_digest:
         raise MaintenanceError("canonical_changed_paths_digest_mismatch", "non_transient")
+    recorded_content_digest = _body_metadata(body, "candidate-content-digest")
+    if not isinstance(recorded_content_digest, str) or DIGEST_PATTERN.fullmatch(recorded_content_digest) is None:
+        raise MaintenanceError("canonical_content_digest_missing", "non_transient")
+    if candidate_content_digest is None:
+        raise MaintenanceError("candidate_content_digest_missing", "non_transient")
+    if recorded_content_digest != candidate_content_digest:
+        raise MaintenanceError("canonical_content_digest_mismatch", "non_transient")
     head_sha = _record_value(record, "head_sha", "headSha", "head_ref_oid", "headRefOid", "sha")
     if not isinstance(head_sha, str) or SHA1_PATTERN.fullmatch(head_sha) is None:
         raise MaintenanceError("canonical_head_sha_missing", "non_transient")
     remote_sha = _record_value(remote_branch or {}, "head_sha", "headSha", "sha", "object_sha", "objectSha")
     if not isinstance(remote_sha, str) or remote_sha != head_sha:
         raise MaintenanceError("canonical_remote_head_changed", "non_transient")
+    if not isinstance(remote_comparison, Mapping):
+        raise MaintenanceError("canonical_remote_comparison_missing", "non_transient")
+    merge_base_sha = _record_value(remote_comparison, "merge_base_sha", "mergeBaseSha")
+    ahead_by = _record_value(remote_comparison, "ahead_by", "aheadBy")
+    remote_paths = _record_value(remote_comparison, "changed_paths", "changedPaths")
+    if merge_base_sha != base_sha:
+        raise MaintenanceError("canonical_remote_ancestry_invalid", "non_transient")
+    if ahead_by != 1:
+        raise MaintenanceError("canonical_commit_count_invalid", "non_transient")
+    if not isinstance(remote_paths, list) or not all(isinstance(path, str) for path in remote_paths):
+        raise MaintenanceError("canonical_remote_diff_invalid", "non_transient")
+    remote_paths_digest = digest(sorted({_candidate_path(path).as_posix() for path in remote_paths}))
+    if remote_paths_digest != recorded_digest:
+        raise MaintenanceError("canonical_changed_paths_digest_mismatch", "non_transient")
+    remote_content_digest = _record_value(remote_comparison, "changed_content_digest", "changedContentDigest")
+    if remote_content_digest != recorded_content_digest:
+        raise MaintenanceError("canonical_remote_content_mismatch", "non_transient")
     commit_count = _record_value(record, "commit_count", "commitCount")
     commits = _record_value(record, "commits", "commit_shas", "commitShas")
     if commits is None:
@@ -1549,6 +1857,9 @@ def _verify_existing_candidate(
         "base_sha": base_sha,
         "head_sha": head_sha,
         "changed_paths_digest": recorded_digest,
+        "candidate_content_digest": recorded_content_digest,
+        "remote_changed_paths_digest": remote_paths_digest,
+        "remote_content_digest": remote_content_digest,
         "commit_count": commit_count,
         "labels": labels if isinstance(labels, list) else [],
         "labels_missing": not bool(labels),
@@ -1563,14 +1874,22 @@ class GitHubCommandBoundary:
     use ``git add -A``, force-push, or push ``main``.
     """
 
-    def __init__(self, *, root: Optional[Path] = None, command_runner: Any = subprocess.run) -> None:
+    def __init__(self, *, root: Optional[Path] = None, command_runner: Any = subprocess.run, timeout_seconds: int = NETWORK_TIMEOUT_SECONDS) -> None:
         self.root = Path(root or ROOT)
         self.command_runner = command_runner
+        self.timeout_seconds = timeout_seconds
 
     def _run(self, command: list[str], *, cwd: Optional[Path] = None, error_code: str) -> str:
         try:
-            result = self.command_runner(command, cwd=str(cwd) if cwd is not None else None, text=True, capture_output=True, check=False)
-        except (OSError, TypeError):
+            result = self.command_runner(
+                command,
+                cwd=str(cwd) if cwd is not None else None,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=self.timeout_seconds,
+            )
+        except (OSError, TypeError, subprocess.TimeoutExpired):
             raise MaintenanceError(error_code, "transient")
         if result.returncode:
             raise MaintenanceError(error_code, "transient")
@@ -1604,8 +1923,14 @@ class GitHubCommandBoundary:
     def remote_branch(self, repository: str, branch: str) -> Optional[Mapping[str, Any]]:
         command = ["gh", "api", f"repos/{repository}/git/ref/heads/{branch}"]
         try:
-            result = self.command_runner(command, text=True, capture_output=True, check=False)
-        except (OSError, TypeError):
+            result = self.command_runner(
+                command,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=self.timeout_seconds,
+            )
+        except (OSError, TypeError, subprocess.TimeoutExpired):
             raise MaintenanceError("github_branch_query_failed", "transient")
         if result.returncode:
             # ``gh api`` uses a non-zero status for a missing ref.  Treat only
@@ -1622,6 +1947,41 @@ class GitHubCommandBoundary:
             return None
         obj = value.get("object", {}) if isinstance(value, Mapping) else {}
         return {"sha": obj.get("sha")} if isinstance(obj, Mapping) else None
+
+    def compare_candidate(self, repository: str, base_sha: str, head_sha: str) -> Mapping[str, Any]:
+        output = self._run(
+            ["gh", "api", f"repos/{repository}/compare/{base_sha}...{head_sha}"],
+            error_code="github_compare_failed",
+        )
+        try:
+            value = json.loads(output or "{}")
+        except json.JSONDecodeError:
+            raise MaintenanceError("github_compare_invalid", "transient")
+        if not isinstance(value, Mapping):
+            raise MaintenanceError("github_compare_invalid", "transient")
+        merge_base = value.get("merge_base_commit", {})
+        files = value.get("files", [])
+        if not isinstance(merge_base, Mapping) or not isinstance(files, list):
+            raise MaintenanceError("github_compare_invalid", "transient")
+        content_rows = [
+            {"path": item.get("filename"), "blob_sha": item.get("sha")}
+            for item in files
+            if isinstance(item, Mapping)
+        ]
+        if any(
+            not isinstance(item["path"], str)
+            or not isinstance(item["blob_sha"], str)
+            or SHA1_PATTERN.fullmatch(item["blob_sha"]) is None
+            for item in content_rows
+        ):
+            raise MaintenanceError("github_compare_content_invalid", "transient")
+        paths = [item["path"] for item in content_rows]
+        return {
+            "merge_base_sha": merge_base.get("sha"),
+            "ahead_by": value.get("ahead_by"),
+            "changed_paths": paths,
+            "changed_content_digest": digest(sorted(content_rows, key=lambda item: item["path"])),
+        }
 
     def push_branch(
         self,
@@ -1702,6 +2062,7 @@ def prepare_canonical_pr(
     github: Any,
     readiness_runner: Optional[Any] = None,
     expected_changed_paths_digest: Optional[str] = None,
+    expected_candidate_content_digest: Optional[str] = None,
     marker: Optional[str] = None,
     branch: Optional[str] = None,
     labels: Optional[list[str]] = None,
@@ -1766,13 +2127,32 @@ def prepare_canonical_pr(
             raise MaintenanceError("github_branch_invalid", "non_transient")
         if records:
             try:
+                candidate_head = _record_value(
+                    records[0],
+                    "head_sha",
+                    "headSha",
+                    "head_ref_oid",
+                    "headRefOid",
+                    "sha",
+                )
+                if not isinstance(candidate_head, str) or SHA1_PATTERN.fullmatch(candidate_head) is None:
+                    raise MaintenanceError("canonical_head_sha_missing", "non_transient")
+                comparison = _gateway_call(
+                    github,
+                    "compare_candidate",
+                    repository,
+                    base_sha,
+                    candidate_head,
+                )
                 safe = _verify_existing_candidate(
                     records[0],
                     branch=branch,
                     marker=marker,
                     base_sha=base_sha,
                     changed_paths_digest=expected_changed_paths_digest,
+                    candidate_content_digest=expected_candidate_content_digest,
                     remote_branch=remote,
+                    remote_comparison=comparison,
                 )
             except MaintenanceError as error:
                 return _lane_result(
@@ -1793,6 +2173,9 @@ def prepare_canonical_pr(
                     "lineage_verified": True,
                     "base_sha_verified": True,
                     "remote_head_verified": True,
+                    "remote_ancestry_verified": True,
+                    "remote_diff_verified": True,
+                    "remote_content_verified": True,
                     "expected_commit_count": 1,
                     "allowlist_verified": True,
                     "optional_labels_missing": safe["labels_missing"],
@@ -1825,6 +2208,11 @@ def prepare_canonical_pr(
             allowlist=allowlist,
             expected_changed_paths_digest=expected_changed_paths_digest,
         )
+        if (
+            expected_candidate_content_digest is not None
+            and local["candidate_content_digest"] != expected_candidate_content_digest
+        ):
+            raise MaintenanceError("candidate_content_digest_mismatch", "non_transient")
         if local["status"] == "no_action":
             return _lane_result(
                 classification="no_action",
@@ -1841,6 +2229,7 @@ def prepare_canonical_pr(
             base_sha=base_sha,
             input_fingerprint_value=input_fingerprint_value,
             changed_paths_digest=local["changed_paths_digest"],
+            candidate_content_digest=local["candidate_content_digest"],
             commits=local["commits"],
         )
         if _private_data_in_bytes(body.encode("utf-8")):
@@ -1872,7 +2261,12 @@ def prepare_canonical_pr(
                 classification="partial",
                 result="github_pr_create_failed",
                 reason=error.code,
-                pr_state={"status": "branch_pushed", "head_sha": local["head_sha"], "base_sha": base_sha},
+                pr_state={
+                    "status": "branch_pushed",
+                    "head_sha": local["head_sha"],
+                    "base_sha": base_sha,
+                    "candidate_content_digest": local["candidate_content_digest"],
+                },
                 checks={
                     "readiness": readiness,
                     "remote_mutation_started": True,
@@ -1898,6 +2292,7 @@ def prepare_canonical_pr(
                 "base_sha": base_sha,
                 "head_sha": local["head_sha"],
                 "changed_paths_digest": local["changed_paths_digest"],
+                "candidate_content_digest": local["candidate_content_digest"],
                 "commit_count": local["commit_count"],
             },
             checks={
@@ -1908,6 +2303,7 @@ def prepare_canonical_pr(
                 "expected_commit_count": 1,
                 "allowlist_verified": True,
                 "changed_paths_digest_verified": True,
+                "candidate_content_digest_verified": True,
                 "remote_mutation_started": True,
                 "branch_pushed": True,
                 "pr_created": True,
@@ -2228,12 +2624,15 @@ def update_circuit(paths: Mapping[str, Path], *, policy: Mapping[str, Any], bloc
     if retry_class in set(policy.get("retry_classes", {}).get("transient", [])):
         return read_circuit(paths)
     current = read_circuit(paths)
-    strikes = current.get("strike_count", 0) + 1 if current.get("blocker_fingerprint") == blocker_fp else 1
     threshold = int(policy.get("state", {}).get("circuit_threshold", 3))
+    if current.get("open"):
+        strikes = max(int(current.get("strike_count", threshold)), threshold)
+    else:
+        strikes = current.get("strike_count", 0) + 1 if current.get("blocker_fingerprint") == blocker_fp else 1
     updated = {
         "schema_version": SCHEMA_VERSION,
         "task_id": TASK_ID,
-        "open": strikes >= threshold,
+        "open": bool(current.get("open")) or strikes >= threshold,
         "strike_count": strikes,
         "blocker_fingerprint": blocker_fp,
         "last_run_id": run_id,
@@ -2465,7 +2864,8 @@ def run(
     protected_vendor: Optional[Path] = None,
     vendor_hold_path: Optional[Path] = None,
     observe_remotes: bool = False,
-    proposed_files: Optional[Mapping[str, Any]] = None,
+    audit_receipt_path: Optional[Path] = None,
+    proposal_dir: Optional[Path] = None,
     github: Any = None,
     readiness_runner: Optional[Any] = None,
 ) -> Dict[str, Any]:
@@ -2517,11 +2917,14 @@ def run(
             "registry_digest": _file_digest(resolved_registry_path),
             "lock_digest": _file_digest(resolved_lock_path),
         }
-    input_fp = input_fingerprint(policy, sources, extra={"upstream": upstream_inputs})
+    fingerprint_extra: Dict[str, Any] = {"upstream": upstream_inputs}
+    if audit_receipt_path is not None:
+        fingerprint_extra["audit_receipt_sha256"] = _file_digest(Path(audit_receipt_path))
+    input_fp = input_fingerprint(policy, sources, extra=fingerprint_extra)
     refs = _provider_refs(sources)
     policy_digest = digest(_without_volatile(policy))
     lease_duration = int(lease_seconds if lease_seconds is not None else policy["state"]["lease_seconds"])
-    if lease_duration <= 0:
+    if lease_duration <= COMMAND_TIMEOUT_SECONDS:
         receipt = _base_receipt(run_id=run_id_safe, mode=mode, manual_audit=manual_audit, now=observed_now, input_fp=input_fp, provider_refs=refs, policy_digest=policy_digest, catalog_digest=catalog_digest)
         receipt["checks"] = {"policy_valid": False, "disposable_stage_not_created": True}
         receipt["result"] = "lease_duration_invalid"
@@ -2529,6 +2932,7 @@ def run(
         return _safe_append(paths, receipt)
 
     manual_cleared = False
+    manual_clear_requested = False
     try:
         circuit = read_circuit(paths)
     except MaintenanceError as error:
@@ -2547,7 +2951,9 @@ def run(
             receipt["circuit"] = {"status": "open", "strike_count": circuit.get("strike_count", 0), "digest": digest(circuit)}
             receipt["checks"] = {"circuit_checked_before_work": True, "network_not_started": True, "disposable_stage_not_created": True}
             return _safe_append(paths, receipt)
-        manual_cleared = clear_circuit(paths, run_id=run_id_safe, now=observed_now)
+        # A manual audit earns circuit recovery only after its full terminal
+        # outcome succeeds.  Keep the open record intact while work runs.
+        manual_clear_requested = True
 
     try:
         lease = acquire_lease(paths, run_id=run_id_safe, owner_id=owner_safe, input_fp=input_fp, now=observed_now, lease_seconds=lease_duration, manual_audit=manual_audit)
@@ -2577,21 +2983,47 @@ def run(
             vendor_hold: Optional[Mapping[str, Any]] = None
             if vendor_hold_path is not None:
                 vendor_hold = _load_object(Path(vendor_hold_path), "vendor_hold")
+            # Source and protected-surface checks complete before proposal or
+            # candidate bytes are generated.
             checks = _preflight(
                 policy,
                 sources,
-                mode,
-                stage_dir,
+                "audit",
+                None,
                 root=Path(root),
                 registry_path=registry_path,
                 lock_path=lock_path,
                 protected_vendor=protected_vendor,
                 vendor_hold=vendor_hold,
                 observe_remotes=observe_remotes,
-                proposed_files=proposed_files,
                 upstream_metadata=upstream_metadata,
-                run_stage_readiness=github is None,
             )
+            if mode == "prepare":
+                if audit_receipt_path is None or proposal_dir is None or stage_dir is None:
+                    raise MaintenanceError("prepare_inputs_missing", "non_transient")
+                proposed_files = materialize_proposal_from_receipt(
+                    Path(root),
+                    Path(audit_receipt_path),
+                    Path(proposal_dir),
+                    receipts_dir=paths["receipts"],
+                )
+                candidate = stage_candidate(
+                    Path(root),
+                    Path(stage_dir),
+                    base_sha=checks["source_audit"]["checkout"]["base_sha"],
+                    allowlist=policy.get("diff_allowlist", []),
+                    proposed_files=proposed_files,
+                    run_readiness_checks=github is None,
+                )
+                checks["candidate"] = candidate
+                checks["disposable_stage_not_created"] = False
+                checks["network_not_started"] = False
+                checks["proposal"] = {
+                    "audit_receipt_sha256": _file_digest(Path(audit_receipt_path)),
+                    "manifest_sha256": _file_digest(Path(proposal_dir) / "manifest.json"),
+                    "generated_from_audited_base": True,
+                    "external_manifest_accepted": False,
+                }
         except MaintenanceError as error:
             receipt = _base_receipt(run_id=run_id_safe, mode=mode, manual_audit=manual_audit, now=observed_now, input_fp=input_fp, provider_refs=refs, policy_digest=policy_digest, catalog_digest=catalog_digest)
             if error.code in {
@@ -2651,6 +3083,7 @@ def run(
                 github=github,
                 readiness_runner=readiness_runner,
                 expected_changed_paths_digest=candidate.get("changed_paths_digest"),
+                expected_candidate_content_digest=candidate.get("candidate_content_digest"),
             )
             receipt["terminal_classification"] = lane["terminal_classification"]
             receipt["result"] = lane["result"]
@@ -2660,12 +3093,38 @@ def run(
             receipt["checks"]["pr_lane"] = lane["checks"]
             receipt["checks"]["candidate_stage_retained"] = lane.get("stage_retained", False)
             receipt["changed_paths_digest"] = lane["changed_paths_digest"]
-        successful_circuit = reset_closed_circuit_after_success(paths, run_id=run_id_safe, now=observed_now)
-        receipt["circuit"] = {
-            "status": "closed",
-            "strike_count": successful_circuit.get("strike_count", 0),
-            "digest": digest(successful_circuit),
-        }
+        if receipt["terminal_classification"] == "blocked":
+            reason = str(receipt.get("reason_code") or receipt.get("result") or "blocked")
+            blocked_circuit = update_circuit(
+                paths,
+                policy=policy,
+                blocker_fp=blocker_fingerprint(reason, input_fp),
+                run_id=run_id_safe,
+                now=observed_now,
+            )
+            receipt["circuit"] = {
+                "status": "open" if blocked_circuit.get("open") else "closed",
+                "strike_count": blocked_circuit.get("strike_count", 0),
+                "digest": digest(blocked_circuit),
+            }
+        elif receipt["terminal_classification"] in {"no_action", "prepared", "awaiting_approval", "published"}:
+            if manual_clear_requested:
+                manual_cleared = clear_circuit(paths, run_id=run_id_safe, now=observed_now)
+                successful_circuit = read_circuit(paths)
+            else:
+                successful_circuit = reset_closed_circuit_after_success(paths, run_id=run_id_safe, now=observed_now)
+            receipt["circuit"] = {
+                "status": "closed",
+                "strike_count": successful_circuit.get("strike_count", 0),
+                "digest": digest(successful_circuit),
+            }
+        else:
+            unchanged_circuit = read_circuit(paths)
+            receipt["circuit"] = {
+                "status": "open" if unchanged_circuit.get("open") else "closed",
+                "strike_count": unchanged_circuit.get("strike_count", 0),
+                "digest": digest(unchanged_circuit),
+            }
         if lease.get("manual_validated"):
             receipt["result"] = "manual_audit_validated_stale_lease"
         if manual_cleared or lease.get("manual_validated"):
@@ -2689,7 +3148,7 @@ def _failure_record(run_id: str, code: str) -> Dict[str, Any]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run fail-closed Stack maintenance preflight")
-    parser.add_argument("mode", nargs="?", choices=("audit", "prepare"), default="audit")
+    parser.add_argument("mode", nargs="?", choices=("audit", "prepare"))
     parser.add_argument("--mode", dest="mode_option", choices=("audit", "prepare"))
     parser.add_argument("--state-dir", "--state-root", dest="state_dir", type=Path)
     parser.add_argument("--policy", "--policy-path", dest="policy", type=Path, default=DEFAULT_POLICY)
@@ -2707,7 +3166,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--vendor-path", type=Path, help="optional protected vendor checkout to audit read-only")
     parser.add_argument("--vendor-hold", type=Path, help="owner-approved vendor hold evidence")
     parser.add_argument("--observe-upstreams", action="store_true", help="read public provider HEADs without trusting them")
-    parser.add_argument("--proposal-manifest", type=Path, help="path-confined proposal files for prepare mode")
+    parser.add_argument("--audit-receipt", type=Path, help="owner-only audit receipt for prepare mode")
+    parser.add_argument("--proposal-dir", type=Path, help="empty owner-only output for generated proposal evidence")
     parser.add_argument("--github", action="store_true", help="prepare or reuse the canonical draft PR through the GitHub boundary")
     return parser
 
@@ -2716,17 +3176,18 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
     run_id = _safe_id(args.run_id, "run")
-    mode = args.mode_option or args.mode
+    mode = args.mode_option or args.mode or "audit"
     try:
-        if args.proposal_manifest is not None and (mode != "prepare" or args.stage_dir is None):
-            raise PolicyError("proposal_requires_prepare_stage")
-        if args.github and args.proposal_manifest is None:
-            raise PolicyError("github_requires_proposal")
-        proposed_files = (
-            load_proposal_manifest(args.proposal_manifest, root=args.root)
-            if args.proposal_manifest is not None
-            else None
-        )
+        if args.mode is not None and args.mode_option is not None and args.mode != args.mode_option:
+            raise PolicyError("conflicting_mode_arguments")
+        if mode != "prepare" and (args.audit_receipt is not None or args.proposal_dir is not None):
+            raise PolicyError("proposal_inputs_require_prepare")
+        if mode == "prepare" and (
+            args.audit_receipt is None or args.proposal_dir is None or args.stage_dir is None
+        ):
+            raise PolicyError("prepare_inputs_missing")
+        if args.github and mode != "prepare":
+            raise PolicyError("github_requires_prepare")
         github = (
             GitHubCommandBoundary(root=args.root)
             if args.github
@@ -2749,7 +3210,8 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             protected_vendor=args.vendor_path,
             vendor_hold_path=args.vendor_hold,
             observe_remotes=args.observe_upstreams,
-            proposed_files=proposed_files,
+            audit_receipt_path=args.audit_receipt,
+            proposal_dir=args.proposal_dir,
             github=github,
         )
     except StateInitializationError:

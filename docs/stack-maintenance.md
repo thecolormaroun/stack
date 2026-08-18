@@ -119,10 +119,10 @@ after-check is not a pass.
 
 The versioned runner is `scripts/stack-maintenance.py`. Its `audit` mode is
 read-only. Its `prepare` mode may clone a disposable clean candidate and run
-catalog/bootstrap readiness checks, but it does not fetch a provider, mutate a
-caller checkout, contact GitHub, write a runtime, or publish a plugin. The
-source and candidate units consume the same receipt contract rather than
-adding a second state store.
+the complete readiness gates. Only the explicit `--github` boundary may create
+or reuse one draft PR; neither mode mutates a caller checkout, writes a runtime,
+merges, or publishes a plugin. The source and candidate units consume the same
+receipt contract rather than adding a second state store.
 
 The policy in [`config/stack-maintenance.json`](../config/stack-maintenance.json)
 and the complete target inventory in
@@ -190,21 +190,35 @@ status digest. Provider checkout evidence is read-only and cannot become a new
 trusted pin. Mutable refs, origin mismatches, missing exports, unregistered
 targets, missing declared paths, and symlinks fail closed.
 
-`prepare` may create a disposable candidate clone outside the caller checkout
-from the recorded `origin/main` SHA. Only explicit policy-allowlisted files can
-be proposed, and candidate content is checked for private machine paths and
-secrets. The candidate runs the catalog drift check and bootstrap dry-run, but
-never installs a runtime or calls a plugin. JSON provenance fingerprints ignore
+`scripts/stack-maintenance.py prepare` is the only scheduled proposal entry
+point. It accepts a persisted owner-only audit receipt, clones the receipt's
+exact `origin/main` SHA, and invokes that base's checked-in
+`scripts/materialize-maintenance-proposal.py` itself. External manifests are
+rejected. The materializer fetches each exact observed commit and follows the
+curated existing-import rules in
+`registry/maintenance-imports.json`. It never discovers or activates new
+skills. Missing mappings, changed licenses, symlinks, upstream deletions, or
+renames fail closed for review.
+
+`prepare` creates a disposable candidate clone outside the caller checkout
+from that recorded `origin/main` SHA. Only explicit policy-allowlisted files
+with receipt-bound manifest hashes can be proposed, and candidate content is
+checked for private machine paths and secrets. Before any push, the candidate
+runs immutable-metadata, capability, layout, bootstrap, doctor, complete test,
+sensitive-content, and diff gates. JSON provenance fingerprints ignore
 observation-only fields such as `checked_at`, so a timestamp refresh is a true
 no-op. Candidate output remains local evidence for the canonical PR lane; U3
-does not commit, push, merge, or publish it.
+does not merge, install, or publish it.
 
 ## U4 canonical draft-PR lane
 
 `prepare_canonical_pr` is the only remote-candidate path. It identifies the
 candidate by branch `automation/stack-maintenance` and marker
 `stack-maintenance/v1`, then verifies the recorded `origin/main` SHA, one
-expected commit, ancestry, the allowlisted changed paths, and their digest.
+expected commit, remote merge base, the hosting service's current changed-path
+set, the allowlist, and both path and blob-content digests. Reuse is allowed
+only when the remote draft content is byte-equivalent to the generated
+candidate; same-path stale content blocks rather than reporting success.
 It commits only an explicit path list in the disposable checkout and requires
 local readiness checks while the stage is clean before calling the injected
 GitHub boundary.
@@ -254,9 +268,11 @@ successful cleanup.
 The saved Codex task is a thin delegate to this repository and the versioned
 `stack-sync` skill. Its routine entry point is
 `python3 scripts/stack-maintenance.py audit --observe-upstreams`; a generated
-candidate uses a path-confined proposal manifest, a fresh disposable stage,
-and the explicit `--github` boundary. The CLI refuses GitHub access without a
-proposal bound to the current `origin/main` SHA.
+candidate comes only from the receipt-bound `prepare` flow, which runs the
+exact-base materializer itself, uses a fresh disposable proposal directory and
+stage, and crosses the explicit `--github` boundary. The CLI refuses GitHub
+access without an actionable audit receipt bound to the current `origin/main`
+SHA and exact observed provider commits.
 
 Every persisted receipt contains a semantic output digest that excludes run ID
 and observation time. Two unchanged runs therefore prove equal input and

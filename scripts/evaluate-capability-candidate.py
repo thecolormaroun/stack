@@ -174,7 +174,13 @@ def extract_archive(archive: bytes, destination: Path) -> None:
                 relative = Path(member.name)
                 if relative.is_absolute() or ".." in relative.parts or member.issym() or member.islnk() or member.isdev():
                     raise EvaluationError("candidate archive contains an unsafe path or link")
-            value.extractall(destination, filter="data")
+            try:
+                value.extractall(destination, filter="data")
+            except TypeError:
+                # Python 3.9-3.11 lack the data filter. The complete member
+                # validation above already excludes traversal, links, and
+                # device entries, so the compatibility path remains bounded.
+                value.extractall(destination)
     except (tarfile.TarError, OSError) as error:
         raise EvaluationError("candidate archive cannot be safely extracted") from error
 

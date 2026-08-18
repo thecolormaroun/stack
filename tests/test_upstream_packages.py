@@ -125,6 +125,7 @@ class UpstreamPackageTests(unittest.TestCase):
             referenced_scripts,
             {
                 "scripts/bootstrap-stack.py",
+                "scripts/materialize-maintenance-proposal.py",
                 "scripts/stack-maintenance.py",
                 "scripts/stack-doctor.py",
                 "scripts/stack-run-state.py",
@@ -160,6 +161,18 @@ class UpstreamPackageTests(unittest.TestCase):
         policy = (content / "references/agent-execution-policy.md").read_text()
         self.assertIn("tested fail-closed fallback", policy)
         self.assertIn("When the helper is unavailable", policy)
+
+    def test_maintenance_import_rules_are_curated_and_complete(self) -> None:
+        rules = json.loads((ROOT / "registry/maintenance-imports.json").read_text())
+        providers = {row["id"]: row for row in rules["providers"]}
+        self.assertEqual(set(providers), {"matt", "david", "emil"})
+        self.assertTrue(all(row["license"] == "MIT" for row in providers.values()))
+        self.assertEqual(providers["matt"]["mapping"], "existing-source-markdown")
+        self.assertEqual(providers["david"]["mapping"], "existing-source-markdown")
+        self.assertEqual(
+            {row["target"] for row in providers["emil"]["targets"]},
+            {"skills/imported/emil/emil-design-eng", "skills/design/review-animations"},
+        )
 
     def test_sync_preflight_fails_closed_for_a_missing_checkout(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

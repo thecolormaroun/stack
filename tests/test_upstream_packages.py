@@ -27,6 +27,8 @@ class UpstreamPackageTests(unittest.TestCase):
             self.assertEqual(self.lock["providers"][provider_id], provider["pin"]["value"])
             self.assertEqual(provider["last_known_good"]["pin"], provider["pin"]["value"])
             self.assertTrue(provider["exports"])
+            if provider["pin"]["type"] == "git-commit":
+                self.assertRegex(provider["license_sha256"], r"^[a-f0-9]{64}$")
             if provider["install"] == "pinned-git-checkout":
                 self.assertEqual(set(provider["export_paths"]), set(provider["exports"]))
                 self.assertTrue(all(path.endswith("/SKILL.md") and not path.startswith("/") and ".." not in Path(path).parts for path in provider["export_paths"].values()))

@@ -49,6 +49,27 @@ def digest(value: Any) -> str:
     return digest_bytes(compact_json(value))
 
 
+def validate_upstream_license(checkout: Path, provider: Mapping[str, Any]) -> str:
+    """Return license text only when its bytes match the reviewed provider digest."""
+    license_path = checkout / "LICENSE"
+    expected = provider.get("license_sha256")
+    if (
+        not isinstance(expected, str)
+        or re.fullmatch(r"[a-f0-9]{64}", expected) is None
+        or license_path.is_symlink()
+        or not license_path.is_file()
+    ):
+        raise ProposalError("upstream_license_unapproved")
+    try:
+        license_bytes = license_path.read_bytes()
+        license_text = license_bytes.decode("utf-8")
+    except (OSError, UnicodeError) as error:
+        raise ProposalError("upstream_license_unapproved") from error
+    if digest_bytes(license_bytes) != expected:
+        raise ProposalError("upstream_license_changed")
+    return license_text
+
+
 def read_object(path: Path, code: str) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -298,12 +319,9 @@ def discover_targets(
 
 
 def materialize_provider(stage: Path, checkout: Path, provider: dict[str, Any], rule: Mapping[str, Any], commit: str) -> dict[str, bytes]:
-    license_path = checkout / "LICENSE"
-    if rule.get("license") != "MIT" or license_path.is_symlink() or not license_path.is_file():
+    if rule.get("license") != "MIT":
         raise ProposalError("upstream_license_unapproved")
-    license_text = license_path.read_text(encoding="utf-8")
-    if "MIT License" not in license_text or "Permission is hereby granted" not in license_text:
-        raise ProposalError("upstream_license_unapproved")
+    license_text = validate_upstream_license(checkout, provider)
     outputs: dict[str, bytes] = {}
     metadata_relative = safe_relative(str(rule.get("source_metadata", "")))
     retained_target_rows = rule.get("retained_targets", [])
@@ -453,6 +471,7 @@ def materialize(root: Path, receipt: Path, output: Path) -> Path:
                     destination.write_bytes(content)
                 provider["license"] = str(rule["license"])
             elif provider.get("install") == "pinned-git-checkout":
+                validate_upstream_license(checkout, provider)
                 export_paths = provider.get("export_paths")
                 if not isinstance(export_paths, Mapping) or not export_paths:
                     raise ProposalError("provider_exports_invalid")
@@ -462,13 +481,6 @@ def materialize(root: Path, receipt: Path, output: Path) -> Path:
                     if not isinstance(export_name, str) or source_file.is_symlink() or not source_file.is_file():
                         raise ProposalError("provider_export_missing")
                     provider_outputs[f"upstream:{relative.as_posix()}"] = source_file.read_bytes()
-                license_path = checkout / "LICENSE"
-                if provider.get("license") == "MIT" and (
-                    license_path.is_symlink()
-                    or not license_path.is_file()
-                    or "MIT License" not in license_path.read_text(encoding="utf-8")
-                ):
-                    raise ProposalError("upstream_license_unapproved")
             else:
                 raise ProposalError("provider_install_invalid")
             provider["pin"]["value"] = commit

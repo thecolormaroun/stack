@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -49,6 +50,8 @@ def check_metadata(registry: dict, lock: dict) -> list[str]:
             errors.append(f"{provider['id']}: last-known-good pin does not match declared pin")
         if not provider["license"].strip():
             errors.append(f"{provider['id']}: missing license posture")
+        if pin["type"] == "git-commit" and not re.fullmatch(r"[a-f0-9]{64}", provider.get("license_sha256", "")):
+            errors.append(f"{provider['id']}: missing approved license digest")
         if provider["install"] == "repository-bundle":
             if pin["type"] != "sha256":
                 errors.append(f"{provider['id']}: repository bundle requires a sha256 pin")

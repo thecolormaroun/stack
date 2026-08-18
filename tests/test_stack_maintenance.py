@@ -324,6 +324,12 @@ def test_non_transient_proposal_failures_open_circuit(tmp_path: Path):
     assert circuit["strike_count"] == 3
 
 
+def test_materializer_network_failure_remains_retryable(tmp_path: Path):
+    maintenance = _module()
+    assert maintenance._materializer_failure_retry_class("upstream_fetch_failed") == "transient"
+    assert maintenance._materializer_failure_retry_class("mapped_skill_missing") == "non_transient"
+
+
 def test_success_resets_closed_circuit_strikes(tmp_path: Path):
     state = tmp_path / "state"
     _write_lease(state, owner="different-owner", fingerprint="same-input", expires_at=900.0)
@@ -422,6 +428,26 @@ def _git_fixture(path: Path) -> Path:
     subprocess.run(["git", "-C", str(path), "add", "README.md"], check=True)
     subprocess.run(["git", "-C", str(path), "commit", "-qm", "fixture"], check=True)
     return path
+
+
+def test_caller_origin_identity_is_bound_to_github_host(tmp_path: Path):
+    maintenance = _module()
+    repository = _git_fixture(tmp_path / "repository")
+    subprocess.run(
+        ["git", "-C", str(repository), "remote", "add", "origin", "https://evil.example/thecolormaroun/stack.git"],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(repository), "update-ref", "refs/remotes/origin/main", "HEAD"],
+        check=True,
+    )
+
+    with unittest.TestCase().assertRaisesRegex(maintenance.MaintenanceError, "origin_mismatch"):
+        maintenance._verify_origin_and_base(repository, "thecolormaroun/stack")
+
+    assert maintenance._origin_identity("git@github.com:thecolormaroun/stack.git") == (
+        "github.com/thecolormaroun/stack"
+    )
 
 
 def test_dirty_protected_vendor_blocks_and_verified_hold_allows_unrelated_audit(tmp_path: Path):

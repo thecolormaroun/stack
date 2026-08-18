@@ -320,17 +320,27 @@ def _repository_relative(path: str) -> Path:
 
 
 def _origin_identity(value: str) -> str:
-    """Normalize public Git remotes to owner/repository identity."""
+    """Normalize public Git remotes to host/owner/repository identity."""
     remote = value.strip()
+    host = ""
     if remote.startswith("git@") and ":" in remote:
-        remote = remote.split(":", 1)[1]
+        authority, remote = remote.split(":", 1)
+        host = authority.rsplit("@", 1)[-1]
     elif remote.startswith(("https://", "http://", "ssh://")):
         parsed = urlparse(remote)
+        host = parsed.hostname or ""
         remote = parsed.path.lstrip("/")
+    elif "/" in remote:
+        possible_host, path = remote.split("/", 1)
+        if "." in possible_host:
+            host = possible_host
+            remote = path
+    if not host:
+        host = "github.com"
     remote = remote.rstrip("/")
     if remote.endswith(".git"):
         remote = remote[:-4]
-    return remote
+    return f"{host.lower()}/{remote}"
 
 
 def _git(root: Path, *arguments: str) -> str:
@@ -489,6 +499,10 @@ def validate_upstream_metadata(
                     raise PolicyError("upstream_export_path_invalid")
         if not isinstance(provider.get("license"), str) or not provider["license"].strip():
             raise PolicyError("upstream_license_missing")
+        if pin_type == "git-commit":
+            license_digest = provider.get("license_sha256")
+            if not isinstance(license_digest, str) or SHA256_PATTERN.fullmatch(license_digest) is None:
+                raise PolicyError("upstream_license_digest_missing")
         providers[provider_id] = provider
     if set(lock.get("providers", {})) != set(providers):
         raise PolicyError("upstream_lock_provider_set_invalid")
@@ -1327,12 +1341,19 @@ def materialize_proposal_from_receipt(
             code = generated.stderr.strip()
             if not re.fullmatch(r"[a-z0-9_]+", code):
                 code = "proposal_materialization_failed"
-            raise MaintenanceError(code, "non_transient")
+            raise MaintenanceError(code, _materializer_failure_retry_class(code))
     return _load_generated_proposal_manifest(
         proposal_dir / "manifest.json",
         expected_receipt_digest=receipt_digest,
         root=root,
     )
+
+
+def _materializer_failure_retry_class(code: str) -> str:
+    """Keep acquisition failures retryable without weakening integrity blockers."""
+    if code == "upstream_fetch_failed":
+        return "transient"
+    return "non_transient"
 
 
 def stage_candidate(

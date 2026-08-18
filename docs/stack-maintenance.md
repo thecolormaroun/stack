@@ -189,7 +189,8 @@ reports drift without promoting that mutable observation to a trusted pin.
 Observed drift is `awaiting_approval` until the isolated candidate and PR gates
 validate it; an unchanged observation remains a deterministic `no_action`.
 
-The audit verifies the caller's public `origin` and `origin/main` identity but
+The audit verifies the caller's public `origin` host, repository, and
+`origin/main` identity but
 does not require the caller checkout to be clean. A dirty protected vendor is
 an exact blocker unless an owner-approved hold is bound to its current head and
 status digest. Provider checkout evidence is read-only and cannot become a new
@@ -203,7 +204,9 @@ exact `origin/main` SHA, and invokes that base's checked-in
 rejected. The materializer fetches each exact observed commit and follows the
 curated existing-import rules in
 `registry/maintenance-imports.json`. It never discovers or activates new
-skills. Missing mappings, changed licenses, symlinks, upstream deletions, or
+skills. Every fetched license must match the exact reviewed SHA-256 digest in
+the provider registry; matching a license phrase is not sufficient. Missing
+mappings, changed licenses, symlinks, upstream deletions, or
 renames fail closed for review.
 
 `prepare` creates a disposable candidate clone outside the caller checkout

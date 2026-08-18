@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import sys
 import unittest
@@ -57,6 +58,7 @@ class MaintenanceMaterializerTests(unittest.TestCase):
                 "id": "matt",
                 "canonical_source": "https://github.com/mattpocock/skills.git",
                 "pin": {"type": "git-commit", "value": old_pin},
+                "license_sha256": hashlib.sha256((checkout / "LICENSE").read_bytes()).hexdigest(),
             }
             rule = {
                 "id": "matt",
@@ -108,6 +110,7 @@ class MaintenanceMaterializerTests(unittest.TestCase):
                 "id": "david",
                 "canonical_source": "https://github.com/davidondrej/skills.git",
                 "pin": {"type": "git-commit", "value": old_pin},
+                "license_sha256": hashlib.sha256((checkout / "LICENSE").read_bytes()).hexdigest(),
             }
             rule = {
                 "id": "david",
@@ -149,6 +152,7 @@ class MaintenanceMaterializerTests(unittest.TestCase):
                 "id": "matt",
                 "canonical_source": "https://github.com/mattpocock/skills.git",
                 "pin": {"type": "git-commit", "value": "b" * 40},
+                "license_sha256": hashlib.sha256((checkout / "LICENSE").read_bytes()).hexdigest(),
             }
             rule = {
                 "id": "matt",
@@ -169,6 +173,19 @@ class MaintenanceMaterializerTests(unittest.TestCase):
                 materializer.materialize_provider(stage, checkout, provider, rule, "c" * 40),
                 {},
             )
+
+    def test_license_text_with_extra_restrictions_does_not_match_approved_digest(self) -> None:
+        import tempfile
+
+        materializer = _module()
+        approved = b"MIT License\nPermission is hereby granted, free of charge\n"
+        with tempfile.TemporaryDirectory() as temporary:
+            checkout = Path(temporary)
+            (checkout / "LICENSE").write_bytes(approved + b"Commercial use is prohibited.\n")
+            provider = {"license_sha256": hashlib.sha256(approved).hexdigest()}
+
+            with self.assertRaisesRegex(materializer.ProposalError, "upstream_license_changed"):
+                materializer.validate_upstream_license(checkout, provider)
 
 
 if __name__ == "__main__":

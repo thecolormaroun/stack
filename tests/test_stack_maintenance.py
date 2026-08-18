@@ -972,6 +972,7 @@ class _FakeGitHub:
         create_error=None,
         advance_remote_on_query=None,
         created_head_override=None,
+        inventory_error_after_push=False,
     ):
         self.maintenance = maintenance
         self.records = list(records or [])
@@ -981,12 +982,15 @@ class _FakeGitHub:
         self.create_error = create_error
         self.advance_remote_on_query = advance_remote_on_query
         self.created_head_override = created_head_override
+        self.inventory_error_after_push = inventory_error_after_push
         self.push_calls = 0
         self.create_calls = 0
         self.remote_query_calls = 0
         self.remote_content_digest = None
 
     def list_automation_inventory(self, repository, branch_prefix, marker):
+        if self.inventory_error_after_push and self.push_calls:
+            raise self.maintenance.MaintenanceError("github_inventory_failed", "transient")
         records = self.records if self.automation_records is None else self.automation_records
         return {
             "pull_requests": list(records),
@@ -1311,6 +1315,20 @@ def test_canonical_lane_rejects_created_pr_with_unverified_head(tmp_path: Path):
     assert result["terminal_classification"] == "partial"
     assert result["result"] == "created_pr_head_mismatch"
     assert result["checks"]["pr_created"] is True
+
+
+def test_canonical_lane_preserves_push_state_when_post_push_inventory_fails(tmp_path: Path):
+    maintenance, root, stage, base = _candidate_fixture(tmp_path)
+    github = _FakeGitHub(maintenance, inventory_error_after_push=True)
+
+    result = _lane(maintenance, root, stage, base, github)
+
+    assert result["terminal_classification"] == "partial"
+    assert result["result"] == "github_inventory_failed"
+    assert result["checks"]["remote_mutation_started"] is True
+    assert result["checks"]["branch_pushed"] is True
+    assert result["pr_state"]["status"] == "branch_pushed"
+    assert result["pr_state"]["head_sha"] == github.remote["sha"]
 
 
 def test_canonical_lane_resumes_pr_creation_from_retained_candidate_stage(tmp_path: Path):

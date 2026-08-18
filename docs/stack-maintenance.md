@@ -210,7 +210,8 @@ curated existing-import rules in
 skills. Every fetched license must match the exact reviewed SHA-256 digest in
 the provider registry; matching a license phrase is not sufficient. Missing
 mappings, changed licenses, file, directory, or dangling symlinks, upstream
-deletions, or renames fail closed for review.
+deletions, or renames fail closed for review. The symlink gate covers each
+mapped root and every intermediate path component, not only discovered files.
 
 `prepare` creates a disposable candidate clone outside the caller checkout
 from that recorded `origin/main` SHA. Only explicit policy-allowlisted files
@@ -250,7 +251,9 @@ branch without its PR, unexpected lineage, a changed remote head, an unrelated
 path, or a missing marker blocks before remote mutation. Optional labels do not
 participate in identity or convergence. The adapter never force-pushes or
 targets `main`. If push or PR creation fails, the receipt is `partial` and the
-stage remains available for recovery.
+stage remains available for recovery. Any later inventory, verification, or
+gateway error after a confirmed push also retains the exact pushed branch/head
+state in that partial receipt.
 
 ## U5 protected vendor hold
 

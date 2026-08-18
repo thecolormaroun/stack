@@ -209,6 +209,19 @@ class MaintenanceMaterializerTests(unittest.TestCase):
             with self.assertRaisesRegex(materializer.ProposalError, "mapped_skill_invalid"):
                 materializer.validated_source_files(source)
 
+            checkout = root / "checkout"
+            checkout.mkdir()
+            mapped_root = checkout / "mapped-root"
+            os.symlink(external, mapped_root)
+            with self.assertRaisesRegex(materializer.ProposalError, "mapped_skill_invalid"):
+                materializer.validated_source_files(mapped_root, checkout)
+
+            (mapped_root).unlink()
+            linked_parent = checkout / "linked-parent"
+            os.symlink(external, linked_parent)
+            with self.assertRaisesRegex(materializer.ProposalError, "mapped_skill_invalid"):
+                materializer.assert_no_symlink_components(linked_parent / "SKILL.md", checkout)
+
 
 if __name__ == "__main__":
     unittest.main()

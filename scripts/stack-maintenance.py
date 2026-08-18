@@ -2400,6 +2400,8 @@ def prepare_canonical_pr(
             changed_paths_digest=digest([]),
         )
 
+    remote_mutation_started = False
+    known_remote_state: Optional[Dict[str, Any]] = None
     try:
         branch_prefix = branch.rsplit("/", 1)[0] + "/" if "/" in branch else branch
         inventory_summary = _automation_inventory_summary(
@@ -2535,6 +2537,11 @@ def prepare_canonical_pr(
                 changed_paths_digest=local["changed_paths_digest"],
                 candidate_content_digest=local["candidate_content_digest"],
             )
+            known_remote_state = {
+                "head_sha": verified_remote["head_sha"],
+                "base_sha": base_sha,
+                "candidate_content_digest": local["candidate_content_digest"],
+            }
             readiness = _run_pr_readiness(Path(stage_dir), readiness_runner=readiness_runner)
             body = _pr_marker_body(
                 marker=marker,
@@ -2570,6 +2577,7 @@ def prepare_canonical_pr(
                     body,
                     labels=labels,
                 )
+                remote_mutation_started = True
             except MaintenanceError as error:
                 return _lane_result(
                     classification="partial",
@@ -2713,11 +2721,17 @@ def prepare_canonical_pr(
             branch,
             Path(stage_dir),
         )
+        remote_mutation_started = True
         if not isinstance(pushed, Mapping):
             raise MaintenanceError("github_push_result_invalid", "transient")
         pushed_head = pushed.get("head_sha")
         if pushed_head != local["head_sha"]:
             raise MaintenanceError("github_push_head_mismatch", "non_transient")
+        known_remote_state = {
+            "head_sha": local["head_sha"],
+            "base_sha": base_sha,
+            "candidate_content_digest": local["candidate_content_digest"],
+        }
         latest_inventory = _automation_inventory_summary(
             _gateway_call(github, "list_automation_inventory", repository, branch_prefix, marker),
             branch=branch,
@@ -2736,6 +2750,7 @@ def prepare_canonical_pr(
                 body,
                 labels=labels,
             )
+            remote_mutation_started = True
         except MaintenanceError as error:
             return _lane_result(
                 classification="partial",
@@ -2818,13 +2833,23 @@ def prepare_canonical_pr(
             stage_retained=True,
         )
     except MaintenanceError as error:
-        classification = "blocked" if error.retry_class == "non_transient" else ("partial" if stage_dir is not None and Path(stage_dir).exists() else "failed")
+        if remote_mutation_started:
+            classification = "partial"
+        else:
+            classification = "blocked" if error.retry_class == "non_transient" else ("partial" if stage_dir is not None and Path(stage_dir).exists() else "failed")
+        pr_state: Dict[str, Any] = {"status": "failed"}
+        if remote_mutation_started:
+            pr_state = {"status": "branch_pushed", **(known_remote_state or {})}
         return _lane_result(
             classification=classification,
             result=error.code,
             reason=error.code,
-            pr_state={"status": "failed"},
-            checks={"remote_mutation_started": False, "recoverable_stage": bool(stage_dir and Path(stage_dir).exists())},
+            pr_state=pr_state,
+            checks={
+                "remote_mutation_started": remote_mutation_started,
+                "branch_pushed": bool(known_remote_state),
+                "recoverable_stage": bool(stage_dir and Path(stage_dir).exists()),
+            },
             changed_paths_digest=expected_changed_paths_digest or digest([]),
             stage_retained=bool(stage_dir and Path(stage_dir).exists()),
         )

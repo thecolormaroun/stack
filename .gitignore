@@ -7,3 +7,4 @@ gitleaks-report*.json
 gitleaks-findings*.json
 trufflehog-report*.json
 .gstack/
+.worktrees/

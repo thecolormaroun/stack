@@ -134,7 +134,7 @@ unknown disposition, mutable policy mode, or incomplete authority declaration
 is a terminal `failed` result.
 
 Owner-local state is initialized only at the configured state directory. The
-directory is mode `0700`; its receipt directory and each JSON receipt are mode
+state and receipt directories are mode `0700`; each JSON receipt is mode
 `0600`. Receipts are created with exclusive creation and are never replaced.
 Each record includes the run identity, semantic input fingerprint, provider-ref
 digests, catalog and policy digests, checkout/changed-path/PR/approval/cleanup/
@@ -248,6 +248,28 @@ operation. Cleanup execution remains outside scheduled code. Its result is
 classified from the exact completed set, so an interrupted batch remains
 `partial` with explicit remaining targets rather than being reported as a
 successful cleanup.
+
+## U7 scheduled operation
+
+The saved Codex task is a thin delegate to this repository and the versioned
+`stack-sync` skill. Its routine entry point is
+`python3 scripts/stack-maintenance.py audit --observe-upstreams`; a generated
+candidate uses a path-confined proposal manifest, a fresh disposable stage,
+and the explicit `--github` boundary. The CLI refuses GitHub access without a
+proposal bound to the current `origin/main` SHA.
+
+Every persisted receipt contains a semantic output digest that excludes run ID
+and observation time. Two unchanged runs therefore prove equal input and
+output digests while appending distinct receipts. `no_action` and `prepared`
+receipts are marked `archive_eligible`; `awaiting_approval`, `blocked`,
+`partial`, and `failed` receipts are marked `keep_visible`.
+
+The existing automation record is migrated in place only after proof. Its
+target is the Stack project, its cadence is Monday at 09:00 local time, and its
+executor is `gpt-5.6-luna` at maximum reasoning. The compatibility launcher is
+a thin delegate and contains no source update, install, plugin, branch, or PR
+logic. Automatic merge, runtime publication, vendor restoration, and cleanup
+remain outside scheduled authority.
 
 ## Receipt and closeout
 

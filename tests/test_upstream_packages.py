@@ -125,6 +125,7 @@ class UpstreamPackageTests(unittest.TestCase):
             referenced_scripts,
             {
                 "scripts/bootstrap-stack.py",
+                "scripts/stack-maintenance.py",
                 "scripts/stack-doctor.py",
                 "scripts/stack-run-state.py",
                 "scripts/sync-upstreams.py",

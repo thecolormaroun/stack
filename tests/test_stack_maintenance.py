@@ -96,6 +96,8 @@ def test_audit_receipt_is_owner_only_and_fingerprint_ignores_observation_time(tm
     assert first_receipt["terminal_classification"] == "no_action"
     assert first_receipt["input_fingerprint"] == second_receipt["input_fingerprint"]
     assert first_receipt["observed_at"] != second_receipt["observed_at"]
+    assert first_receipt["checks"]["semantic_output_digest"] == second_receipt["checks"]["semantic_output_digest"]
+    assert first_receipt["thread_state"]["status"] == "archive_eligible"
     assert all("/Users/" not in path.read_text() for path in receipts)
     assert stat.S_IMODE((tmp_path / "state").stat().st_mode) == 0o700
     assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in receipts)
@@ -496,6 +498,43 @@ def test_disposable_candidate_is_clean_base_allowlisted_and_private_data_safe(tm
             proposed_files={"README.md": "unexpected\n"},
             run_readiness_checks=False,
         )
+
+
+def test_proposal_manifest_is_confined_and_bound_to_origin_main(tmp_path: Path):
+    maintenance = _module()
+    proposal = tmp_path / "proposal"
+    payload = proposal / "payload"
+    payload.mkdir(parents=True)
+    (payload / "runbook.md").write_text("# proposed\n", encoding="utf-8")
+    base = subprocess.run(
+        ["git", "rev-parse", "origin/main"], cwd=ROOT, text=True, capture_output=True, check=True
+    ).stdout.strip()
+    manifest = proposal / "manifest.json"
+    manifest.write_text(
+        json.dumps({
+            "schema_version": 1,
+            "base_sha": base,
+            "files": [{"path": "docs/stack-maintenance.md", "source": "payload/runbook.md"}],
+        }),
+        encoding="utf-8",
+    )
+    loaded = maintenance.load_proposal_manifest(manifest)
+    assert loaded == {"docs/stack-maintenance.md": (payload / "runbook.md").resolve()}
+    value = json.loads(manifest.read_text())
+    value["base_sha"] = "f" * 40
+    manifest.write_text(json.dumps(value), encoding="utf-8")
+    with unittest.TestCase().assertRaisesRegex(maintenance.MaintenanceError, "proposal_base_changed"):
+        maintenance.load_proposal_manifest(manifest)
+
+
+def test_blocked_receipt_stays_visible(tmp_path: Path):
+    state = tmp_path / "state"
+    _write_lease(state, owner="different-owner", fingerprint="same-input", expires_at=900.0)
+    result = _run(state, "--owner-id", "current-owner", now=1000.0)
+    assert result.returncode != 0
+    receipt = json.loads(result.stdout)
+    assert receipt["thread_state"]["status"] == "keep_visible"
+    assert receipt["thread_state"]["archive_eligible"] is False
 
 
 def test_semantic_json_digest_ignores_observation_only_provenance_fields(tmp_path: Path):

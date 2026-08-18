@@ -608,11 +608,13 @@ def _verify_origin_and_base(root: Path, expected_project: str) -> Dict[str, Any]
     if SHA1_PATTERN.fullmatch(base_sha) is None:
         raise MaintenanceError("origin_main_invalid", "non_transient")
     status_digest, status_lines = _git_status(root)
+    head_sha = _git(root, "rev-parse", "HEAD")
     return {
         "status": "dirty" if status_lines else "clean",
         "digest": status_digest,
         "changed_entry_count": len(status_lines),
         "base_sha": base_sha,
+        "head_sha": head_sha,
     }
 
 
@@ -1072,6 +1074,46 @@ def _candidate_bytes(value: Any) -> bytes:
     if isinstance(value, Mapping) or isinstance(value, list):
         return (json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
     raise MaintenanceError("candidate_content_invalid", "non_transient")
+
+
+def load_proposal_manifest(path: Path, *, root: Path = ROOT) -> Dict[str, Path]:
+    """Load an agent-produced proposal through a path-confined manifest.
+
+    Proposal payloads stay outside the repository until ``stage_candidate``
+    copies their explicit allowlisted files into a disposable clean clone.
+    """
+    path = Path(path)
+    manifest = _read_json(path, "proposal_manifest")
+    if set(manifest) != {"schema_version", "base_sha", "files"} or manifest.get("schema_version") != SCHEMA_VERSION:
+        raise PolicyError("proposal_manifest_invalid")
+    base_sha = manifest.get("base_sha")
+    if not isinstance(base_sha, str) or SHA1_PATTERN.fullmatch(base_sha) is None:
+        raise PolicyError("proposal_base_invalid")
+    expected_base = _git(Path(root), "rev-parse", "--verify", "origin/main^{commit}")
+    if base_sha != expected_base:
+        raise MaintenanceError("proposal_base_changed", "non_transient")
+    files = manifest.get("files")
+    if not isinstance(files, list) or not files:
+        raise PolicyError("proposal_files_invalid")
+    source_root = path.parent.resolve()
+    proposals: Dict[str, Path] = {}
+    for entry in files:
+        if not isinstance(entry, Mapping) or set(entry) != {"path", "source"}:
+            raise PolicyError("proposal_file_invalid")
+        relative = _candidate_path(str(entry.get("path", ""))).as_posix()
+        source_value = entry.get("source")
+        if not isinstance(source_value, str):
+            raise PolicyError("proposal_source_invalid")
+        source_relative = _repository_relative(source_value)
+        source = (source_root / source_relative).resolve()
+        if source == source_root or source_root not in source.parents:
+            raise PolicyError("proposal_source_invalid")
+        if source.is_symlink() or not source.is_file():
+            raise MaintenanceError("proposal_source_missing", "non_transient")
+        if relative in proposals:
+            raise PolicyError("proposal_path_duplicate")
+        proposals[relative] = source
+    return proposals
 
 
 def stage_candidate(
@@ -2312,6 +2354,22 @@ def validate_receipt(receipt: Mapping[str, Any], schema_path: Path = DEFAULT_REC
 
 
 def _safe_append(paths: Mapping[str, Path], receipt: Dict[str, Any]) -> Dict[str, Any]:
+    archive_eligible = receipt.get("terminal_classification") in {"no_action", "prepared"}
+    thread_state = {
+        "status": "archive_eligible" if archive_eligible else "keep_visible",
+        "archive_eligible": archive_eligible,
+    }
+    thread_state["digest"] = digest(thread_state)
+    receipt["thread_state"] = thread_state
+    semantic_receipt = {
+        key: value
+        for key, value in receipt.items()
+        if key not in {"run_id", "observed_at", "receipt_persisted"}
+    }
+    semantic_checks = dict(semantic_receipt.get("checks", {}))
+    semantic_checks.pop("semantic_output_digest", None)
+    semantic_receipt["checks"] = _without_volatile(semantic_checks)
+    receipt["checks"]["semantic_output_digest"] = digest(_without_volatile(semantic_receipt))
     validate_receipt(receipt)
     _append_receipt(paths, receipt)
     return receipt
@@ -2364,7 +2422,7 @@ def _preflight(
         "protected_surfaces_declared": True,
         "terminal_classification_declared": True,
         "disposable_stage_not_created": stage_dir is None or not stage_dir.exists(),
-        "network_not_started": True,
+        "network_not_started": not observe_remotes,
         "github_not_contacted": True,
         "source_audit": audit,
         "source_audit_digest": digest(audit),
@@ -2553,6 +2611,15 @@ def run(
             else ("upstream_updates_detected" if updates_available else ("manual_audit_cleared" if manual_cleared else "preflight_only"))
         )
         receipt["checks"] = checks
+        checkout = checks.get("caller_checkout", {}) if isinstance(checks, Mapping) else {}
+        if isinstance(checkout, Mapping):
+            receipt["checkout_state"] = {
+                "status": str(checkout.get("status", "observed")),
+                "digest": digest(_without_volatile(checkout)),
+                "base_sha": checkout.get("base_sha"),
+                "head_sha": checkout.get("head_sha"),
+                "dirty": checkout.get("status") == "dirty",
+            }
         if isinstance(candidate.get("changed_paths_digest"), str) and DIGEST_PATTERN.fullmatch(candidate["changed_paths_digest"]):
             receipt["changed_paths_digest"] = candidate["changed_paths_digest"]
         if github is not None and mode == "prepare" and candidate_changed:
@@ -2617,6 +2684,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--vendor-path", type=Path, help="optional protected vendor checkout to audit read-only")
     parser.add_argument("--vendor-hold", type=Path, help="owner-approved vendor hold evidence")
     parser.add_argument("--observe-upstreams", action="store_true", help="read public provider HEADs without trusting them")
+    parser.add_argument("--proposal-manifest", type=Path, help="path-confined proposal files for prepare mode")
+    parser.add_argument("--github", action="store_true", help="prepare or reuse the canonical draft PR through the GitHub boundary")
     return parser
 
 
@@ -2626,6 +2695,20 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     run_id = _safe_id(args.run_id, "run")
     mode = args.mode_option or args.mode
     try:
+        if args.proposal_manifest is not None and (mode != "prepare" or args.stage_dir is None):
+            raise PolicyError("proposal_requires_prepare_stage")
+        if args.github and args.proposal_manifest is None:
+            raise PolicyError("github_requires_proposal")
+        proposed_files = (
+            load_proposal_manifest(args.proposal_manifest, root=args.root)
+            if args.proposal_manifest is not None
+            else None
+        )
+        github = (
+            GitHubCommandBoundary("thecolormaroun/stack", root=args.root)
+            if args.github
+            else None
+        )
         result = run(
             mode=mode,
             state_dir=args.state_dir,
@@ -2643,6 +2726,8 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             protected_vendor=args.vendor_path,
             vendor_hold_path=args.vendor_hold,
             observe_remotes=args.observe_upstreams,
+            proposed_files=proposed_files,
+            github=github,
         )
     except StateInitializationError:
         print(canonical_json(_failure_record(run_id, "state_init_failed")), file=sys.stderr)

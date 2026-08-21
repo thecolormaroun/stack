@@ -17,7 +17,9 @@ DOCUMENTS = (
     ROOT / "docs/bookmark-curation.md",
     ROOT / "docs/runtime-publication.md",
     ROOT / "docs/private-overlay.md",
+    ROOT / "docs/stack-maintenance.md",
     ROOT / "templates/periodic-reassessment.md",
+    ROOT / "templates/stack-maintenance-reconciliation.md",
 )
 REFERENCE_PATTERN = re.compile(r"(?<![\w.-])((?:config|docs|registry|scripts|templates|tests)/[A-Za-z0-9_./-]+)")
 COMMAND_PATTERN = re.compile(r"^python3 (scripts/[A-Za-z0-9_.-]+\.py)(?:\s|$)", re.MULTILINE)
@@ -65,6 +67,31 @@ class DocumentedCommandsTests(unittest.TestCase):
             "no live scheduler",
             "low usage alone never auto-archives",
             "only a reviewed, validated `active` entry",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, text)
+
+    def test_stack_maintenance_boundaries_are_documented(self) -> None:
+        text = "\n".join(
+            (
+                (ROOT / "docs/stack-maintenance.md").read_text(encoding="utf-8"),
+                (ROOT / "templates/stack-maintenance-reconciliation.md").read_text(
+                    encoding="utf-8"
+                ),
+            )
+        ).lower()
+        for required in (
+            "current automation remains inactive",
+            "source-of-truth",
+            "automation configuration and run evidence",
+            "dirty vendor fingerprint",
+            "automation pr and branch inventory",
+            "protected exclusions",
+            "unique-content disposition",
+            "approval binding",
+            "before/after checks",
+            "owner-only",
+            "pr #23",
         ):
             with self.subTest(required=required):
                 self.assertIn(required, text)

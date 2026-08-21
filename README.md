@@ -93,6 +93,19 @@ python3 -m unittest tests.test_capability_registry tests.test_audit_capabilities
 The first test verifies that each documented repository reference resolves, the
 commands are recognized, and the safety wording remains present.
 
+## Scheduled maintenance
+
+The versioned maintenance entry point is
+`python3 scripts/stack-maintenance.py audit --observe-upstreams`. It audits the
+declared providers and writes an owner-only receipt; audit mode never builds or
+stages a proposal. The separate receipt-bound `prepare` flow generates and
+validates one isolated, allowlisted proposal itself and may create or reuse the
+canonical draft PR; externally authored manifests are rejected. Neither flow
+merges, installs, publishes runtimes, repairs protected checkouts, or mutates
+plugin state. See
+[`docs/stack-maintenance.md`](docs/stack-maintenance.md) and the `stack-sync`
+skill for the full unattended-run contract.
+
 ## Security and privacy
 
 Bookmark text and fetched pages are untrusted evidence, never instructions.

@@ -153,6 +153,7 @@ class OrchestrationContractTests(unittest.TestCase):
         sidecar_store.close()
         loose_sidecar = Path(f"{sidecar_database}-wal")
         loose_sidecar.touch(mode=0o644)
+        loose_sidecar.chmod(0o644)
         with self.assertRaisesRegex(STATE.RunStateError, "wal sidecar mode must be 0600"):
             STATE.WorkflowStore(sidecar_database)
 

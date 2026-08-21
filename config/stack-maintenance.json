@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "policy_id": "stack-maintenance",
+  "revision": "2026-08-18-u8",
+  "allowed_modes": ["audit", "prepare"],
+  "legacy_target_ids": [
+    "last30days",
+    "gstack",
+    "compound-engineering",
+    "stack-codex-bundle",
+    "matt-skills",
+    "david-skills",
+    "impeccable",
+    "emil-design-eng",
+    "review-animations",
+    "illo-skill",
+    "codex-plugin-marketplace",
+    "claude-plugin-marketplace",
+    "upstreams-lock",
+    "global-skill-roots",
+    "plugin-marketplaces"
+  ],
+  "source_dispositions": [
+    "catalog-managed-provider",
+    "repository-owned-capability",
+    "report-only-external-plugin",
+    "retired-legacy-target"
+  ],
+  "protected_surfaces": [
+    "active-checkouts",
+    "secondary-worktrees",
+    "vendor",
+    "claude-skill-roots",
+    "codex-skill-roots",
+    "plugin-marketplaces",
+    "github-main",
+    "github-unrelated-pull-requests",
+    "secrets-and-private-configuration"
+  ],
+  "terminal_classifications": [
+    "no_action",
+    "prepared",
+    "awaiting_approval",
+    "blocked",
+    "partial",
+    "failed",
+    "published"
+  ],
+  "retry_classes": {
+    "transient": ["network", "rate_limit", "service_unavailable"],
+    "non_transient": [
+      "policy",
+      "source_inventory",
+      "duplicate_run",
+      "stale_lease",
+      "unsafe_state",
+      "protected_input",
+      "circuit"
+    ]
+  },
+  "canonical_candidate": {
+    "identity": "stack-maintenance",
+    "branch": "automation/stack-maintenance",
+    "marker": "stack-maintenance/v1",
+    "max_open": 1
+  },
+  "diff_allowlist": [
+    "config/stack-maintenance.json",
+    "registry/maintenance-sources.json",
+    "registry/stack-maintenance-receipt.schema.json",
+    "registry/upstreams.json",
+    "upstreams.lock.json",
+    "scripts/stack-maintenance.py",
+    "tests/test_stack_maintenance.py",
+    "tests/test_upstream_packages.py",
+    "tests/test_fresh_clone.py",
+    "registry/capabilities.json",
+    "skills/imported/matt/",
+    "skills/imported/david/",
+    "skills/imported/emil/",
+    "skills/design/review-animations/",
+    "docs/stack-maintenance.md"
+  ],
+  "authority": {
+    "project_identity": "thecolormaroun/stack",
+    "source_of_truth": "stack",
+    "base_ref": "origin/main",
+    "publication_path": "scripts/bootstrap-stack.py"
+  },
+  "state": {
+    "directory_mode": "0700",
+    "receipt_mode": "0600",
+    "lease_file": "stack-maintenance.lease.json",
+    "circuit_file": "stack-maintenance.circuit.json",
+    "receipts_directory": "receipts",
+    "lease_seconds": 900,
+    "circuit_threshold": 3
+  }
+}

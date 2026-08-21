@@ -199,7 +199,10 @@ def clone_exact(source: str, commit: str, destination: Path) -> None:
 
 def split_skill(path: Path) -> tuple[list[str], str, str]:
     text = path.read_text(encoding="utf-8")
-    lines = text.splitlines()
+    # ASCII-blank Markdown lines fail the repository's mandatory git diff
+    # check. Canonicalize only spaces and tabs; other Unicode whitespace is
+    # content, and trailing spaces on non-blank lines may encode hard breaks.
+    lines = ["" if not line.strip(" \t") else line for line in text.splitlines()]
     if not lines or lines[0] != "---":
         raise ProposalError("upstream_frontmatter_missing")
     try:

@@ -21,6 +21,36 @@ def _module():
 
 
 class MaintenanceMaterializerTests(unittest.TestCase):
+    def test_import_normalizes_whitespace_only_lines_without_changing_markdown_breaks(self) -> None:
+        import tempfile
+
+        materializer = _module()
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "SKILL.md"
+            source.write_text(
+                "---\n"
+                "name: tdd\n"
+                "description: Test first.\n"
+                "---\n"
+                "   \n"
+                "# TDD\n"
+                "   \n"
+                "Keep this Markdown hard break.  \n"
+                "Next line.\n",
+                encoding="utf-8",
+            )
+
+            imported = materializer.materialized_skill(
+                source,
+                target_name="matt-tdd",
+                display_name="Matt Pocock",
+                commit="b" * 40,
+                metadata_path="references/source.md",
+            ).decode("utf-8")
+
+            self.assertNotIn("\n   \n", imported)
+            self.assertIn("Keep this Markdown hard break.  \nNext line.", imported)
+
     def test_import_is_deterministic_and_bound_to_existing_mapping(self) -> None:
         import tempfile
 

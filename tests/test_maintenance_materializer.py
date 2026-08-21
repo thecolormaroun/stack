@@ -35,6 +35,7 @@ class MaintenanceMaterializerTests(unittest.TestCase):
                 "   \n"
                 "# TDD\n"
                 "   \n"
+                "\u00a0\n"
                 "Keep this Markdown hard break.  \n"
                 "Next line.\n",
                 encoding="utf-8",
@@ -49,6 +50,7 @@ class MaintenanceMaterializerTests(unittest.TestCase):
             ).decode("utf-8")
 
             self.assertNotIn("\n   \n", imported)
+            self.assertIn("\n\u00a0\n", imported)
             self.assertIn("Keep this Markdown hard break.  \nNext line.", imported)
 
     def test_import_is_deterministic_and_bound_to_existing_mapping(self) -> None:

@@ -14,6 +14,27 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PRIMARY_TARGETS = {"claude": ".claude/skills/stack", "codex": ".codex/skills/stack"}
+RESOLVER_CONTRACT = {
+    "version": "stack-command-resolution-v1",
+    "fields": [
+        "logical_command",
+        "subcommand",
+        "match_reason",
+        "candidates",
+        "trust_class",
+        "effect_vector",
+        "evidence_context",
+        "approval_state",
+    ],
+    "effect_vector_fields": [
+        "source_read",
+        "owner_local_write",
+        "project_write",
+        "external_write",
+        "costly_use",
+        "irreversible_action",
+    ],
+}
 
 
 class DoctorError(ValueError):
@@ -125,6 +146,7 @@ def runtime_health(root: Path, deployment_root: Path | None) -> list[str]:
         return errors
     commands = read_json(root / "registry/commands.json").get("commands", [])
     primary_commands = [item for item in commands if isinstance(item, dict) and item.get("visibility", "primary") == "primary"]
+    extended_commands = [item for item in commands if isinstance(item, dict) and item.get("visibility") == "extended"]
     providers = read_json(root / "registry/upstreams.json").get("providers", [])
     expected_bundle_exports = {
         export
@@ -149,6 +171,8 @@ def runtime_health(root: Path, deployment_root: Path | None) -> list[str]:
             continue
         if manifest.get("target") != name or manifest.get("runtime") != name:
             errors.append(f"runtime target {name} manifest does not match target")
+        if manifest.get("resolver_contract") != RESOLVER_CONTRACT:
+            errors.append(f"runtime target {name} resolver contract is not current")
         bundle_exports = manifest.get("bundled_exports", [])
         shadowed_values = manifest.get("shadowed_bundle_exports", [])
         shadowed = {item.get("shadowed_bundle_export") for item in shadowed_values if isinstance(item, dict)}
@@ -180,6 +204,22 @@ def runtime_health(root: Path, deployment_root: Path | None) -> list[str]:
             errors.append(f"runtime target {name} does not materialize every primary command adapter")
         elif any(not (installed.resolve() / "skills" / skill_name / "SKILL.md").is_file() for skill_name in actual.values() if isinstance(skill_name, str)):
             errors.append(f"runtime target {name} has an unresolvable primary command adapter")
+        if isinstance(adapters, list) and any(item.get("resolver_contract") != RESOLVER_CONTRACT for item in adapters if isinstance(item, dict)):
+            errors.append(f"runtime target {name} command adapters do not share the resolver contract")
+        expected_extended = {
+            command["id"]: runtime_skill_name(command, name)
+            for command in extended_commands
+            if isinstance(command.get("id"), str)
+        }
+        extended_routes = manifest.get("extended_routes")
+        actual_extended = {
+            item.get("canonical_id"): item.get("runtime_name")
+            for item in extended_routes if isinstance(item, dict)
+        } if isinstance(extended_routes, list) else {}
+        if actual_extended != expected_extended:
+            errors.append(f"runtime target {name} lacks characterized extended routes")
+        if isinstance(extended_routes, list) and any(item.get("resolver_contract") != RESOLVER_CONTRACT for item in extended_routes if isinstance(item, dict)):
+            errors.append(f"runtime target {name} extended routes do not share the resolver contract")
         expected_aliases = {
             alias["name"].removeprefix("/").replace(" ", "-")
             for command in primary_commands for alias in command.get("aliases", [])
@@ -205,7 +245,7 @@ def runtime_health(root: Path, deployment_root: Path | None) -> list[str]:
     return errors
 
 
-def doctor(root: Path = ROOT, deployment_root: Path | None = None) -> dict[str, Any]:
+def doctor(root: Path = ROOT, deployment_root: Path | None = None, *, dry_run: bool = False) -> dict[str, Any]:
     root = root.resolve()
     families_data = read_json(root / "registry/families.json")
     commands_data = read_json(root / "registry/commands.json")
@@ -272,7 +312,7 @@ def doctor(root: Path = ROOT, deployment_root: Path | None = None) -> dict[str, 
 
     errors.extend(package_health(root, providers))
     errors.extend(runtime_health(root, deployment_root.resolve() if deployment_root is not None else None))
-    report = {"schema_version": 1, "status": "ok" if not errors else "failed", "source": source_state(root), "summary": {"families": len(families), "commands": len(commands), "active_capabilities": active_count, "providers": len(providers)}, "errors": errors}
+    report = {"schema_version": 1, "status": "ok" if not errors else "failed", "mode": "dry-run" if dry_run else "report", "dry_run": dry_run, "source": source_state(root), "summary": {"families": len(families), "commands": len(commands), "active_capabilities": active_count, "providers": len(providers)}, "errors": errors}
     return report
 
 
@@ -280,9 +320,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--deployment-root", type=Path, help="Also verify installed runtime targets and deployment-owned package cache.")
+    parser.add_argument("--dry-run", action="store_true", help="Read-only alias for the doctor report mode.")
     args = parser.parse_args(argv)
     try:
-        report = doctor(args.root, args.deployment_root)
+        report = doctor(args.root, args.deployment_root, dry_run=args.dry_run)
     except DoctorError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1

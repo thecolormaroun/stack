@@ -195,7 +195,7 @@ def classify(root: Path) -> dict[str, Any]:
 
 
 def reconcile(root: Path, runtime_targets: list[Any]) -> dict[str, Any]:
-    skills = sorted(path.relative_to(root).as_posix() for path in (root / "skills").glob("**/SKILL.md"))
+    skills = sorted(path.relative_to(root).as_posix() for path in REGISTRY.callable_skill_paths(root))
     manifests = {json.loads(path.read_text(encoding="utf-8"))["source"]["skill_path"]: path.relative_to(root).as_posix() for path in REGISTRY.manifest_paths(root)}
     packages = []
     for path in sorted((root / "packages").glob("*/package.json")):

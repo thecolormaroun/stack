@@ -91,7 +91,7 @@ class RuntimeCommandAdapterTests(unittest.TestCase):
         verifier = [
             "python3",
             "-c",
-            "import json; from pathlib import Path; m=json.loads(Path('runtime-manifest.json').read_text()); assert len(m['command_adapters']) == 12; assert all(Path(x['path']).is_file() for x in m['command_adapters']); assert all((Path('skills') / x['alias'] / 'SKILL.md').is_file() for x in m['command_aliases'])",
+            "import json; from pathlib import Path; m=json.loads(Path('runtime-manifest.json').read_text()); assert len(m['command_adapters']) == 12; assert len(m['extended_routes']) == 1; assert m['resolver_contract']['version'] == 'stack-command-resolution-v1'; assert all(Path(x['path']).is_file() for x in m['command_adapters']); assert all((Path('skills') / x['alias'] / 'SKILL.md').is_file() for x in m['command_aliases'])",
         ]
         targets.write_text(json.dumps({
             "schema_version": 1,
@@ -127,10 +127,12 @@ class RuntimeCommandAdapterTests(unittest.TestCase):
                 self.assertTrue(installed.is_symlink())
                 manifest = json.loads((installed / "runtime-manifest.json").read_text())
                 self.assertEqual(len(manifest["command_adapters"]), 12)
+                self.assertEqual(len(manifest["extended_routes"]), 1)
+                self.assertEqual(manifest["resolver_contract"]["version"], "stack-command-resolution-v1")
                 self.assertEqual(len(manifest["external_package_exports"]), 12)
                 expected = {
                     command["runtimes"][runtime].removeprefix("/").replace(" ", "-")
-                    for command in commands
+                    for command in commands if command["visibility"] == "primary"
                 }
                 self.assertTrue(all((installed / "skills" / name / "SKILL.md").is_file() for name in expected))
                 aliases = {

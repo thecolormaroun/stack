@@ -69,6 +69,41 @@ class SkillLayoutTests(unittest.TestCase):
             with self.assertRaisesRegex(LAYOUT.LayoutError, "destination collision"):
                 LAYOUT.preflight(root, migration)
 
+    def test_untracked_stale_source_is_held_when_tracked_destination_is_complete(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            destination = root / "skills/imported/emil/emil-design-eng"
+            destination.mkdir(parents=True)
+            (destination / "SKILL.md").write_text("# tracked destination\n", encoding="utf-8")
+            (destination / "capability.json").write_text(
+                json.dumps({
+                    "canonical_name": "emil-design-eng",
+                    "source": {"skill_path": "skills/imported/emil/emil-design-eng/SKILL.md"},
+                }),
+                encoding="utf-8",
+            )
+            subprocess.run(["git", "-C", str(root), "add", "skills/imported/emil/emil-design-eng"], check=True)
+
+            source = root / "skills/emil-design-eng"
+            source.mkdir(parents=True)
+            (source / "SKILL.md").write_bytes(b"USER OWNED SOURCE\n")
+            (source / "capability.json").write_bytes(b"USER OWNED METADATA\n")
+            migration = {
+                "moves": [{
+                    "canonical_name": "emil-design-eng",
+                    "source": "skills/emil-design-eng/SKILL.md",
+                    "destination": "skills/imported/emil/emil-design-eng/SKILL.md",
+                }]
+            }
+
+            roots, complete = LAYOUT.preflight(root, migration)
+
+            self.assertEqual(roots, [])
+            self.assertEqual(complete, migration["moves"])
+            self.assertEqual((source / "SKILL.md").read_bytes(), b"USER OWNED SOURCE\n")
+            self.assertEqual((source / "capability.json").read_bytes(), b"USER OWNED METADATA\n")
+
 
 if __name__ == "__main__":
     unittest.main()

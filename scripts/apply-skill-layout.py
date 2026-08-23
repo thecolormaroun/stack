@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,28 @@ def read_json(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise LayoutError(f"{path}: expected a JSON object")
     return value
+
+
+def is_tracked(root: Path, path: Path) -> bool:
+    """Use the Git index when available; isolated fixtures are all in scope."""
+    try:
+        relative = path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return False
+    try:
+        subprocess.run(
+            ["git", "-C", str(root), "ls-files", "--cached", "--error-unmatch", "--", relative],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except FileNotFoundError:
+        return True
+    except subprocess.CalledProcessError:
+        # A Git checkout with no index entry means the path is owner-local or
+        # otherwise unreviewed.  No-Git test fixtures use the fallback above.
+        return False
+    return True
 
 
 def destination_for(manifest: dict[str, Any], source: str) -> str:
@@ -110,6 +133,17 @@ def preflight(root: Path, migration: dict[str, Any]) -> tuple[list[dict[str, str
             manifest = read_json(source_manifest)
             if manifest.get("canonical_name") != move["canonical_name"]:
                 raise LayoutError(f"{move['source']}: source manifest does not match migration")
+            complete.append(move)
+            continue
+        if source.is_file() and destination.is_file() and not is_tracked(root, source) and is_tracked(root, destination):
+            if not destination_manifest.is_file():
+                raise LayoutError(f"{move['destination']}: missing manifest after prior apply")
+            manifest = read_json(destination_manifest)
+            if manifest.get("canonical_name") != move["canonical_name"] or manifest.get("source", {}).get("skill_path") != move["destination"]:
+                raise LayoutError(f"{move['destination']}: destination manifest does not match migration")
+            # The old source is an untracked owner-local hold.  Preserve it
+            # byte-for-byte and treat the reviewed tracked destination as the
+            # completed move.
             complete.append(move)
             continue
         if source.is_file():

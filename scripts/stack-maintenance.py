@@ -1751,7 +1751,9 @@ def _commit_candidate(
         raise MaintenanceError("changed_paths_digest_mismatch", "non_transient")
     # A new branch is created only in the disposable clone.  The explicit
     # path list is the allowlist boundary; whole-tree staging is forbidden.
-    _git_mutate(stage_dir, "switch", "--create", branch, error_code="candidate_branch_create_failed")
+    current_branch = _git(stage_dir, "branch", "--show-current")
+    if current_branch != branch:
+        _git_mutate(stage_dir, "switch", "--create", branch, error_code="candidate_branch_create_failed")
     _git_mutate(stage_dir, "add", "--", *paths, error_code="candidate_stage_failed")
     staged = [
         _candidate_path(line).as_posix()

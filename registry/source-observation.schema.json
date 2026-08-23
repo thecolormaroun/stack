@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stack.maroun.co/registry/source-observation.schema.json",
+  "title": "Private source observation public projection",
+  "description": "Opaque, public-safe projection of an owner-local bookmark observation. Raw content, URLs, paths, and cursors are excluded.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "evidence_id", "source_id", "source_identity",
+    "original_source_identity", "canonical_source_identity", "capture_time",
+    "revision_time", "revision_digest", "content_digest", "media",
+    "media_item_digests", "media_item_states", "link_capture", "folder_ids", "completeness_state",
+    "adapter_version", "derivation"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "evidence_id": {"$ref": "#/$defs/opaque"},
+    "source_id": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,127}$"},
+    "source_identity": {"$ref": "#/$defs/opaque"},
+    "original_source_identity": {"$ref": "#/$defs/opaque"},
+    "canonical_source_identity": {"$ref": "#/$defs/opaque"},
+    "capture_time": {"type": "string", "format": "date-time"},
+    "revision_time": {"type": "string", "format": "date-time"},
+    "revision_digest": {"$ref": "#/$defs/digest"},
+    "content_digest": {"$ref": "#/$defs/digest"},
+    "media": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state", "count", "byte_count", "digest", "missing_fields"],
+      "properties": {
+        "state": {"enum": ["resolved", "unavailable", "partial", "metadata_only", "not_present"]},
+        "count": {"type": "integer", "minimum": 0},
+        "byte_count": {"type": "integer", "minimum": 0},
+        "digest": {"$ref": "#/$defs/digest"},
+        "missing_fields": {"type": "array", "items": {"enum": ["mime_type", "byte_count", "digest"]}}
+      }
+    },
+    "media_item_digests": {"type": "array", "items": {"$ref": "#/$defs/digest"}},
+    "media_item_states": {"type": "array", "items": {"enum": ["resolved", "unavailable", "metadata_only"]}},
+    "link_capture": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state", "count", "digests", "set_digest"],
+      "properties": {
+        "state": {"enum": ["captured", "not_present", "partial", "unavailable"]},
+        "count": {"type": "integer", "minimum": 0},
+        "digests": {"type": "array", "items": {"$ref": "#/$defs/digest"}},
+        "set_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "folder_ids": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+    "completeness_state": {"enum": ["accepted", "revised", "duplicate", "deleted", "missing", "unavailable", "pending", "rejected"]},
+    "adapter_version": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,63}$"},
+    "derivation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["was_derived_from", "was_generated_by", "lineage_digest"],
+      "properties": {
+        "was_derived_from": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "was_generated_by": {"$ref": "#/$defs/opaque"},
+        "lineage_digest": {"$ref": "#/$defs/digest"}
+      }
+    }
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "opaque": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,32}:[a-f0-9]{16,64}$"}
+  }
+}

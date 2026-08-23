@@ -1,7 +1,7 @@
 {
   "version": 1,
   "sources": [
-    {"id": "field-theory", "adapter": "field_theory", "enabled": true, "paths": ["~/.ft-bookmarks/bookmarks.db"]},
+    {"id": "field-theory", "adapter": "field_theory", "enabled": true, "paths": ["~/.ft-bookmarks/bookmarks.db"], "field_theory_contract": {"table": "bookmarks", "columns": ["id", "tweet_id", "url", "text", "author_handle", "author_name", "author_profile_image_url", "posted_at", "bookmarked_at", "synced_at", "conversation_id", "in_reply_to_status_id", "quoted_status_id", "language", "like_count", "repost_count", "reply_count", "quote_count", "bookmark_count", "view_count", "media_count", "link_count", "links_json", "tags_json", "ingested_via", "categories", "primary_category", "github_urls", "domains", "primary_domain", "quoted_tweet_json", "article_title", "article_text", "article_site", "enriched_at", "folder_ids", "folder_names"], "media_roots": []}, "optional_x_api": {"enabled": false}},
     {"id": "arc-sidebar", "adapter": "arc_snapshot", "enabled": true, "paths": ["~/Library/Application Support/Arc/StorableSidebar.json"]},
     {"id": "github-stars", "adapter": "github_stars", "enabled": true},
     {"id": "github-linked", "adapter": "github_links", "enabled": true, "max_items": 25},

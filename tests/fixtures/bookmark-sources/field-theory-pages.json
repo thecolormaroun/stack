@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "source_id": "field-theory",
+  "adapter": "field_theory",
+  "adapter_version": "field-theory-fixture-1",
+  "table": "bookmarks",
+  "columns": [
+    "id",
+    "tweet_id",
+    "url",
+    "text",
+    "synced_at",
+    "posted_at",
+    "folder_ids",
+    "folder_names",
+    "media_count",
+    "link_count",
+    "links_json"
+  ],
+  "pages": [
+    {
+      "page_ordinal": 0,
+      "requested_cursor": null,
+      "returned_cursor": "cursor-one",
+      "rows": [
+        {
+          "id": "bookmark-one",
+          "tweet_id": "tweet-one",
+          "url": "https://example.invalid/status/one",
+          "text": "Synthetic design bookmark one",
+          "synced_at": "2026-08-20T12:00:00Z",
+          "posted_at": "2026-08-19T12:00:00Z",
+          "folder_ids": ["folder-design"],
+          "revision": "revision-one",
+          "media": [{"mime_type": "image/png", "bytes": 128, "digest": "0000000000000000000000000000000000000000000000000000000000000000"}],
+          "links": ["https://example.invalid/design-one"]
+        }
+      ]
+    },
+    {
+      "page_ordinal": 1,
+      "requested_cursor": "cursor-one",
+      "returned_cursor": null,
+      "rows": [
+        {
+          "id": "bookmark-two",
+          "tweet_id": "tweet-two",
+          "url": "https://example.invalid/status/two",
+          "text": "Synthetic private-topic bookmark two",
+          "synced_at": "2026-08-21T12:00:00Z",
+          "posted_at": "2026-08-20T12:00:00Z",
+          "folder_ids": ["folder-private"],
+          "revision": "revision-two",
+          "media": [],
+          "links": ["https://example.invalid/design-two"]
+        }
+      ]
+    }
+  ]
+}

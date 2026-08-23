@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stack.maroun.co/registry/source-snapshot.schema.json",
+  "title": "Private bookmark source snapshot",
+  "description": "Public-safe source completeness snapshot. Owner-local raw rows, paths, media roots, and cursor values are not represented.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "snapshot_id", "source_id", "source_identity", "source_contract",
+    "capture_time", "policy_digest", "schema_digest", "page_count", "page_receipts",
+    "observation_count", "duplicate_count", "observations", "cursor_exhausted",
+    "resume_cursor_digest", "folder_coverage", "revision_coverage", "media_coverage",
+    "link_coverage", "set_digest", "completeness_state", "dispositions", "zero_delta", "failure",
+    "parity", "owner_local"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "snapshot_id": {"$ref": "#/$defs/opaque"},
+    "source_id": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,127}$"},
+    "source_identity": {"$ref": "#/$defs/opaque"},
+    "source_contract": {
+      "type": "object", "additionalProperties": false,
+      "required": ["adapter", "adapter_version", "table", "columns", "media_roots"],
+      "properties": {
+        "adapter": {"const": "field_theory"},
+        "adapter_version": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,63}$"},
+        "table": {"const": "bookmarks"},
+        "columns": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "media_roots": {
+          "type": "object", "additionalProperties": false,
+          "required": ["count", "digest"],
+          "properties": {"count": {"type": "integer", "minimum": 0}, "digest": {"$ref": "#/$defs/digest"}}
+        }
+      }
+    },
+    "capture_time": {"type": "string", "format": "date-time"},
+    "policy_digest": {"$ref": "#/$defs/digest"},
+    "schema_digest": {"$ref": "#/$defs/digest"},
+    "page_count": {"type": "integer", "minimum": 0},
+    "page_receipts": {"type": "array", "items": {"$ref": "source-page-receipt.schema.json"}},
+    "observation_count": {"type": "integer", "minimum": 0},
+    "duplicate_count": {"type": "integer", "minimum": 0},
+    "observations": {"type": "array", "items": {"$ref": "source-observation.schema.json"}},
+    "cursor_exhausted": {"type": "boolean"},
+    "resume_cursor_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+    "folder_coverage": {"$ref": "#/$defs/coverage"},
+    "revision_coverage": {"$ref": "#/$defs/coverage"},
+    "media_coverage": {"$ref": "#/$defs/coverage"},
+    "link_coverage": {"type": "object", "additionalProperties": false, "required": ["state"], "properties": {"state": {"enum": ["complete", "partial", "unknown"]}}},
+    "set_digest": {"$ref": "#/$defs/digest"},
+    "completeness_state": {"enum": ["complete", "partial", "unknown"]},
+    "dispositions": {
+      "type": "object", "additionalProperties": false,
+      "required": ["accepted", "revised", "deleted", "missing", "unavailable_media"],
+      "properties": {
+        "accepted": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "revised": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "deleted": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "missing": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "unavailable_media": {"type": "array", "items": {"$ref": "#/$defs/opaque"}}
+      }
+    },
+    "zero_delta": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state"],
+      "properties": {
+        "state": {"enum": ["not_run", "passed", "changed"]},
+        "changed_count": {"type": "integer", "minimum": 0},
+        "digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "failure": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/failure"}]},
+    "mode": {"enum": ["dry-run", "apply"]},
+    "parity_contract": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state", "network"],
+      "properties": {
+        "state": {"enum": ["disabled", "not_approved", "approved_contract"]},
+        "network": {"const": "not_attempted"},
+        "scope_digest": {"$ref": "#/$defs/digest"},
+        "rotation_metadata_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "parity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state"],
+      "properties": {
+        "state": {"enum": ["not_configured", "match", "diff"]},
+        "missing": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "extra": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "revised": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "folder_membership_diffs": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["canonical_id", "left_set_digest", "right_set_digest"], "properties": {"canonical_id": {"$ref": "#/$defs/opaque"}, "left_set_digest": {"$ref": "#/$defs/digest"}, "right_set_digest": {"$ref": "#/$defs/digest"}}}},
+        "dispositions": {"type": "object", "additionalProperties": false, "required": ["deleted", "missing", "unavailable_media"], "properties": {"deleted": {"type": "array", "items": {"$ref": "#/$defs/opaque"}}, "missing": {"type": "array", "items": {"$ref": "#/$defs/opaque"}}, "unavailable_media": {"type": "array", "items": {"$ref": "#/$defs/opaque"}}}},
+        "left_count": {"type": "integer", "minimum": 0},
+        "right_count": {"type": "integer", "minimum": 0},
+        "set_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "parity_contract": {"type": "object", "additionalProperties": true},
+    "owner_local": {
+      "type": "object", "additionalProperties": false,
+      "required": ["stored_observations", "ledger_state"],
+      "properties": {
+        "stored_observations": {"type": "integer", "minimum": 0},
+        "ledger_state": {"enum": ["not_touched", "updated"]}
+      }
+    },
+    "mode": {"enum": ["dry-run", "apply"]}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "opaque": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,32}:[a-f0-9]{16,64}$"},
+    "coverage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state", "set_digest"],
+      "properties": {"state": {"enum": ["complete", "partial", "unknown"]}, "set_digest": {"$ref": "#/$defs/digest"}}
+    },
+    "failure": {
+      "type": "object", "additionalProperties": false,
+      "required": ["reason"],
+      "properties": {"reason": {"type": "string"}, "page_ordinal": {"type": "integer", "minimum": 0}, "status": {"type": "integer", "minimum": 100, "maximum": 599}}
+    }
+  }
+}

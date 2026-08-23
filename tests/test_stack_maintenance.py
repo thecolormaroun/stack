@@ -961,6 +961,37 @@ def _candidate_fixture(tmp_path: Path):
     return maintenance, root, stage, base
 
 
+def test_stage_candidate_drops_inherited_transport_branches(tmp_path: Path):
+    maintenance = _module()
+    root = _git_fixture(tmp_path / "stack")
+    (root / "docs").mkdir()
+    (root / "docs" / "candidate.md").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(root), "add", "docs/candidate.md"], check=True)
+    subprocess.run(["git", "-C", str(root), "commit", "-qm", "base candidate"], check=True)
+    branch = "automation/stack-maintenance"
+    subprocess.run(["git", "-C", str(root), "switch", "-c", branch], check=True)
+    base = maintenance._git(root, "rev-parse", "HEAD")
+    stage = tmp_path / "stage"
+
+    maintenance.stage_candidate(
+        root,
+        stage,
+        base_sha=base,
+        allowlist=["docs/candidate.md"],
+        proposed_files={"docs/candidate.md": "candidate\n"},
+        run_readiness_checks=False,
+    )
+
+    assert maintenance._git(stage, "for-each-ref", "--format=%(refname)", "refs/heads") == ""
+    candidate = maintenance._commit_candidate(
+        stage,
+        base_sha=base,
+        branch=branch,
+        allowlist=["docs/candidate.md"],
+    )
+    assert candidate["status"] == "changed"
+
+
 def test_commit_candidate_reuses_matching_current_canonical_branch(tmp_path: Path):
     maintenance, _root, stage, base = _candidate_fixture(tmp_path)
     branch = "automation/stack-maintenance"

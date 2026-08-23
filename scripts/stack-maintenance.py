@@ -1470,6 +1470,25 @@ def stage_candidate(
         raise MaintenanceError("candidate_base_unavailable", "transient")
     if checkout.returncode:
         raise MaintenanceError("candidate_base_unavailable", "non_transient")
+    # The clone's local branches are transport artifacts from the caller.  A
+    # disposable stage is anchored by detached HEAD and origin/main only; drop
+    # inherited local heads so the canonical candidate branch can be created
+    # deterministically even when readiness tests clone a candidate checkout.
+    local_heads = [
+        ref.strip()
+        for ref in _git(stage_dir, "for-each-ref", "--format=%(refname)", "refs/heads").splitlines()
+        if ref.strip()
+    ]
+    for ref in local_heads:
+        if not ref.startswith("refs/heads/"):
+            raise MaintenanceError("candidate_transport_ref_invalid", "non_transient")
+        _git_mutate(
+            stage_dir,
+            "update-ref",
+            "-d",
+            ref,
+            error_code="candidate_transport_ref_cleanup_failed",
+        )
     # The local clone is only a transport. Preserve the caller's verified
     # canonical origin so repository-identity tests and the later push boundary
     # observe the public authority, not a machine-local path.

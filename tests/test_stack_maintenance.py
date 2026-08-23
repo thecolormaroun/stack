@@ -961,6 +961,23 @@ def _candidate_fixture(tmp_path: Path):
     return maintenance, root, stage, base
 
 
+def test_commit_candidate_reuses_matching_current_canonical_branch(tmp_path: Path):
+    maintenance, _root, stage, base = _candidate_fixture(tmp_path)
+    branch = "automation/stack-maintenance"
+    subprocess.run(["git", "-C", str(stage), "switch", "-c", branch], check=True)
+
+    candidate = maintenance._commit_candidate(
+        stage,
+        base_sha=base,
+        branch=branch,
+        allowlist=["docs/candidate.md"],
+    )
+
+    assert candidate["status"] == "changed"
+    assert maintenance._git(stage, "branch", "--show-current") == branch
+    assert candidate["commit_count"] == 1
+
+
 class _FakeGitHub:
     def __init__(
         self,

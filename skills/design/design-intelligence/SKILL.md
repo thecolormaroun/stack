@@ -22,9 +22,12 @@ Promotion is a separate review step.
 1. Read `references/source-adapters.md` for the source surfaces and safe access rules.
 2. Read `references/output-contract.md` for digest and backfill deliverables.
 3. Read `references/promotion-rules.md` before proposing any skill update.
-4. For the 2026 OpenClaw outage recovery candidate, read `references/backfill-candidate-guidance-2026-06-15.md`.
-5. Read `eval/checklist.md` before claiming a run is complete.
-6. Use `templates/weekly-digest.md` for the report body.
+4. Read `references/card-contract.md` before building or reviewing a design card.
+5. For the 2026 OpenClaw outage recovery candidate, read `references/backfill-candidate-guidance-2026-06-15.md`.
+6. Read `eval/checklist.md` before claiming a run is complete.
+7. Use `templates/weekly-digest.md` for the legacy report body, or the
+   repository template `../../../templates/weekly-design-intelligence.md` for
+   the U16 Output A/B/C body.
 
 ## Weekly Run
 
@@ -54,6 +57,53 @@ Every run must produce:
 - A promotion packet with proposed Studio/CDO changes, evidence links, and the eval gate required before promotion.
 
 The digest may suggest Zettelkasten notes and skill changes, but it must not directly write them.
+
+## U16 Card and Packet Boundary
+
+When U15 source observations are available, use the checked-in
+`registry/design-card.schema.json`,
+`registry/design-intelligence-packet.schema.json`, and
+`scripts/build-design-intelligence-packet.py` contract. The builder is an
+owner-local packet writer: its `--out` and optional `--markdown-out` targets
+must be outside the public Stack checkout. Keep the raw U15 companion rows in
+the owner-local source boundary; never copy raw text, URLs, paths, or media
+payloads into a public artifact.
+
+When the input is a public-safe U15 snapshot, pass its approved owner-local
+ledger with `--ledger`. The builder performs one read-only join on
+`source_observations(evidence_id, raw_json)` and quarantines any observation
+whose private companion is missing. It never copies the ledger path into the
+packet.
+
+The builder performs privacy and eligibility checks before analysis. Only
+`accepted` or `revised` software/design observations can become cards. Personal
+or non-software observations receive a private `no_candidate` disposition;
+malformed, incomplete, deleted, missing, rejected, or instruction-injection
+inputs are `quarantined` or `no_candidate` and cannot influence routing,
+approval, tools, or publication. A screenshot can establish visible facts but
+cannot establish unseen motion, interaction, accessibility, or responsive
+behavior.
+
+Cards retain opaque evidence citations, original/canonical identities,
+capture/revision times, content/media/link digests, and derivation lineage.
+Duplicate thread/article/Arc observations share one lineage graph while
+retaining source evidence. Conflicting explicit claims remain distinct and are
+surfaced as uncertainty. Prompt/model/config/sampling/code changes derive a
+new revision and never overwrite an earlier card.
+
+Model egress is default-deny. There is no live provider path. An injected fake
+analyzer is allowed only with an explicit approved provider contract that names
+the provider, exact allowed fields, redaction/minimization, retention,
+training, and log-redaction posture. The fake receives only that allowlisted
+opaque/digest context, and its output cannot set approval, routing, or
+publication state. Retrieval updates and candidate changes remain pending or
+quarantined; no card becomes skill/reference input or retrieval truth here.
+
+Every packet reports explicit `empty`, `complete`, `partial`, or `failed`
+input-digest state; deterministic unchanged input produces byte-stable output
+and `no_action`. A weekly rendering keeps Output A, Output B, and Output C,
+but rendering is a report only and never mutates Arc, Field Theory, GBrain,
+Vault, skills, references, or promotion state.
 
 ## Evaluation Gate
 

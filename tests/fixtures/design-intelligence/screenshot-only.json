@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "source_manifest": {"state": "complete", "sources": [{"source_id": "arc-sidebar", "status": "complete"}]},
+  "observations": [
+    {
+      "observation": {
+        "schema_version": 1,
+        "evidence_id": "evidence:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_id": "arc-sidebar",
+        "source_identity": "source:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "original_source_identity": "source-native:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "canonical_source_identity": "bookmark:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "capture_time": "2026-08-22T12:00:00+00:00",
+        "revision_time": "2026-08-22T12:00:00+00:00",
+        "revision_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "content_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+        "media": {"state": "resolved", "count": 1, "byte_count": 0, "digest": "3333333333333333333333333333333333333333333333333333333333333333", "missing_fields": []},
+        "media_item_digests": [],
+        "media_item_states": [],
+        "link_capture": {"state": "not_present", "count": 0, "digests": [], "set_digest": "5555555555555555555555555555555555555555555555555555555555555555"},
+        "folder_ids": [],
+        "completeness_state": "accepted",
+        "adapter_version": "arc-fixture-1",
+        "derivation": {"was_derived_from": [], "was_generated_by": "activity:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "lineage_digest": "6666666666666666666666666666666666666666666666666666666666666666"}
+      },
+      "raw": {
+        "text": "A design screenshot reference.",
+        "visible_facts": ["A two-column card layout is visible."],
+        "media": [{"kind": "screenshot"}]
+      }
+    }
+  ]
+}

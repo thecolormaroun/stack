@@ -1,21 +1,17 @@
 ---
 name: david-handoff
-description: 'Namespaced import of David Ondrej agent skills: Compact the current
-  conversation into a single, detailed handoff message — everything that happened,
-  why it happened, and what''s left — output in a code block so it can be copy-pasted
-  into a fresh agent session. Use when hitting context limits, switching focus, ending
-  a work session, or partitioning a task across fresh contexts.. Use via $david-handoff
-  when this upstream workflow is needed inside Maroun''s Stack or Hermes-safe operating
-  loop.'
+description: Compact the current conversation into a single, detailed handoff message — everything that happened, why it happened, and what's left — output in a code block so it can be copy-pasted into a fresh agent session. Use when hitting context limits, switching focus, ending a work session, or partitioning a task across fresh contexts.
 disable-model-invocation: true
 ---
+
 ## Stack Import
 
-- Invoke this imported skill as `$david-handoff`.
+- Invoke this curated import as `$david-handoff`.
 - Upstream name: `handoff`.
+- Upstream author: David Ondrej.
+- Exact upstream commit: `69c3ae5228eb146724fd23dac3d43eab5805bcc3`.
 - Source metadata and license notice: [references/source.md](references/source.md).
-- For broad routing, Hermes/Mookie safety boundaries, or verification choice, start with `$agent-operating-stack` and then use this skill as the focused workflow.
-
+- New skills, deletions, and license changes remain review-gated.
 
 # Handoff
 

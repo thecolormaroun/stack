@@ -1,22 +1,17 @@
 ---
 name: david-pi-custom-model
-description: 'Namespaced import of David Ondrej agent skills: Register a custom or
-  variant model (e.g. an OpenRouter ":nitro" / ":floor" / ":exacto" slug) in the Pi
-  Agent so it can be set as the global default. Use when Pi silently falls back to
-  a different model (e.g. moonshotai/kimi-k2.6) after setting defaultModel, or when
-  a model slug isn''t in Pi''s bundled list. Triggers on "Pi reset my model", "Pi
-  won''t use this model", "add a model to Pi", "Pi default keeps reverting".. Use
-  via $david-pi-custom-model when this upstream workflow is needed inside Maroun''s
-  Stack or Hermes-safe operating loop.'
+description: Register a custom or variant model (e.g. an OpenRouter ":nitro" / ":floor" / ":exacto" slug) in the Pi Agent so it can be set as the global default. Use when Pi silently falls back to a different model (e.g. moonshotai/kimi-k2.6) after setting defaultModel, or when a model slug isn't in Pi's bundled list. Triggers on "Pi reset my model", "Pi won't use this model", "add a model to Pi", "Pi default keeps reverting".
 disable-model-invocation: true
 ---
+
 ## Stack Import
 
-- Invoke this imported skill as `$david-pi-custom-model`.
+- Invoke this curated import as `$david-pi-custom-model`.
 - Upstream name: `pi-custom-model`.
+- Upstream author: David Ondrej.
+- Exact upstream commit: `69c3ae5228eb146724fd23dac3d43eab5805bcc3`.
 - Source metadata and license notice: [references/source.md](references/source.md).
-- For broad routing, Hermes/Mookie safety boundaries, or verification choice, start with `$agent-operating-stack` and then use this skill as the focused workflow.
-
+- New skills, deletions, and license changes remain review-gated.
 
 # Pi custom / variant model
 

@@ -1,18 +1,18 @@
 ---
 name: david-teach
-description: 'Namespaced import of David Ondrej agent skills: Teach the user a new
-  skill or concept, within this workspace.. Use via $david-teach when this upstream
-  workflow is needed inside Maroun''s Stack or Hermes-safe operating loop.'
+description: Teach the user a new skill or concept, within this workspace.
 disable-model-invocation: true
-argument-hint: What would you like to learn about?
+argument-hint: "What would you like to learn about?"
 ---
+
 ## Stack Import
 
-- Invoke this imported skill as `$david-teach`.
+- Invoke this curated import as `$david-teach`.
 - Upstream name: `teach`.
+- Upstream author: David Ondrej.
+- Exact upstream commit: `69c3ae5228eb146724fd23dac3d43eab5805bcc3`.
 - Source metadata and license notice: [references/source.md](references/source.md).
-- For broad routing, Hermes/Mookie safety boundaries, or verification choice, start with `$agent-operating-stack` and then use this skill as the focused workflow.
-
+- New skills, deletions, and license changes remain review-gated.
 
 The user has asked you to teach them something. This is a stateful request - they intend to learn the topic over multiple sessions.
 
@@ -110,6 +110,10 @@ For skill acquisition, difficulty is the tool. Effortful retrieval is what build
 - Lessons which guide the user through a list of real-world steps to take (for instance, yoga poses)
 
 Each of these should be based on a **feedback loop**, where the user receives feedback on their performance. This feedback loop should be as tight as possible, giving feedback immediately - and ideally automatically.
+
+### Feedback Principle
+
+Stanford tested two ways of giving feedback to students. Group one got standard comments. Group two got the same comments with one added sentence: "I'm giving you these comments because I have very high expectations and I know you can reach them." Group two improved at four times the rate as group one, despite having the same correction.
 
 For quizzes, each answer should be exactly the same number of words (and characters, if possible). Don't give the user any clues about the answer through formatting.
 

@@ -1,1 +1,12 @@
-{"schema_version":1,"lock_policy":"immutable pins only; failed verification retains the last-known-good runtime metadata","providers":{"compound-engineering":"1a7a4c1e844b55fe74f2aac79d9879cc136fbb5b","david":"5c99080334072075eb9e0a17837f7d24e4f3e6ae","emil":"e695d13cb298db0f46d5ef05be2ad13fa12908a6","gstack":"7c9df1c568a9ea745508f679a329332b2c338063","matt":"391a2701dd948f94f56a39f7533f8eea9a859c87","stack-codex":"b773ec2e1f6353693184d7bda47bec9ca90663b5526c4c6690fec7e6cdf49595"}}
+{
+  "lock_policy": "immutable pins only; failed verification retains the last-known-good runtime metadata",
+  "providers": {
+    "compound-engineering": "a32c9474c658f3e33b6e3615a5d51089046d4c79",
+    "david": "69c3ae5228eb146724fd23dac3d43eab5805bcc3",
+    "emil": "d23d7f88a2e21c9e4b1418c7abe420f5c1052ba7",
+    "gstack": "85fd9db554ae4aaaa6d356d2daf873121ee85bdd",
+    "matt": "5b15a47f2d7150f545fbcacbfe381787fc0230dc",
+    "stack-codex": "b773ec2e1f6353693184d7bda47bec9ca90663b5526c4c6690fec7e6cdf49595"
+  },
+  "schema_version": 1
+}

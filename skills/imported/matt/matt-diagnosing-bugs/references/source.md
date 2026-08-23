@@ -4,7 +4,7 @@
 - Upstream skill name: `diagnosing-bugs`
 - Upstream repo: https://github.com/mattpocock/skills
 - Upstream path: `skills/engineering/diagnosing-bugs`
-- Inspected commit: `391a2701dd948f94f56a39f7533f8eea9a859c87`
+- Inspected commit: `5b15a47f2d7150f545fbcacbfe381787fc0230dc`
 - License: MIT
 
 ## License Notice

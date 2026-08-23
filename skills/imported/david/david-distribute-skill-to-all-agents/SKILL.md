@@ -1,24 +1,20 @@
 ---
 name: david-distribute-skill-to-all-agents
-description: 'Namespaced import of David Ondrej agent skills: Distribute a skill across
-  the 4 agent skill folders (Codex, Claude Code, Pi, Hermes) so all agents see it.
-  Use when the user says "distribute this skill", "sync skills across agents", or
-  after creating/updating a skill that should be global. Covers the symlink layout
-  and the ~/.pi/agent/skills trap.. Use via $david-distribute-skill-to-all-agents
-  when this upstream workflow is needed inside Maroun''s Stack or Hermes-safe operating
-  loop.'
+description: Distribute a skill across the 4 agent skill folders (Codex, Claude Code, Pi, Hermes) so all agents see it. Use when the user says "distribute this skill", "sync skills across agents", or after creating/updating a skill that should be global. Covers the symlink layout and the ~/.pi/agent/skills trap.
 ---
+
 ## Stack Import
 
-- Invoke this imported skill as `$david-distribute-skill-to-all-agents`.
+- Invoke this curated import as `$david-distribute-skill-to-all-agents`.
 - Upstream name: `distribute-skill-to-all-agents`.
+- Upstream author: David Ondrej.
+- Exact upstream commit: `69c3ae5228eb146724fd23dac3d43eab5805bcc3`.
 - Source metadata and license notice: [references/source.md](references/source.md).
-- For broad routing, Hermes/Mookie safety boundaries, or verification choice, start with `$agent-operating-stack` and then use this skill as the focused workflow.
-
+- New skills, deletions, and license changes remain review-gated.
 
 # Distribute a Skill Across All Agents
 
-The user has 4 agent skill locations on their machine. A skill must exist in each (or via symlink) to be discoverable by every agent.
+The user has 4 agent skill locations on their MacBook. A skill must exist in each (or via symlink) to be discoverable by every agent.
 
 ## The 4 Canonical Locations
 
@@ -33,31 +29,31 @@ The user has 4 agent skill locations on their machine. A skill must exist in eac
 
 1. **Author the skill in `~/.agents/skills/<skill-name>/SKILL.md`** (canonical). Follow `effective-agent-skills` SKILL.md guidance.
 2. **Verify the `.claude` symlink is intact** (one-time check):
-   ```bash
+   bash
    ls -la ~/.claude/skills
    # Expect: ~/.claude/skills -> ~/.agents/skills
-   ```
+
    If it's a real directory instead of a symlink, the user has diverged copies — ask before touching.
 3. **Copy to `.hermes` only** (`.claude` and `.pi` are symlinks — already covered):
-   ```bash
+   bash
    SKILL=<skill-name>
    cp -r ~/.agents/skills/$SKILL ~/.hermes/skills/
-   ```
+
 4. **Verify all 4 locations** show identical byte counts:
-   ```bash
+   bash
    for p in ~/.agents/skills/$SKILL ~/.claude/skills/$SKILL ~/.pi/agent/skills/$SKILL ~/.hermes/skills/$SKILL; do
      echo "$p: $(wc -c < $p/SKILL.md) bytes"
    done
-   ```
+
    All four numbers must match. If `.claude` or `.pi` shows a different byte count, that symlink is broken — investigate before proceeding.
 
 ## Updating an Existing Distributed Skill
 
 Same flow — re-copy from `~/.agents/skills/` to `.hermes/skills/`. The `.claude` and `.pi` symlinks update automatically. `cp -r` overwrites by default; use `rsync -a --delete` if the skill folder has nested files that may have been removed:
 
-```bash
+bash
 rsync -a --delete ~/.agents/skills/$SKILL/ ~/.hermes/skills/$SKILL/
-```
+
 
 ## Pitfalls
 

@@ -4,8 +4,10 @@
 - Upstream skill name: `youtube-transcript`
 - Upstream repo: https://github.com/davidondrej/skills
 - Upstream path: `skills/research-and-web/youtube-transcript`
-- Inspected commit: `5c99080334072075eb9e0a17837f7d24e4f3e6ae`
+- Inspected commit: `69c3ae5228eb146724fd23dac3d43eab5805bcc3`
 - License: MIT
+- Retained removed files: `agents/openai.yaml`
+- Retained files inspected commit: `5c99080334072075eb9e0a17837f7d24e4f3e6ae`
 
 ## License Notice
 

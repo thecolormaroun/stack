@@ -19,5 +19,36 @@
     "writes": "temporary-workspace-only",
     "artifact_output_only": true
   },
-  "allowed_evaluation_dependencies": []
+  "allowed_evaluation_dependencies": [],
+  "materialization": {
+    "authorization_scope": "isolated-owner-local-patch-only",
+    "allowed_providers": ["stack"],
+    "allowed_packages": ["stack"],
+    "allowed_roles": ["skill", "reference", "registry", "test", "documentation"],
+    "allowed_change_kinds": ["reference-update", "skill-update", "registry-metadata", "test-support", "documentation"],
+    "maximum_changed_files": 5,
+    "maximum_total_bytes": 131072,
+    "forbidden_prefixes": [
+      "vendor/", "plugins/", "packages/", "package/", "skills/imported/", "registry/commands",
+      "registry/routing-rules", "commands/", "routing/", "runtime/", "runtimes/",
+      "config/runtime-targets", ".github/", ".git/"
+    ],
+    "forbid_deletion": true,
+    "forbid_rename": true,
+    "forbid_executable_paths": true,
+    "privacy_scan": "required",
+    "temporary_checkout": "disposable-local-clone-no-network",
+    "active_checkout_write": false,
+    "draft_pr_authority": false,
+    "runtime_publication_authority": false
+  },
+  "publication": {
+    "active_evidence_pointer_requires": [
+      "merge-receipt", "compile-receipt", "install-receipt", "discovery-receipt",
+      "rollback-receipt"
+    ],
+    "candidate_may_advance_pointer": false,
+    "candidate_may_install": false,
+    "candidate_may_publish": false
+  }
 }

@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "split": "rotating_canary",
+  "frozen": true,
+  "owner_local_in_production": true,
+  "candidate_generated_inputs": false,
+  "fixtures": [
+    {"id": "synthetic-owner-canary", "weight": 1.0}
+  ]
+}

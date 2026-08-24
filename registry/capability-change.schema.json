@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "stack://registry/capability-change.schema.json",
+  "title": "Quarantined Stack capability change",
+  "description": "An owner-local, evidence-bound proposal for the smallest reviewable change to an existing Stack-owned capability.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "change_id", "state", "approval_state", "base_commit",
+    "source_lineage", "target", "rationale", "rollback", "edits", "evaluation"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "change_id": {"$ref": "#/$defs/opaque"},
+    "state": {"const": "candidate_quarantined"},
+    "approval_state": {"const": "candidate_unapproved"},
+    "base_commit": {"$ref": "#/$defs/commit"},
+    "source_lineage": {"$ref": "#/$defs/source_lineage"},
+    "target": {"$ref": "#/$defs/target"},
+    "rationale": {"$ref": "#/$defs/rationale"},
+    "rollback": {"$ref": "#/$defs/rollback"},
+    "edits": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "items": {"$ref": "#/$defs/edit"}
+    },
+    "evaluation": {"$ref": "#/$defs/evaluation"}
+  },
+  "$defs": {
+    "commit": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "opaque": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,32}:[a-f0-9]{16,64}$"},
+    "repo_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$"
+    },
+    "string_list": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 1000}
+    },
+    "opaque_list": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/opaque"}
+    },
+    "digest_list": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/digest"}
+    },
+    "source_lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packet_id", "packet_digest", "card_ids", "revision_ids", "evidence_ids",
+        "parent_digests"
+      ],
+      "properties": {
+        "packet_id": {"$ref": "#/$defs/opaque"},
+        "packet_digest": {"$ref": "#/$defs/digest"},
+        "card_ids": {"$ref": "#/$defs/opaque_list"},
+        "revision_ids": {"$ref": "#/$defs/opaque_list"},
+        "evidence_ids": {"$ref": "#/$defs/opaque_list"},
+        "parent_digests": {"$ref": "#/$defs/digest_list"}
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonical_name", "capability_path", "provider", "package", "upstream_pin"],
+      "properties": {
+        "canonical_name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "capability_path": {
+          "type": "string",
+          "pattern": "^skills/(?!imported/)[A-Za-z0-9._/-]+/SKILL\\.md$"
+        },
+        "provider": {"const": "stack"},
+        "package": {"const": "stack"},
+        "upstream_pin": {"type": "null"}
+      }
+    },
+    "rationale": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "change_kind", "expected_behavior", "overlap_analysis", "license_posture",
+        "privacy_class"
+      ],
+      "properties": {
+        "change_kind": {
+          "enum": ["reference-update", "skill-update", "registry-metadata", "test-support", "documentation"]
+        },
+        "expected_behavior": {"$ref": "#/$defs/string_list"},
+        "overlap_analysis": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "compared_capabilities", "explanation"],
+          "properties": {
+            "status": {"enum": ["no_collision", "overlap_resolved", "human_review_required"]},
+            "compared_capabilities": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"}
+            },
+            "explanation": {"type": "string", "minLength": 1, "maxLength": 2000}
+          }
+        },
+        "license_posture": {"const": "stack-owned-reviewed-derivative"},
+        "privacy_class": {"const": "reviewed-software-derivative"}
+      }
+    },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_commit", "path_digests"],
+      "properties": {
+        "base_commit": {"$ref": "#/$defs/commit"},
+        "path_digests": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {"$ref": "#/$defs/repo_path"},
+          "additionalProperties": {
+            "oneOf": [
+              {"type": "null"},
+              {"$ref": "#/$defs/digest"}
+            ]
+          }
+        }
+      }
+    },
+    "edit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "role", "operation", "before_digest", "after_digest", "content"],
+      "properties": {
+        "path": {"$ref": "#/$defs/repo_path"},
+        "role": {"enum": ["skill", "reference", "registry", "test", "documentation"]},
+        "operation": {"enum": ["create", "replace"]},
+        "before_digest": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/digest"}
+          ]
+        },
+        "after_digest": {"$ref": "#/$defs/digest"},
+        "content": {"type": "string", "minLength": 1, "maxLength": 65536}
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile", "development_manifest_digest", "holdout_manifest_digest",
+        "rotating_canary_manifest_digest", "harness_required"
+      ],
+      "properties": {
+        "profile": {"const": "design-learning-v1"},
+        "development_manifest_digest": {"$ref": "#/$defs/digest"},
+        "holdout_manifest_digest": {"$ref": "#/$defs/digest"},
+        "rotating_canary_manifest_digest": {"$ref": "#/$defs/digest"},
+        "harness_required": {"const": true}
+      }
+    },
+    "materialization_authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "change_digest", "base_commit", "scope", "decision",
+        "reviewed_by", "reviewed_at"
+      ],
+      "properties": {
+        "schema_version": {"const": 1},
+        "change_digest": {"$ref": "#/$defs/digest"},
+        "base_commit": {"$ref": "#/$defs/commit"},
+        "scope": {"const": "isolated-owner-local-patch-only"},
+        "decision": {"const": "approved"},
+        "reviewed_by": {"type": "string", "minLength": 1, "maxLength": 200},
+        "reviewed_at": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

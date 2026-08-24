@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "split": "development",
+  "frozen": true,
+  "candidate_generated_inputs": false,
+  "fixtures": [
+    {"id": "operational-dashboard", "weight": 1.25},
+    {"id": "productivity-app", "weight": 1.0},
+    {"id": "landing-page-with-assets", "weight": 0.75},
+    {"id": "existing-page-redesign", "weight": 1.0},
+    {"id": "data-workflow", "weight": 1.25}
+  ]
+}

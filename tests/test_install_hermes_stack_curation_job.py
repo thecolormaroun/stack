@@ -168,6 +168,15 @@ def test_second_create_failure_compensates_first_job(tmp_path):
     assert not jobs.read_text().strip()
 
 
+def test_hermes_installer_remains_intake_only_and_cannot_own_weekly_writers(tmp_path):
+    source = INSTALLER.read_text(encoding="utf-8")
+    assert "stack-bookmark-collection" in source
+    assert "stack-bookmark-curation" in source
+    assert "stack-weekly-intelligence" not in source
+    assert "design-curation-writer" not in source
+    assert "upstream-maintenance-writer" not in source
+
+
 class HermesCurationInstallerTests(unittest.TestCase):
     """Expose the fixture-style tests to the dependency-free unittest suite."""
 

@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stack.maroun.co/registry/weekly-campaign-receipt.schema.json",
+  "title": "Stack weekly intelligence campaign receipt",
+  "description": "Owner-local, public-safe receipt for the Saturday weekly intelligence coordinator.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "run_id",
+    "owner_id",
+    "observed_at",
+    "input_fingerprint",
+    "inputs",
+    "stages",
+    "maintenance",
+    "scheduler",
+    "circuit",
+    "health",
+    "terminal_state",
+    "reason_code",
+    "report_path",
+    "safe_restart",
+    "publication",
+    "receipt_persisted"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "task_id": {"const": "stack-weekly-intelligence"},
+    "run_id": {"$ref": "#/$defs/id"},
+    "owner_id": {"$ref": "#/$defs/id"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "input_fingerprint": {"$ref": "#/$defs/digest"},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_manifest", "source_delta", "model_config", "prompt_config", "eval_config", "maintenance_receipt"],
+      "properties": {
+        "source_manifest": {"$ref": "#/$defs/digest"},
+        "source_delta": {"$ref": "#/$defs/digest"},
+        "model_config": {"$ref": "#/$defs/digest"},
+        "prompt_config": {"$ref": "#/$defs/digest"},
+        "eval_config": {"$ref": "#/$defs/digest"},
+        "maintenance_receipt": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/stage"}
+    },
+    "maintenance": {"$ref": "#/$defs/maintenance"},
+    "scheduler": {"$ref": "#/$defs/scheduler"},
+    "circuit": {"$ref": "#/$defs/circuit"},
+    "health": {"$ref": "#/$defs/health"},
+    "terminal_state": {"enum": ["no_action", "prepared", "awaiting_approval", "blocked", "partial", "failed"]},
+    "reason_code": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,127}$"},
+    "report_path": {"anyOf": [{"$ref": "#/$defs/path"}, {"type": "null"}]},
+    "safe_restart": {"type": "string", "minLength": 1, "maxLength": 512},
+    "publication": {"$ref": "#/$defs/publication"},
+    "receipt_persisted": {"const": true}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "path": {"type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$"},
+    "status": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,63}$"},
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "role", "status", "input_fingerprint", "output_digest", "artifact_path"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "role": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$"},
+        "status": {"enum": ["completed", "reused", "failed", "blocked", "pending", "cancelled", "leased_elsewhere"]},
+        "input_fingerprint": {"$ref": "#/$defs/digest"},
+        "output_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+        "artifact_path": {"anyOf": [{"$ref": "#/$defs/path"}, {"type": "null"}]},
+        "failure_code": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9_-]{0,127}$"},
+        "retry_class": {"enum": ["transient", "non_transient", "none"]}
+      }
+    },
+    "maintenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "receipt_digest", "age_seconds", "safe_restart"],
+      "properties": {
+        "status": {"enum": ["linked", "alert_missing", "alert_stale", "alert_invalid", "alert_blocked"]},
+        "receipt_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+        "age_seconds": {"type": ["integer", "null"], "minimum": 0},
+        "safe_restart": {"type": "string", "minLength": 1, "maxLength": 512}
+      }
+    },
+    "scheduler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "contract_id", "approval_required"],
+      "properties": {
+        "status": {"enum": ["blocked", "approved_and_persisted", "mismatch", "not_checked"]},
+        "contract_id": {"$ref": "#/$defs/id"},
+        "approval_required": {"const": true}
+      }
+    },
+    "circuit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "strike_count", "threshold", "blocker_digest"],
+      "properties": {
+        "status": {"enum": ["closed", "open", "not_struck", "transient_not_struck"]},
+        "strike_count": {"type": "integer", "minimum": 0},
+        "threshold": {"type": "integer", "minimum": 1},
+        "blocker_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]}
+      }
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "blocking_stage", "last_success", "age_seconds", "safe_restart"],
+      "properties": {
+        "status": {"enum": ["pass", "alert"]},
+        "blocking_stage": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9_-]{0,63}$"},
+        "last_success": {"type": ["string", "null"]},
+        "age_seconds": {"type": ["integer", "null"], "minimum": 0},
+        "safe_restart": {"type": "string", "minLength": 1, "maxLength": 512}
+      }
+    },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "promotion_approved"],
+      "properties": {
+        "status": {"const": "not_published"},
+        "promotion_approved": {"const": false}
+      }
+    }
+  }
+}

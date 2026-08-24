@@ -33,4 +33,3 @@ owner-local packet. Raw source content and paths are intentionally omitted.
 ## Short Summary
 
 {{SHORT_SUMMARY}}
-

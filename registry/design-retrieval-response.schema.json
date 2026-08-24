@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "stack://registry/design-retrieval-response.schema.json",
+  "title": "Owner-local design-intelligence retrieval response",
+  "description": "A bounded, source-scoped result set with provenance, ranking rationale, freshness, degradation, and mutation-safety evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "response_id", "response_digest", "request_id", "request_digest",
+    "status", "source", "target", "results", "result_count", "missing_modalities",
+    "degradations", "index", "ranking", "safety"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "response_id": {"$ref": "#/$defs/opaque"},
+    "response_digest": {"$ref": "#/$defs/digest"},
+    "request_id": {"$ref": "#/$defs/opaque"},
+    "request_digest": {"$ref": "#/$defs/digest"},
+    "status": {"enum": ["complete", "degraded", "empty", "failed"]},
+    "source": {"const": "x-bookmarks"},
+    "target": {"$ref": "#/$defs/target"},
+    "results": {
+      "type": "array",
+      "maxItems": 7,
+      "items": {"$ref": "#/$defs/result"}
+    },
+    "result_count": {"type": "integer", "minimum": 0, "maximum": 7},
+    "missing_modalities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["text", "image"]}
+    },
+    "degradations": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "text-unavailable", "text-partial", "image-unavailable", "image-partial",
+          "stale-index", "sparse-results"
+        ]
+      }
+    },
+    "index": {"$ref": "#/$defs/index"},
+    "ranking": {"$ref": "#/$defs/ranking"},
+    "safety": {"$ref": "#/$defs/safety"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "complete"}}, "required": ["status"]},
+      "then": {"properties": {"results": {"type": "array", "minItems": 3}}}
+    },
+    {
+      "if": {"properties": {"status": {"enum": ["empty", "failed"]}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "results": {"type": "array", "maxItems": 0},
+          "result_count": {"type": "integer", "const": 0}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "opaque": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,32}:[a-f0-9]{16,64}$"},
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "identity", "manifest_digest"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "identity": {"type": "string", "pattern": "^local-target:[a-z0-9][a-z0-9-]*$"},
+        "manifest_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rank", "candidate_id", "evidence_id", "source", "media_identity",
+        "citation_locator", "similarity_score", "similarity_reasons", "uncertainty",
+        "media_state", "freshness_age_days", "stale"
+      ],
+      "properties": {
+        "rank": {"type": "integer", "minimum": 1, "maximum": 7},
+        "candidate_id": {"$ref": "#/$defs/opaque"},
+        "evidence_id": {"$ref": "#/$defs/opaque"},
+        "source": {"const": "x-bookmarks"},
+        "media_identity": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/opaque"}
+          ]
+        },
+        "citation_locator": {"type": "string", "pattern": "^gbrain:x-bookmarks/[A-Za-z0-9._~/-]+$"},
+        "similarity_score": {"type": "number", "minimum": 0},
+        "similarity_reasons": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "exact-evidence-id", "exact-author", "exact-date", "exact-folder", "exact-url",
+              "lexical-context", "gbrain-text", "gbrain-image", "source-scoped-retrieval"
+            ]
+          }
+        },
+        "uncertainty": {"type": "string", "minLength": 1},
+        "media_state": {"enum": ["resolved", "partial", "unavailable", "corrupt", "unknown"]},
+        "freshness_age_days": {
+          "oneOf": [
+            {"type": "null"},
+            {"type": "integer", "minimum": 0}
+          ]
+        },
+        "stale": {"type": "boolean"}
+      }
+    },
+    "index": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "versions", "model_versions", "freshness_as_of", "max_age_days", "stale_result_count"
+      ],
+      "properties": {
+        "versions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "model_versions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "freshness_as_of": {"type": "string", "format": "date-time"},
+        "max_age_days": {"type": "integer", "minimum": 0},
+        "stale_result_count": {"type": "integer", "minimum": 0, "maximum": 7}
+      }
+    },
+    "ranking": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "rrf_k", "deterministic", "weights"],
+      "properties": {
+        "method": {"const": "weighted-rrf-v1"},
+        "rrf_k": {"const": 60},
+        "deterministic": {"const": true},
+        "weights": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["exact", "lexical", "text", "image"],
+          "properties": {
+            "exact": {"const": 3.0},
+            "lexical": {"const": 1.5},
+            "text": {"const": 2.0},
+            "image": {"const": 2.0}
+          }
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_attested", "source_scope_enforced", "configuration_changed",
+        "reindex_attempted", "paid_fallback_attempted", "external_write_attempted"
+      ],
+      "properties": {
+        "target_attested": {"const": true},
+        "source_scope_enforced": {"const": true},
+        "configuration_changed": {"const": false},
+        "reindex_attempted": {"const": false},
+        "paid_fallback_attempted": {"const": false},
+        "external_write_attempted": {"const": false}
+      }
+    }
+  }
+}

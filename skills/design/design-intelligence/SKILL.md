@@ -23,9 +23,10 @@ Promotion is a separate review step.
 2. Read `references/output-contract.md` for digest and backfill deliverables.
 3. Read `references/promotion-rules.md` before proposing any skill update.
 4. Read `references/card-contract.md` before building or reviewing a design card.
-5. For the 2026 OpenClaw outage recovery candidate, read `references/backfill-candidate-guidance-2026-06-15.md`.
-6. Read `eval/checklist.md` before claiming a run is complete.
-7. Use `templates/weekly-digest.md` for the legacy report body, or the
+5. Read `references/retrieval-contract.md` before querying task-context inspiration.
+6. For the 2026 OpenClaw outage recovery candidate, read `references/backfill-candidate-guidance-2026-06-15.md`.
+7. Read `eval/checklist.md` before claiming a run is complete.
+8. Use `templates/weekly-digest.md` for the legacy report body, or the
    repository template `../../../templates/weekly-design-intelligence.md` for
    the U16 Output A/B/C body.
 
@@ -104,6 +105,21 @@ input-digest state; deterministic unchanged input produces byte-stable output
 and `no_action`. A weekly rendering keeps Output A, Output B, and Output C,
 but rendering is a report only and never mutates Arc, Field Theory, GBrain,
 Vault, skills, references, or promotion state.
+
+## U17 Retrieval Boundary
+
+Use `scripts/query-design-intelligence.py` and the checked-in request/response
+schemas for design-time retrieval. The owner-local target manifest is the
+authority; caller-supplied target identity alone is never sufficient. Retrieval
+is fixed to GBrain source `x-bookmarks` and may call only read-only text and
+image search. It returns three to seven cited results when enough authorized
+evidence exists, or an explicit empty, failed, sparse, stale, or missing-modality
+state.
+
+Retrieval does not consume quarantined U16 cards as truth. It does not import,
+reindex, change a provider, use a paid fallback, write a source, or modify a
+skill/reference file. Read `references/retrieval-contract.md` for ranking,
+privacy, degradation, and benchmark gates.
 
 ## Evaluation Gate
 

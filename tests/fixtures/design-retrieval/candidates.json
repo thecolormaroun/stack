@@ -1,0 +1,84 @@
+{
+  "index_version": "fixture-index-v1",
+  "model_version": "fixture-lexical-v1",
+  "candidates": [
+    {
+      "candidate_id": "candidate:1111111111111111111111111111111111111111111111111111111111111111",
+      "evidence_id": "evidence:1111111111111111111111111111111111111111111111111111111111111111",
+      "source": "x-bookmarks",
+      "citation_locator": "gbrain:x-bookmarks/design/dense-dashboard",
+      "media_identity": "media:1111111111111111111111111111111111111111111111111111111111111111",
+      "text_terms": ["dashboard", "dense", "table", "filters", "side-panel", "validation"],
+      "image_terms": ["dense", "table", "side-panel"],
+      "metadata": {"author": "designer-a", "date": "2026-08-20", "folder": "design-systems", "url": "https://x.com/designer-a/status/1"},
+      "indexed_at": "2026-08-22T12:00:00+00:00",
+      "media_state": "resolved",
+      "authorized_target_identities": ["local-target:codex-main"]
+    },
+    {
+      "candidate_id": "candidate:2222222222222222222222222222222222222222222222222222222222222222",
+      "evidence_id": "evidence:2222222222222222222222222222222222222222222222222222222222222222",
+      "source": "x-bookmarks",
+      "citation_locator": "gbrain:x-bookmarks/design/mobile-table",
+      "media_identity": "media:2222222222222222222222222222222222222222222222222222222222222222",
+      "text_terms": ["mobile", "table", "responsive", "priority", "cards"],
+      "image_terms": ["mobile", "stacked-cards"],
+      "metadata": {"author": "designer-b", "date": "2026-08-19", "folder": "mobile", "url": "https://x.com/designer-b/status/2"},
+      "indexed_at": "2026-08-21T12:00:00+00:00",
+      "media_state": "resolved",
+      "authorized_target_identities": ["local-target:codex-main"]
+    },
+    {
+      "candidate_id": "candidate:3333333333333333333333333333333333333333333333333333333333333333",
+      "evidence_id": "evidence:3333333333333333333333333333333333333333333333333333333333333333",
+      "source": "x-bookmarks",
+      "citation_locator": "gbrain:x-bookmarks/design/dashboard-chart",
+      "media_identity": "media:3333333333333333333333333333333333333333333333333333333333333333",
+      "text_terms": ["dashboard", "chart", "metrics", "overview"],
+      "image_terms": ["chart", "metrics"],
+      "metadata": {"author": "designer-c", "date": "2026-08-18", "folder": "dashboards", "url": "https://x.com/designer-c/status/3"},
+      "indexed_at": "2026-08-20T12:00:00+00:00",
+      "media_state": "resolved",
+      "authorized_target_identities": ["local-target:codex-main"]
+    },
+    {
+      "candidate_id": "candidate:4444444444444444444444444444444444444444444444444444444444444444",
+      "evidence_id": "evidence:4444444444444444444444444444444444444444444444444444444444444444",
+      "source": "x-bookmarks",
+      "citation_locator": "gbrain:x-bookmarks/design/marketing-dashboard",
+      "media_identity": "media:4444444444444444444444444444444444444444444444444444444444444444",
+      "text_terms": ["dashboard", "marketing", "landing", "hero"],
+      "image_terms": ["hero", "gradient"],
+      "metadata": {"author": "designer-d", "date": "2026-08-17", "folder": "landing", "url": "https://x.com/designer-d/status/4"},
+      "indexed_at": "2026-08-19T12:00:00+00:00",
+      "media_state": "resolved",
+      "authorized_target_identities": ["local-target:codex-main"]
+    },
+    {
+      "candidate_id": "candidate:5555555555555555555555555555555555555555555555555555555555555555",
+      "evidence_id": "evidence:5555555555555555555555555555555555555555555555555555555555555555",
+      "source": "x-bookmarks",
+      "citation_locator": "gbrain:x-bookmarks/design/unauthorized-secret",
+      "media_identity": "media:5555555555555555555555555555555555555555555555555555555555555555",
+      "text_terms": ["dashboard", "dense", "table", "perfect-match"],
+      "image_terms": ["dense", "table"],
+      "metadata": {"author": "private-author", "date": "2026-08-22", "folder": "private", "url": "https://x.com/private/status/5"},
+      "indexed_at": "2026-08-22T12:00:00+00:00",
+      "media_state": "resolved",
+      "authorized_target_identities": ["local-target:other-main"]
+    },
+    {
+      "candidate_id": "candidate:6666666666666666666666666666666666666666666666666666666666666666",
+      "evidence_id": "evidence:6666666666666666666666666666666666666666666666666666666666666666",
+      "source": "x-bookmarks",
+      "citation_locator": "gbrain:x-bookmarks/design/corrupt-media",
+      "media_identity": "media:6666666666666666666666666666666666666666666666666666666666666666",
+      "text_terms": ["dashboard", "table", "error-state"],
+      "image_terms": [],
+      "metadata": {"author": "designer-e", "date": "2026-08-16", "folder": "dashboards", "url": "https://x.com/designer-e/status/6"},
+      "indexed_at": "2026-08-18T12:00:00+00:00",
+      "media_state": "corrupt",
+      "authorized_target_identities": ["local-target:codex-main"]
+    }
+  ]
+}

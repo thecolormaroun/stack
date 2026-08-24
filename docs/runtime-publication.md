@@ -81,8 +81,16 @@ hand-edit generated runtime manifests, or publish a partial target set.
 
 ## Scheduling boundary
 
-Hermes owns its versioned request/receipt integration and scheduler
-configuration. Stack can provide a reviewed wrapper and report the Stack commit
-and policy digest, but no live scheduler may exist until dry-run and run-now
-verification have passed and an explicit approval action enables it. Collection,
-curation, evaluation, and publication failures must remain distinct receipts.
+The scheduler lanes remain distinct. Upstream maintenance has its own writer,
+lease, and receipts. Hermes owns a Monday intake-only collection/curation lane.
+The proposed Stack weekly intelligence lane coordinates Saturday evidence and
+links the latest maintenance receipt but never invokes maintenance. Collection,
+curation, evaluation, maintenance, and publication failures remain distinct.
+
+Stack can provide a reviewed wrapper and report the Stack commit and policy
+digest, but no live scheduler may exist until dry-run and run-now verification
+have passed and an explicit approval action enables it. The checked-in Saturday
+09:00 `America/New_York` campaign contract is disabled and requires separate
+approval plus a persisted contract match. After enablement, health requires a
+terminal non-duplicate campaign receipt inside every eight-day window; a
+scheduler entry alone is not proof.

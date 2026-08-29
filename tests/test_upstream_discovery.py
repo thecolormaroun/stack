@@ -6,6 +6,7 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
+from urllib.parse import quote
 from unittest import mock
 
 
@@ -214,16 +215,33 @@ class UpstreamDiscoveryTests(unittest.TestCase):
 
     def test_private_or_oversized_release_evidence_is_rejected(self) -> None:
         discovery = _module()
-        private = discovery.discover_upstream_update(
-            "gstack",
-            {
-                "candidate_pin": "a" * 40,
-                "release_evidence": {"notes": str(Path.home() / "private")},
-            },
-            root=ROOT,
+        repeatedly_encoded = "/workspace/private-release.json"
+        for _ in range(5):
+            repeatedly_encoded = quote(repeatedly_encoded, safe="")
+        private_paths = (
+            str(Path.home() / "private"),
+            "/root/private",
+            "/workspace/checkout/private",
+            "generated at /tmp/private/release.json",
+            "generated at //server/share/private-release.json",
+            "filesystem root is /",
+            "cache path:/workspace/private-release.json",
+            "encoded %252Fworkspace%252Fprivate-release.json",
+            repeatedly_encoded,
+            r"C:\Users\owner\private",
         )
-        self.assertEqual(private["status"], "blocked")
-        self.assertIn("evidence_private_data", private["unsafe_reasons"])
+        for private_path in private_paths:
+            with self.subTest(private_path=private_path):
+                private = discovery.discover_upstream_update(
+                    "gstack",
+                    {
+                        "candidate_pin": "a" * 40,
+                        "release_evidence": {"notes": private_path},
+                    },
+                    root=ROOT,
+                )
+                self.assertEqual(private["status"], "blocked")
+                self.assertIn("evidence_private_data", private["unsafe_reasons"])
         oversized = discovery.discover_upstream_update(
             "gstack",
             {
@@ -234,6 +252,137 @@ class UpstreamDiscoveryTests(unittest.TestCase):
         )
         self.assertEqual(oversized["status"], "blocked")
         self.assertIn("evidence_too_large", oversized["unsafe_reasons"])
+
+    def test_release_evidence_keeps_https_urls_while_rejecting_file_urls(self) -> None:
+        discovery = _module()
+        safe_values = (
+            "https://example.invalid/releases/next",
+            "https://example.invalid/workspace/releases/next",
+            "https://example.invalid/docs%2Fupgrade",
+            "https://example.invalid/releases/next?return=/docs/upgrade",
+            "See https://example.invalid/releases/next?return=/docs/upgrade for details.",
+        )
+        for safe_value in safe_values:
+            with self.subTest(safe_value=safe_value):
+                safe = discovery.discover_upstream_update(
+                    "gstack",
+                    {
+                        "candidate_pin": "a" * 40,
+                        "release_evidence": {"url": safe_value},
+                    },
+                    root=ROOT,
+                )
+                self.assertNotIn("evidence_private_data", safe.get("unsafe_reasons", []))
+
+        private_values = (
+            "file:///workspace/private-release.json",
+            "https://example.invalid/releases/next?log=/root/private.log",
+            "https://example.invalid/releases/next?log=%2Fworkspace%2Fprivate.log",
+            "See https://example.invalid/releases/next?log=C%3A%5CUsers%5Cowner%5Cprivate.log",
+            "https://%2Fworkspace%2Fprivate@example.invalid/releases/next",
+            "https://example.invalid/root%2Fprivate-release.json",
+            "https://example.invalid/%252Fworkspace%252Fprivate-release.json",
+            "https://example.invalid/releases?log=%2F%2Fserver%2Fshare%2Frelease.json",
+            "https://example.invalid/releases#log=%252F%252Fserver%252Fshare%252Frelease.json",
+        )
+        for private_value in private_values:
+            with self.subTest(private_value=private_value):
+                private = discovery.discover_upstream_update(
+                    "gstack",
+                    {
+                        "candidate_pin": "b" * 40,
+                        "release_evidence": {"url": private_value},
+                    },
+                    root=ROOT,
+                )
+                self.assertEqual("blocked", private["status"])
+                self.assertIn("evidence_private_data", private["unsafe_reasons"])
+
+    def test_malformed_deep_or_excessively_encoded_evidence_fails_closed(self) -> None:
+        discovery = _module()
+        malformed = discovery.discover_upstream_update(
+            "gstack",
+            {
+                "candidate_pin": "a" * 40,
+                "release_evidence": {"url": "https://[invalid/releases"},
+            },
+            root=ROOT,
+        )
+        self.assertEqual("blocked", malformed["status"])
+        self.assertIn("evidence_url_invalid", malformed["unsafe_reasons"])
+
+        invalid_port = discovery.discover_upstream_update(
+            "gstack",
+            {
+                "candidate_pin": "d" * 40,
+                "release_evidence": {"url": "https://example.invalid:99999/releases"},
+            },
+            root=ROOT,
+        )
+        self.assertEqual("blocked", invalid_port["status"])
+        self.assertIn("evidence_url_invalid", invalid_port["unsafe_reasons"])
+
+        for depth in (15, 16):
+            encoded_private = "/workspace/private-release.json"
+            for _ in range(depth):
+                encoded_private = quote(encoded_private, safe="")
+            within_limit = discovery.discover_upstream_update(
+                "gstack",
+                {
+                    "candidate_pin": "b" * 40,
+                    "release_evidence": {"notes": encoded_private},
+                },
+                root=ROOT,
+            )
+            self.assertEqual("blocked", within_limit["status"])
+            self.assertIn("evidence_private_data", within_limit["unsafe_reasons"])
+
+        encoded = quote(encoded_private, safe="")
+        excessive = discovery.discover_upstream_update(
+            "gstack",
+            {
+                "candidate_pin": "b" * 40,
+                "release_evidence": {"notes": encoded},
+            },
+            root=ROOT,
+        )
+        self.assertEqual("blocked", excessive["status"])
+        self.assertIn("evidence_encoding_depth", excessive["unsafe_reasons"])
+
+        nested: object = "safe"
+        for _ in range(70):
+            nested = {"child": nested}
+        too_deep = discovery.discover_upstream_update(
+            "gstack",
+            {
+                "candidate_pin": "c" * 40,
+                "release_evidence": {"tree": nested},
+            },
+            root=ROOT,
+        )
+        self.assertEqual("blocked", too_deep["status"])
+        self.assertIn("evidence_too_deep", too_deep["unsafe_reasons"])
+
+    def test_percent_encoded_secret_patterns_fail_closed_in_all_url_positions(self) -> None:
+        discovery = _module()
+        encoded_token = "ghp%5F" + "x" * 12
+        values = (
+            f"release token {encoded_token}",
+            f"https://example.invalid/releases?token={encoded_token}",
+            f"https://example.invalid/releases#{encoded_token}",
+        )
+        for value in values:
+            with self.subTest(value=value):
+                private = discovery.discover_upstream_update(
+                    "gstack",
+                    {
+                        "candidate_pin": "e" * 40,
+                        "release_evidence": {"notes": value},
+                    },
+                    root=ROOT,
+                )
+                self.assertEqual("blocked", private["status"])
+                self.assertIn("evidence_private_data", private["unsafe_reasons"])
 
     def test_cli_help_is_available_without_network(self) -> None:
         result = subprocess.run(

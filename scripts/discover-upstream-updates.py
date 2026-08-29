@@ -20,6 +20,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Optional
+from urllib.parse import parse_qsl, unquote_plus, urlparse
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -56,6 +57,15 @@ UNSAFE_KEYS = {
     "unexpected",
     "dirty_protected_vendor",
 }
+ABSOLUTE_POSIX_PATH_FRAGMENT = re.compile(r"(?<![A-Za-z0-9_/])/[^\s\"'<>]*")
+ABSOLUTE_WINDOWS_PATH_FRAGMENT = re.compile(r"(?<![A-Za-z0-9])(?:[A-Za-z]:[\\/]|\\\\)[^\s\"'<>]+")
+HTTPS_URL_FRAGMENT = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
+MACHINE_LOCAL_POSIX_PATH = re.compile(
+    r"(?<![A-Za-z0-9:/])/(?:Users|home|root|workspace|workspaces|tmp|private|var|opt|etc|usr|mnt|Volumes|app|srv|run|code|src)(?:/|$)",
+    re.IGNORECASE,
+)
+MAX_EVIDENCE_NESTING = 64
+MAX_PERCENT_DECODE_PASSES = 16
 
 
 class DiscoveryError(ValueError):
@@ -102,6 +112,8 @@ def _read_json(path: Path, code: str) -> dict[str, Any]:
 
 def _json_safe(value: Any, maintenance: Any) -> Any:
     """Copy evidence while rejecting machine paths, secrets, and non-JSON data."""
+    if _contains_machine_path(value):
+        raise DiscoveryPolicyError("evidence_private_data")
     try:
         encoded = json.dumps(value, ensure_ascii=True, sort_keys=True)
     except (TypeError, ValueError) as error:
@@ -110,7 +122,100 @@ def _json_safe(value: Any, maintenance: Any) -> Any:
         raise DiscoveryPolicyError("evidence_too_large")
     if maintenance._private_data_in_bytes(encoded.encode("utf-8")):
         raise DiscoveryPolicyError("evidence_private_data")
+    for item in _iter_evidence_strings(value):
+        decoded = _repeatedly_unquote(item)
+        if maintenance._private_data_in_bytes(decoded.encode("utf-8")):
+            raise DiscoveryPolicyError("evidence_private_data")
     return json.loads(encoded)
+
+
+def _contains_machine_path(value: Any) -> bool:
+    """Reject absolute filesystem locations without mistaking web URLs for paths."""
+    return any(_string_contains_machine_path(item) for item in _iter_evidence_strings(value))
+
+
+def _iter_evidence_strings(value: Any) -> Iterable[str]:
+    """Walk evidence without recursion and fail closed on pathological depth."""
+    pending: list[tuple[Any, int]] = [(value, 0)]
+    while pending:
+        item, depth = pending.pop()
+        if depth > MAX_EVIDENCE_NESTING:
+            raise DiscoveryPolicyError("evidence_too_deep")
+        if isinstance(item, Mapping):
+            for key, nested in item.items():
+                pending.append((key, depth + 1))
+                pending.append((nested, depth + 1))
+            continue
+        if isinstance(item, (list, tuple)):
+            pending.extend((nested, depth + 1) for nested in item)
+            continue
+        if isinstance(item, str):
+            yield item
+
+
+def _string_contains_machine_path(value: str) -> bool:
+    try:
+        parsed = urlparse(value)
+    except ValueError as error:
+        raise DiscoveryPolicyError("evidence_url_invalid") from error
+    if parsed.scheme == "file" or Path(value).is_absolute():
+        return True
+    home = str(Path.home().resolve())
+    scrubbed = value
+    for match in HTTPS_URL_FRAGMENT.finditer(value):
+        token = match.group(0).rstrip(".,;:!?)]}")
+        try:
+            url = urlparse(token)
+            _ = url.port
+        except ValueError as error:
+            raise DiscoveryPolicyError("evidence_url_invalid") from error
+        if url.scheme.lower() not in {"http", "https"} or not url.netloc:
+            continue
+        if url.username is not None or url.password is not None:
+            return True
+        decoded_path = _repeatedly_unquote(url.path)
+        introduced_path_separator = (
+            decoded_path.count("/") + decoded_path.count("\\")
+            > url.path.count("/") + url.path.count("\\")
+        )
+        if introduced_path_separator and (
+            "//" in decoded_path
+            or "\\\\" in decoded_path
+            or MACHINE_LOCAL_POSIX_PATH.search(decoded_path)
+            or ABSOLUTE_WINDOWS_PATH_FRAGMENT.search(decoded_path)
+        ):
+            return True
+        query_values = [item for pair in parse_qsl(url.query, keep_blank_values=True) for item in pair]
+        query_values.append(url.fragment)
+        for raw in query_values:
+            decoded = _repeatedly_unquote(raw)
+            if (
+                (home != "/" and home in decoded)
+                or MACHINE_LOCAL_POSIX_PATH.search(decoded)
+                or ABSOLUTE_WINDOWS_PATH_FRAGMENT.search(decoded)
+                or re.search(r"(?:^|[\s=])//", decoded)
+                or decoded.lower().startswith("file:")
+            ):
+                return True
+        scrubbed = scrubbed.replace(match.group(0), " ")
+    scrubbed = _repeatedly_unquote(scrubbed)
+    return bool(
+        (home != "/" and home in scrubbed)
+        or ABSOLUTE_POSIX_PATH_FRAGMENT.search(scrubbed)
+        or ABSOLUTE_WINDOWS_PATH_FRAGMENT.search(scrubbed)
+    )
+
+
+def _repeatedly_unquote(value: str) -> str:
+    decoded = value
+    for pass_index in range(MAX_PERCENT_DECODE_PASSES + 1):
+        expanded = unquote_plus(decoded)
+        if expanded == decoded:
+            return decoded
+        if pass_index == MAX_PERCENT_DECODE_PASSES:
+            break
+        decoded = expanded
+    raise DiscoveryPolicyError("evidence_encoding_depth")
 
 
 def _pin_pattern(provider: Mapping[str, Any]) -> re.Pattern[str]:

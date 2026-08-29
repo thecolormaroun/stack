@@ -91,7 +91,7 @@ class WeeklyIntelligenceTests(unittest.TestCase):
             "reasoning_effort": scheduler["reasoning_effort"],
             "execution_environment": scheduler["execution_environment"],
             "project_id": scheduler["project_id"],
-            "prompt": prompt,
+            "prompt": prompt.removesuffix("\n"),
         }
         values.update(changes)
         path = self.state / "automation-root" / scheduler["automation_id"] / "automation.toml"
@@ -457,6 +457,22 @@ class WeeklyIntelligenceTests(unittest.TestCase):
         )
         self.assertTrue(config["scheduler"]["enabled"])
         self.assertTrue(config["scheduler"]["approval_required"])
+        prompt = (ROOT / config["scheduler"]["prompt_path"]).read_bytes()
+        expected_digest = WEEKLY.hashlib.sha256(WEEKLY.canonical_prompt_bytes(prompt)).hexdigest()
+        self.assertEqual(
+            config["scheduler"]["prompt_digest"],
+            expected_digest,
+        )
+        altered_prompts = (
+            prompt.replace(b"\n", b"\r\n"),
+            prompt + b"\n",
+            prompt.removesuffix(b"\n") + b" \n",
+        )
+        for altered in altered_prompts:
+            self.assertNotEqual(
+                expected_digest,
+                WEEKLY.hashlib.sha256(WEEKLY.canonical_prompt_bytes(altered)).hexdigest(),
+            )
         self.assertEqual("deny", config["provider_egress"])
         self.assertFalse(config["analysis_budget"]["authorized"])
 

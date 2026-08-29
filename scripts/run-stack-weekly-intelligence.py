@@ -111,6 +111,11 @@ def digest(value: Any) -> str:
     return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
 
 
+def canonical_prompt_bytes(value: bytes) -> bytes:
+    """Match only the automation store's single terminal-LF normalization."""
+    return value[:-1] if value.endswith(b"\n") else value
+
+
 def file_digest(path: Path, missing_marker: str = "MISSING") -> str:
     try:
         return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -393,7 +398,7 @@ def load_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
         raise WeeklyIntelligenceError("scheduler_contract_invalid")
     prompt_path = ROOT / scheduler["prompt_path"]
     try:
-        prompt_digest = hashlib.sha256(prompt_path.read_bytes()).hexdigest()
+        prompt_digest = hashlib.sha256(canonical_prompt_bytes(prompt_path.read_bytes())).hexdigest()
     except OSError as exc:
         raise WeeklyIntelligenceError("scheduler_prompt_unavailable") from exc
     if prompt_digest != scheduler["prompt_digest"]:
@@ -927,7 +932,7 @@ def scheduler_contract_status(
         parent = resolved.parent.stat()
         details = resolved.stat()
         document = tomllib.loads(resolved.read_text(encoding="utf-8"))
-        prompt = (ROOT / scheduler["prompt_path"]).read_text(encoding="utf-8")
+        prompt = (ROOT / scheduler["prompt_path"]).read_bytes()
     except (OSError, ValueError, UnicodeError, tomllib.TOMLDecodeError):
         return "blocked"
     if (
@@ -962,7 +967,7 @@ def scheduler_contract_status(
         "execution_environment": scheduler["execution_environment"],
         "target": {"type": "project", "project_id": scheduler["project_id"]},
         "cwds": [str(ROOT)],
-        "prompt_digest": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+        "prompt_digest": hashlib.sha256(canonical_prompt_bytes(prompt)).hexdigest(),
     }
     if expected["prompt_digest"] != scheduler["prompt_digest"]:
         return "mismatch"

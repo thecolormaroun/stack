@@ -2,15 +2,18 @@
 title: "Stack Skill and Command Architecture - Plan"
 date: 2026-07-17
 deepened: 2026-07-22
+revised: 2026-08-23
 type: refactor
 artifact_contract: ce-unified-plan/v1
 artifact_readiness: implementation-ready
 execution: code
 product_contract_source: ce-plan-bootstrap
+roadmap_scope: master
 target_repositories:
   - stack
   - Codex
   - hermes
+  - gbrain
 deployment_surfaces:
   - Codex
   - Claude
@@ -21,15 +24,15 @@ deployment_surfaces:
 
 ## Goal Capsule
 
-**Outcome:** Stack becomes Maroun's complete, versioned working environment for Claude Code and Codex: a coherent set of product, design, engineering, orchestration, review, QA, shipping, learning, and maintenance capabilities with one understandable command architecture.
+**Outcome:** Stack becomes Maroun's complete, versioned, self-improving working environment for Claude Code and Codex. It stays current, learns from the private X bookmark corpus, turns design inspiration into reusable intelligence, retrieves that intelligence during related design work, and proposes evaluated improvements to its skills and references.
 
-**User-visible promise:** Maroun can ask naturally or invoke a command directly, understand which capability was selected, use the same logical workflow in Claude and Codex, and clone the system onto a new machine without reconstructing it from local folders.
+**User-visible promise:** Maroun can ask naturally or invoke a command directly, understand which capability was selected, use the same logical workflow in Claude and Codex, and clone the public Stack onto a new machine. During design work, Stack can surface relevant bookmarked examples with reasons and provenance. Each week, Stack can report what changed, what it learned, what it recommends changing, and what still requires approval.
 
-**Authority order:** Maroun's explicit request overrides Stack routing; Stack's canonical command registry overrides router prose; package-native commands remain available as documented aliases; runtime-specific exceptions must be declared rather than inferred.
+**Authority order:** Maroun's explicit request overrides Stack routing. Stack's canonical command registry overrides router prose. Field Theory and source-scoped GBrain state are authoritative for private bookmark knowledge. Package-native commands remain documented aliases. Runtime-specific exceptions must be declared rather than inferred.
 
-**Execution boundary:** Roadmap Phase 1 organizes and ships the existing skill estate. Roadmap Phase 2 adds bookmark ingestion, candidate promotion, and continuous updates. No ingestion feature may redefine the taxonomy, command tree, or package ownership established in Phase 1.
+**Execution boundary:** The roadmap first protects and verifies the shipped architecture. It then completes private bookmark capture, adds design intelligence and retrieval, adds evaluated skill/reference learning, joins the safe upstream-maintenance lane, and proves the weekly operating loop before scheduling it. No ingestion feature may redefine the taxonomy, command tree, package ownership, source ownership, or publication gates established earlier.
 
-**Stop conditions:** Do not declare Phase 1 complete while capabilities remain unclassified, command collisions remain implicit, Compound Engineering/GStack/Stack-Codex are only prose dependencies, or a clean clone cannot route and discover the same active capabilities in Claude and Codex.
+**Stop conditions:** Stop before promotion when provenance is incomplete, private content could enter public artifacts, a retrieval result cannot cite its source, an evaluated change does not beat its baseline, a protected GBrain migration is active, a paid source lacks approval, or a runtime publication gate is unmet. Stop the weekly rollout when two-run no-op proof, partial-failure recovery, and exact scheduler-state verification are absent.
 
 ---
 
@@ -43,11 +46,15 @@ Stack does not replace Compound Engineering, GStack, Codex, Claude, or Hermes. I
 
 ### Problem Frame
 
-The repository currently contains useful skills but not a deliberate architecture. The live catalog has 136 records, yet every record is `domain: unclassified` and `artifact_type: skill`; 132 are candidates and four are deprecated. Eighty-four current skill directories contain callable `SKILL.md` files, while nested collections and generated manifests raise the catalog count.
+The architecture refactor has shipped a classified estate, logical command registry, upstream package model, runtime compiler, private-overlay contract, bookmark candidate pipeline, and durable orchestration contract. At the 2026-08-23 planning snapshot, the live catalog contains 141 capabilities: 133 active and eight deprecated. That snapshot is evidence, not an execution-progress field; every implementation phase must re-verify the current catalog and source commit.
 
-The estate mixes Stack-native routers, CPO/CDO workflows, Studio references, 22 Matt imports, 29 David imports, Impeccable and UI collections, design skills, engineering skills, and operational candidates. Compound Engineering contributes 31 installed skills, GStack contributes 56 installed skills, and the external Stack-Codex plugin contributes eight Stack-specific skills including `orchestrate-parallel-goals`. Those three systems are central to the working experience but are absent from the Stack catalog as first-class packages.
+The architecture is still incomplete at the behavior seams needed by an autonomous weekly loop. Command routing is represented in metadata and generated adapters, but no production resolver test proves natural-language precedence end to end. Bookmark collection covers Field Theory SQLite, Arc sidebar state, GitHub stars or linked repositories, and Hermes links. It does not prove complete X history, Arc History, design media, source reconciliation, weekly digest generation, contextual retrieval, or candidate-to-diff materialization.
 
-Routing is encoded in prose across `agent-operating-stack`, `mega-workflow`, `departments`, `ideate`, CPO/CDO, and upstream routers. `/mega`, `departments`, `/ideate`, `/lfg`, `/ce:*`, GStack commands, and Codex skills overlap without a machine-readable command tree, precedence rules, ambiguity handling, or cross-runtime mapping. The previous plan built lifecycle and ingestion machinery before resolving this product architecture.
+The current curation flow can collect, triage, prepare, evaluate, and record review. It stops before an approved candidate becomes a safe skill/reference patch, catalog change, or draft review artifact. The design-intelligence skill defines a stronger visual-evaluation gate, but the current external design harness is not configured, so recent candidates remain blocked. Upstream synchronization verifies declared pins but does not discover new releases and prepare a reviewable proposal.
+
+Private knowledge and public software also need a clear boundary. All X bookmarks can belong in the private Field Theory/GBrain knowledge layer. Only software-relevant, source-faithful, evaluated derivatives may enter Stack. Raw tweets, media, personal topics, source paths, credentials, and private corpus metadata must never be copied into the public repository, generated public catalogs, or receipts.
+
+The execution baseline is not clean. The local branch is behind `origin/main`, which contains the reviewed maintenance control plane. The worktree also contains user-owned untracked plan and design-skill work. Phase 0 must reconcile those facts without reset, stash, cleanup, or whole-tree staging before later units mutate Stack.
 
 ### Actors
 
@@ -56,6 +63,9 @@ Routing is encoded in prose across `agent-operating-stack`, `mega-workflow`, `de
 - A3. **Stack maintainer agent** inventories and classifies capabilities, updates upstream pins, generates runtime outputs, and cannot silently create new top-level routes.
 - A4. **Upstream package maintainer** owns Compound Engineering, GStack, Matt, David, Emil, Impeccable, or another imported implementation; Stack owns pins, adapters, aliases, selection, and compatibility evidence.
 - A5. **Hermes** provides intake and selected design/build consumers but is not required to expose every interactive Claude/Codex command.
+- A6. **Field Theory and source-scoped GBrain** own the private bookmark corpus, source boundaries, retrieval index, and source-faithful evidence identifiers.
+- A7. **Weekly intelligence coordinator** composes deterministic collectors, model-assisted analysis, retrieval checks, candidate evaluation, and receipt generation without owning merge or publication authority.
+- A8. **Design agent** supplies project, route, component, code, screenshot, viewport, and brief context and receives cited inspiration, critique, and applicable design patterns.
 
 ### Requirements
 
@@ -85,7 +95,7 @@ Routing is encoded in prose across `agent-operating-stack`, `mega-workflow`, `de
 
 #### Trust, workspace, and proprietary knowledge
 
-- R16. Commands must declare whether they are read-only, locally mutating, externally mutating, costly, or irreversible; explicit approval remains required for credential access, push/merge, production deployment, scheduler enablement, paid services, and destructive actions.
+- R16. Commands must declare an effect vector for source read, owner-local write, project write, external write, costly use, and irreversible action; explicit approval remains required for credential access, push/merge, production deployment, scheduler enablement, paid services, and destructive actions.
 - R17. Parallel-agent and long-running workflows must use a durable workflow run identifier with child ownership, model role, worktree or artifact scope, checkpoints, gate state, and terminal receipt.
 - R18. Plans, goals, handoffs, review packets, QA evidence, branches, worktrees, and receipts remain in the active project or owner-local state; Stack defines their contracts but does not create a second central workspace.
 - R19. Proprietary reference packs must remain in authorized private overlays and never enter the public Stack repository, generated public manifests, logs, or receipts.
@@ -95,6 +105,40 @@ Routing is encoded in prose across `agent-operating-stack`, `mega-workflow`, `de
 - R20. New skill authoring or import must declare family placement, command visibility, overlap disposition, provenance/license, validation target, route registration, and runtime support before promotion.
 - R21. Bookmark and repository ingestion must run only after Phase 1 architecture is published; it may propose a leaf, reference update, route change, package update, or no action, but cannot invent a competing taxonomy.
 - R22. Continuous maintenance must detect upstream drift, command collisions, aliases past their deprecation window, broken runtime parity, overlap, and obsolete capabilities without auto-deleting or auto-publishing.
+
+#### Private bookmark knowledge and provenance
+
+- R23. Every X bookmark available through the approved source boundary must enter the private Field Theory/GBrain corpus or receive a receipted exclusion or source-failure disposition.
+- R24. A completed source run must prove cursor exhaustion, source count reconciliation, folder coverage when available, media/link capture status, deduplication lineage, and a subsequent zero-delta check before it may claim completeness.
+- R25. Every private observation and derived artifact must carry stable evidence identity, original and canonical source identity, capture and revision times, content/media/link digests, adapter version, derivation lineage, and completeness state.
+- R26. Raw bookmark text, media, personal-topic content, private paths, and restricted metadata must remain owner-local; public Stack changes may contain only reviewed software-relevant derivatives and opaque evidence references.
+- R27. The approved default X source is Field Theory; direct X API access is an optional parity or gap-audit source that requires separate OAuth and provider-spend approval.
+
+#### Design intelligence and contextual retrieval
+
+- R28. Each new design-relevant observation must produce a structured design card that separates visible facts, critique, reusable principles, suitable contexts, failure modes, accessibility or motion concerns, implementation cues, and evidence citations.
+- R29. Each successful weekly run must produce a source manifest, delta digest, clustered design themes, contradictions or uncertainty, reusable patterns, retrieval updates, and candidate changes or an explicit no-action result.
+- R30. A design-time retrieval request must accept project, repository, route, component, viewport, device, brief, code, markup, and screenshot context when available and return ranked evidence with similarity reasons and freshness.
+- R31. Retrieval must combine exact metadata or lexical filters with GBrain text/image similarity when that approved index is available; a degraded result must name the missing modality or stale index.
+- R32. A design critique must distinguish source observation from interpretation and recommendation, cite every surfaced inspiration item, and avoid copying a source's visual treatment without explaining why it applies.
+
+#### Evaluated learning and promotion
+
+- R33. “Training Stack” means proposing source-backed changes to existing skill or reference files, plus the smallest necessary registry metadata; it never means autonomous model-weight fine-tuning or unreviewed prompt self-modification.
+- R34. Each proposed skill/reference change must state the evidence set, target capability, expected behavioral change, overlap result, license posture, and rollback pointer.
+- R35. A design-learning candidate must beat its pinned baseline on at least four fixed fixtures, introduce no hard failure, pass protected holdout fixtures, and preserve structural, behavioral, visual, accessibility, privacy, and citation gates before approval.
+- R36. An approved candidate must materialize as an owner-local allowlisted patch in an isolated worktree; creation or update of one lineage-bound draft PR requires a separately approved review policy, and neither path may merge, publish, or install itself.
+
+#### Weekly freshness and operations
+
+- R37. Upstream discovery must compare canonical immutable releases or commits against declared pins and create a review packet or no-action receipt; it must not replace pins or runtime outputs during discovery.
+- R38. A weekly campaign must link bookmark, design-intelligence, candidate, upstream-maintenance, and verification child receipts under one campaign identity while preserving separate locks and failure states.
+- R39. Every stage must be idempotent, checkpointed, resumable, dry-run non-mutating, and explicit about `no_action`, `prepared`, `awaiting_approval`, `blocked`, `partial`, or `failed` outcomes.
+- R40. Historical backfill must run as a bounded, resumable project before recurring delta mode; the scheduled loop must never silently restart full history.
+- R41. Claude and Codex must expose equivalent manual collection, digest, retrieval, evaluation, and review-packet actions through existing logical command families and executed resolver tests.
+- R42. Initial source synchronization, historical backfill, source-contract expansion, scheduler enablement, paid-provider use, draft-PR authority, merge, runtime publication, GBrain reindex or backend change, and destructive cleanup remain human-approved actions; approval of a pinned source contract may authorize later idempotent private-corpus deltas within that exact contract.
+- R43. After enablement, every eight-day window must contain a terminal weekly campaign receipt or a visible alert that names the blocking stage, last successful run, freshness age, and safe restart action.
+- R44. Unapproved generated cards, critiques, candidates, and eval outputs must remain quarantined and cannot become source evidence, retrieval truth, or future training input.
 
 ### Acceptance Examples
 
@@ -108,6 +152,39 @@ Routing is encoded in prose across `agent-operating-stack`, `mega-workflow`, `de
 - AE8. A new bookmarked design technique is compared against the canonical design family and existing leaves before it may become a reference update, skill update, package candidate, or no action.
 - AE9. A private company reference pack is available only to its authorized work runtime while the public catalog reveals no title, path, URL, or excerpt.
 - AE10. A parallel implementation run with one failed child remains resumable, keeps successful child artifacts, blocks ship state, and records the failed child and required recovery.
+- AE11. A historical X backfill reaches the terminal cursor, reconciles source and folder counts, records unavailable or deleted items, then runs a zero-delta pass without restarting from page one. Covers R23-R25 and R40.
+- AE12. A newly bookmarked design thread and its images appear in the next delta manifest, become cited design cards, and are available to retrieval without copying the raw thread into Stack. Covers R23-R32.
+- AE13. A source adapter fails after other sources complete. The campaign ends `partial`, retains successful child receipts, does not claim corpus completeness, and resumes from the failed adapter checkpoint. Covers R24, R38-R39, and R43.
+- AE14. While designing a mobile media composer, the agent receives three to seven relevant cards ranked from the current route, screenshot, viewport, and brief. Each result explains the similarity and links to an opaque evidence ID. Covers R30-R32.
+- AE15. A bookmarked personal or non-software topic remains searchable in the private corpus but generates no Stack candidate and leaks no title, excerpt, media, or path into public artifacts. Covers R23 and R26.
+- AE16. A proposed reference change improves structural checks but regresses one protected visual or accessibility fixture. The candidate remains blocked and the active runtime is unchanged. Covers R35-R36.
+- AE17. A candidate passes all evaluation gates. The loop emits an allowlisted patch or one lineage-bound draft PR and stops at `awaiting_approval`; merge and runtime publication remain separate. Covers R34-R36 and R42.
+- AE18. A newer upstream release is detected. The run records the immutable ref, release notes, provider diff, compatibility evidence, and last-known-good pointer without changing the current pin. Covers R37.
+- AE19. Two weekly campaigns receive identical source and policy inputs. The second run writes only its owner-local terminal receipt and creates no tracked diff, branch, PR, index churn, or runtime change. Covers R38-R39.
+- AE20. Two schedulers race for the same child stage. One acquires the child lease; the other records a duplicate-run no-action outcome without mutating source, project, or runtime state. Covers R17 and R38-R39.
+- AE21. GBrain image retrieval is unavailable during a design request. Stack returns clearly labeled lexical or metadata matches, names the missing modality and index age, and does not start a reindex or paid fallback. Covers R31 and R42.
+- AE22. Direct X API parity is disabled. Field Theory collection still runs, and the completeness report labels API parity `not approved` rather than presenting it as a failure or silently incurring spend. Covers R24 and R27.
+- AE23. The weekly loop passes manual runs but the final scheduler identity or persisted cadence cannot be verified. Rollout remains blocked and no claim of weekly operation is made. Covers R42-R43.
+
+### Flows
+
+- F1. **One-time source reconciliation:** protect the worktree, inventory Field Theory/GBrain state, run bounded X history backfill, reconcile counts and duplicates, perform a zero-delta pass, and freeze the first completeness baseline. Covers R23-R27 and R40.
+- F2. **Weekly private intake:** acquire a source-stage lease, collect deltas read-only, normalize provenance, update the private corpus through its approved owner, and emit a manifest or partial-failure receipt. Covers R23-R27 and R38-R39.
+- F3. **Weekly design digestion:** select new software/design evidence, generate design cards, cluster themes, critique patterns, record uncertainty, and emit the weekly digest. Covers R28-R29 and R32.
+- F4. **Design-time retrieval:** build task context, query exact filters and approved GBrain modalities, rerank results, explain similarity, and return cited inspiration to the active design workflow. Covers R30-R32 and R41.
+- F5. **Evaluated learning:** map digest insights to existing capabilities, propose the smallest skill/reference change, materialize it in isolation, run baseline and candidate fixtures, and stop at review. Covers R20-R21 and R33-R36.
+- F6. **Weekly upstream freshness:** discover canonical upstream changes, prepare an allowlisted maintenance proposal or no-action receipt, and stop before pin replacement or publication. Covers R22 and R37-R39.
+- F7. **Campaign closeout:** link child receipts, classify partial or blocked stages, publish freshness and next-action status, and archive only terminal no-action or prepared work under the owning automation policy. Covers R38-R43.
+
+### Success Criteria
+
+- The private corpus has a receipted disposition for 100% of observations exposed by every approved X source, with no cursor cycle or unexplained count, folder, media, or deduplication gap.
+- 100% of surfaced inspiration and proposed Stack changes trace to evidence IDs and derivation records; public-leak tests find zero raw private fields.
+- A fixed retrieval benchmark reaches `Recall@5 >= 0.80` and `nDCG@5 >= 0.75`, stays at or above 95% of the fresh baseline, and ranks every valid exact/source-scope canary at five or better; citation precision and source-scope isolation are 100%.
+- Every promoted design-learning change improves at least four fixed fixtures, passes every protected holdout, and has zero hard failures.
+- An unchanged campaign produces zero tracked churn, zero duplicate PRs, and one terminal no-action receipt.
+- A source or stage failure preserves completed work, resumes from a checkpoint, and never upgrades `partial` or `blocked` to `complete`.
+- Once scheduling is approved, each eight-day window has a terminal receipt or an actionable freshness alert.
 
 ### Scope Boundaries
 
@@ -122,21 +199,38 @@ Routing is encoded in prose across `agent-operating-stack`, `mega-workflow`, `de
 - Shared workflow-run, delegation, checkpoint, review, QA, and ship contracts.
 - Clean-clone bootstrap, doctor, compilation, installation, discovery, and rollback.
 - Private overlays for proprietary reference knowledge.
-- Phase 2 ingestion and ongoing updates after Phase 1 is stable.
+- Complete, source-scoped X bookmark intake into the private Field Theory/GBrain corpus.
+- Source reconciliation, media-aware provenance, design cards, weekly digests, and contextual inspiration retrieval.
+- Evaluated proposals for existing Stack skills, references, packages, and routes.
+- Canonical upstream discovery and safe maintenance proposals.
+- Manual burn-in, scheduler installation, terminal receipts, freshness alerts, and recovery runbooks.
 
 #### Outside This Product's Identity
 
 - Reimplementing Compound Engineering, GStack, or another healthy upstream package inside Stack.
 - General finance, household, shopping, personal-file, or knowledge-maintenance workflows that do not serve software work.
-- A replacement for Hermes memory, GBrain, Zettelkasten, or company knowledge systems.
+- A replacement vector database, media store, or memory system inside Stack.
+- Publishing the private Field Theory/GBrain corpus or unrelated personal bookmark knowledge into Stack.
 - Automatic execution of instructions found in bookmarks or upstream content.
+- Model-weight fine-tuning, autonomous prompt self-modification, or automatic skill publication.
+- Browser scraping based on undocumented X GraphQL as a completeness authority.
 - Credential entry, OAuth consent, CAPTCHA, biometric prompts, or other human-only platform authorization.
 
 #### Deferred to Follow-Up Work
 
 - A graphical catalog browser; Phase 1 ships a generated command/capability index and queryable CLI or documentation surface.
 - Usage telemetry that requires a new account or privacy-sensitive tracking.
-- Live recurring bookmark scheduling until manual Phase 2 collection and curation are proven.
+- Direct X API parity until OAuth scopes and provider spend receive explicit approval.
+- GBrain multimodal backend changes or reindexing until the protected local-embedding migration has a verified completion audit and receives separate approval.
+- Automatic merge, runtime publication, source mutation, or cleanup after a successful weekly run.
+
+### Dependencies
+
+- The current Field Theory source boundary and GBrain source-scoped retrieval contract must remain available and queryable.
+- The protected GBrain embedding migration must complete with an owner handoff before this roadmap may start a new import writer, change index configuration, or run a multimodal reindex; read-only source-scoped canaries remain allowed.
+- `origin/main` maintenance controls must be reconciled into the execution branch without overwriting user-owned untracked work.
+- The companion `docs/plans/2026-08-17-001-fix-stack-maintenance-automation-plan.md` owns detailed maintenance repair, PR convergence, scheduler migration, and cleanup behavior. This master plan consumes its verified control plane.
+- A design-evaluation fixture root must be present before a candidate can leave `blocked-eval`; structural evaluation alone is insufficient.
 
 ---
 
@@ -155,8 +249,30 @@ Routing is encoded in prose across `agent-operating-stack`, `mega-workflow`, `de
 - KTD9. **Fail closed to last-known-good upstream and runtime outputs.** Missing packages, changed pins, alias collisions, failed compilation, or failed discovery do not partially replace the active Stack.
 - KTD10. **Claude and Codex are primary interactive runtimes; Hermes is selective.** Every primary command has Claude/Codex parity. Hermes receives only the compiled capabilities required for intake, agent operations, or named design/build workflows.
 - KTD11. **Keep working artifacts with the work.** Plans and code artifacts stay in the target project; runtime receipts and private overlays stay owner-local. Stack defines schemas and routing, not a competing project-management store.
-- KTD12. **Apply trust classes at the command boundary.** Read-only and reversible local workflows can run autonomously. External publication, credentials, scheduling, production state, paid services, and destructive changes retain explicit approval and rollback requirements.
+- KTD12. **Apply trust classes and effect vectors at the command boundary.** Read-only and approved reversible owner-local workflows can run autonomously. Source, owner-local, project, external, costly, and irreversible effects remain separately visible. External publication, credentials, scheduling, production state, paid services, and destructive changes retain explicit approval and rollback requirements.
 - KTD13. **Architecture precedes ingestion.** Phase 2 consumes the Phase 1 family, command, package, and overlap contracts. It cannot redefine them during candidate generation.
+- KTD14. **Separate the private knowledge plane from the public capability plane.** Field Theory/GBrain owns raw bookmarks and searchable private knowledge. Stack owns schemas, adapters, derived software guidance, evals, and public capability changes. This implements R23 and R26 without creating a second knowledge store.
+- KTD15. **Use Field Theory as the default X boundary and direct X API only as optional parity.** The weekly path must work without a paid X dependency. An approved API lane may audit counts, folders, cursors, or missing media but cannot silently replace the canonical source. This implements R24 and R27.
+- KTD16. **Use content-addressed, derivation-aware provenance.** Normalize observations and derived artifacts with SHA-256 digests and W3C PROV-inspired entity, activity, agent, `wasDerivedFrom`, and `wasGeneratedBy` relationships. Keep stable source-native IDs alongside hashes because source revision and content identity differ. This implements R25.
+- KTD17. **Make the design card the durable unit of design knowledge.** The card separates facts, interpretation, reusable guidance, constraints, implementation cues, and citations. Digests, retrieval, and candidates consume cards instead of raw bookmark prose. This implements R28-R29 and R32.
+- KTD18. **Use GBrain as the retrieval substrate.** Stack supplies task context, source scope, hybrid-query policy, reranking, and response format. It does not add LanceDB, sqlite-vec, FAISS, or a second media index. This implements R30-R31.
+- KTD19. **Retrieve from the active design task, not a generic inspiration prompt.** The query contract accepts structured project and UI context and returns three to seven ranked exemplars with similarity explanations, evidence IDs, model/index versions, and freshness. This implements R30-R32.
+- KTD20. **Keep structural capability eval and visual design eval separate.** A candidate must pass both when it changes design behavior. Visual proof uses pinned rendered fixtures, deterministic screenshots, accessibility checks, and protected holdouts. A missing visual harness is a block, not a pass. This implements R35.
+- KTD21. **Train through evaluated patches, not weights.** The learning loop may change existing `SKILL.md`, reference, registry, or package metadata only through a cited candidate diff. Model weights and unattended prompt self-rewrites are outside the system. This implements R33-R36.
+- KTD22. **Stop the weekly loop at a review artifact.** The default terminal success is `no_action`, `prepared`, or `awaiting_approval`. Merge, runtime publication, source mutation, and cleanup stay in their existing approval-bound lanes. This implements R36 and R42.
+- KTD23. **Separate upstream discovery from upstream verification and publication.** Discovery compares canonical immutable refs and prepares proposals. Existing package compatibility and runtime publication paths verify and activate approved changes. This implements R37.
+- KTD24. **Use a campaign receipt that links independently safe child runs.** Bookmark, design, candidate, and maintenance stages keep their own lease and restart state. The parent campaign records input/output digests, model/config versions, attempts, child outcomes, and freshness without sharing one mutable global lock. This implements R38-R39.
+- KTD25. **Add one extended intelligence route instead of a weekly mega-command.** Logical command `stack.design.intelligence` owns `collect`, `digest`, `retrieve`, `critique`, and `propose` subcommands and delegates to the existing design-intelligence leaf. It remains extended under `stack.design`, while upstream work remains under `stack.maintain`. The owner-local coordinator composes both families and must pass executed resolver parity tests. This implements R41.
+- KTD26. **Separate historical backfill, manual burn-in, and recurring delta mode.** Backfill has bounded checkpoints and an explicit completion baseline. Two identical-input manual campaigns must prove the second run is a true no-op before scheduler enablement. This implements R24 and R40-R43.
+- KTD27. **Make degradation visible and non-escalating.** Missing sources, stale indexes, unavailable image retrieval, evaluation outages, and partial child failures reduce the claimed result and preserve restart state. They never trigger an unapproved paid provider, reindex, alternate source, or publication path. This implements R24, R31, R39, and R42-R43.
+- KTD28. **Prove routing with an executable resolver before automation relies on it.** Metadata validation and generated instruction adapters are not enough. A deterministic resolver and Claude/Codex characterization fixtures must demonstrate selection, ambiguity, aliases, trust classes, and evidence context. This implements R7 and R41.
+- KTD29. **Treat the reviewed maintenance control plane as a subordinate lane.** `config/stack-maintenance.json`, `registry/maintenance-sources.json`, `scripts/stack-maintenance.py`, and its tests own upstream proposal safety after the execution branch includes them. This plan adds discovery and campaign integration, not a competing maintenance runner. This implements R22 and R37-R39.
+- KTD30. **Quarantine the learner from its own unapproved outputs.** Only approved, published source or capability revisions may enter later retrieval and candidate-generation inputs. Development fixtures, locked holdouts, and rotating owner-local canaries have separate digests and never absorb candidate output. This implements R35 and R44.
+- KTD31. **Separate the Monday maintenance writer from the Saturday intelligence coordinator.** The existing maintenance automation owns upstream proposal mutation. The intelligence campaign reads its latest receipt, runs on Saturday at 09:00 local time after proof, and alerts on stale maintenance state without launching a competing maintenance writer. This implements R38-R39 and R42-R43.
+- KTD32. **Use Codex automation as the campaign scheduler and Hermes as an optional intake adapter.** The Saturday Codex task owns design-intelligence coordination. Existing Hermes jobs must be inventoried before rollout and may remain only as non-overlapping intake children under the approved source contract; a second curation coordinator is blocked. This implements R38-R43.
+- KTD33. **Namespace companion-plan references in this master roadmap.** `MA-R*`, `MA-KTD*`, `MA-AE*`, and `MA-U*` refer to IDs inside `docs/plans/2026-08-17-001-fix-stack-maintenance-automation-plan.md`. Unprefixed IDs always refer to this plan. This prevents cross-plan traceability collisions.
+- KTD34. **Treat the Stack observation ledger as an owner-local outbox and receipt cache.** The private `x-bookmarks` GBrain source is the searchable knowledge authority. The ledger may retain raw observations until an explicit retention policy approves pruning, but it cannot become a public or competing canonical corpus. This implements R23-R26 and R42.
+- KTD35. **Keep non-X sources as optional child lanes.** Arc History, curated web, GitHub, and Hermes inputs require separate configured adapters and trust checks. GitHub access is opt-in because it uses an existing credential store. Failure or absence of these lanes cannot weaken X completeness claims or silently expand the approved campaign. This implements R16, R23-R27, and R38-R39.
 
 ### Target Source Organization
 
@@ -202,6 +318,7 @@ The layout separates Stack-native skills from curated imports and external packa
 | `stack.explore` | `ideate`, `strategy`, `research` | Stack ideate, GStack office-hours/strategy, research leaves |
 | `stack.plan` | `brainstorm`, `product`, `technical`, `review` | Compound Engineering brainstorm/plan, CPO, GStack plan reviews |
 | `stack.design` | `direction`, `system`, `ui`, `motion`, `critique` | CDO, Studio design, Emil, Impeccable, design review |
+| `stack.design.intelligence` | `collect`, `digest`, `retrieve`, `critique`, `propose` | Stack design-intelligence leaf and source-scoped GBrain adapter |
 | `stack.build` | `implement`, `tdd`, `debug`, `optimize` | Compound Engineering work/LFG, Matt engineering, TDD, debug/optimize |
 | `stack.orchestrate` | `parallel`, `goal`, `worktree`, `handoff`, `resume` | Stack-Codex parallel goals, goal loop, CE worktree/handoff, GStack context |
 | `stack.review` | `code`, `architecture`, `security`, `data`, `simplicity` | Compound Engineering review skills, Matt review, security/data reviewers |
@@ -286,6 +403,81 @@ stateDiagram-v2
   Receipted --> [*]
 ```
 
+#### Private knowledge, retrieval, and learning topology
+
+```mermaid
+flowchart LR
+  X["X bookmarks"] --> FT["Field Theory source boundary"]
+  ARC["Arc and approved web evidence"] --> OBS["Owner-local observation ledger"]
+  FT --> OBS
+  API["Optional approved X parity"] -. "audit only" .-> OBS
+  OBS --> GB["Private GBrain corpus and index"]
+  OBS --> CARD["Cited design cards"]
+  CARD --> DIGEST["Weekly digest and critique"]
+  GB --> RET["Task-context hybrid retrieval"]
+  CARD --> RET
+  CTX["Brief + route + code + screenshot"] --> RET
+  DIGEST --> CAND["Quarantined skill/reference candidate"]
+  RET --> CAND
+  CAND --> EVAL["Structural + visual + holdout eval"]
+  EVAL -->|fail| BLOCK["Blocked receipt"]
+  EVAL -->|pass| PATCH["Allowlisted patch or draft PR"]
+  PATCH --> HUMAN["Human review and approval"]
+  HUMAN --> PUB["Existing compile/install/publication lane"]
+```
+
+Raw evidence stays on the private side of the boundary. Public Stack artifacts begin at reviewed, software-relevant derivatives and opaque evidence IDs.
+
+#### Weekly campaign and child-run lifecycle
+
+```mermaid
+stateDiagram-v2
+  [*] --> Preflight
+  Preflight --> Blocked: baseline, authority, or lock unsafe
+  Preflight --> Collect
+  Collect --> Partial: one source or media lane fails
+  Collect --> ImportPending: approved deltas await GBrain
+  Partial --> Collect: resume failed source
+  ImportPending --> Partial: import retryable or media incomplete
+  ImportPending --> StaleIndex: content accepted, canary stale
+  ImportPending --> Digest: import and text canary complete
+  StaleIndex --> Digest: degraded mode recorded
+  Digest --> RetrieveCheck
+  RetrieveCheck --> Candidate
+  Candidate --> Evaluate
+  Evaluate --> Blocked: eval or privacy gate fails
+  Evaluate --> AwaitingApproval: owner-local patch ready
+  Evaluate --> NoAction: no defensible change
+  AwaitingApproval --> CampaignReceipt
+  NoAction --> CampaignReceipt
+  Blocked --> CampaignReceipt
+  Partial --> CampaignReceipt: safe progress retained
+  CampaignReceipt --> [*]
+```
+
+The upstream-maintenance child runs beside the intelligence path. The campaign links both terminal receipts but does not share their leases or mutation authority.
+
+#### Promotion state machine
+
+```mermaid
+stateDiagram-v2
+  [*] --> Observed
+  Observed --> Carded
+  Carded --> Proposed
+  Proposed --> Quarantined
+  Quarantined --> Evaluated
+  Evaluated --> Rejected: hard failure or no improvement
+  Evaluated --> AwaitingApproval: all gates pass
+  AwaitingApproval --> Rejected: declined
+  AwaitingApproval --> Merged: approved and reviewed
+  Merged --> Published: compile, install, and discovery pass
+  Published --> ActiveEvidence
+  Rejected --> [*]
+  ActiveEvidence --> [*]
+```
+
+Only `Published` revisions may become future training evidence. `Proposed`, `Quarantined`, and `Rejected` artifacts remain excluded by R44.
+
 ---
 
 ## Implementation Units
@@ -307,6 +499,13 @@ stateDiagram-v2
 | U6 | Evaluate and promote candidates | evaluation and activation scripts | U5, U4 |
 | U7 | Connect Hermes intake and scheduling | Hermes adapter and Stack wrapper | U5, U6 |
 | U8 | Document and operate continuous governance | README, runbooks, reassessment | U1-U7, U9-U13 |
+| U14 | Reconcile the live baseline and prove routing | resolver, characterization fixtures, catalog reconciliation | U4, U11 |
+| U15 | Complete private X capture and historical reconciliation | source schema, completeness ledger, backfill runner | U5, U9, U14 |
+| U16 | Build design cards, critique, and weekly digest | design-intelligence schemas, packet builder, fixtures | U15 |
+| U17 | Add task-context retrieval through GBrain | retrieval contract, adapter, benchmark | U9, U14, U16 |
+| U18 | Materialize and evaluate skill/reference learning | candidate materializer, visual eval, holdouts | U6, U16, U17 |
+| U19 | Add upstream discovery to the maintenance lane | maintenance policy, discovery proposal, compatibility tests | U12, U14 |
+| U20 | Prove and operate the weekly campaign | campaign coordinator, receipt schema, scheduler runbook | U7-U8, U15-U19 |
 
 ### U10. Define Skill Architecture and Family Taxonomy
 
@@ -675,9 +874,9 @@ stateDiagram-v2
 
 ### U7. Connect Hermes Intake and Scheduling
 
-**Goal:** Let explicit links and recurring scans feed the same Phase 2 architecture-aware lifecycle.
+**Goal:** Let explicit Hermes links and approved intake scans feed the architecture-aware lifecycle without creating a second weekly coordinator.
 
-**Requirements:** R15, R20-R22
+**Requirements:** R15-R16, R20-R22, R38-R43
 
 **Dependencies:** U5, U6
 
@@ -690,7 +889,7 @@ stateDiagram-v2
 - `scripts/run-stack-bookmark-curation.sh`
 - `scripts/install-hermes-stack-curation-job.sh`
 
-**Approach:** Preserve durable intake IDs and distinct capture, triage, proposal, evaluation, and publication receipts. Hermes submits evidence and consumes selected compiled capabilities; it does not own Stack taxonomy. Scheduling remains absent until manual collection and curation pass and Maroun separately approves enablement.
+**Approach:** Preserve durable intake IDs and distinct capture, triage, proposal, evaluation, and publication receipts. Hermes submits evidence and consumes selected compiled capabilities; it does not own Stack taxonomy or design curation. Inventory the existing daily/Monday Hermes jobs and keep any approved recurring behavior intake-only. U20 owns the single Saturday design-intelligence coordinator and its separate scheduler approval.
 
 **Test scenarios:**
 
@@ -699,6 +898,7 @@ stateDiagram-v2
 3. Scheduler, source, evaluation, and publication failures remain distinct.
 4. Unauthorized or missing identities fail before intake writes.
 5. No live recurring job appears without explicit enablement after run-now proof.
+6. An enabled Hermes intake job cannot acquire the design-curation or upstream-maintenance writer lease.
 
 **Verification:** Manual Hermes intake follows the same architecture-aware candidate lifecycle, and scheduler state remains independently verifiable.
 
@@ -706,7 +906,7 @@ stateDiagram-v2
 
 **Goal:** Make the architecture, command tree, installation, and maintenance understandable without chat history.
 
-**Requirements:** R1-R22
+**Requirements:** R1-R44
 
 **Dependencies:** U1-U7, U9-U13
 
@@ -719,11 +919,13 @@ stateDiagram-v2
 - `docs/capability-lifecycle.md`
 - `docs/runtime-publication.md`
 - `docs/bookmark-curation.md`
+- `docs/design-intelligence-loop.md`
+- `docs/weekly-intelligence-operations.md`
 - `templates/periodic-reassessment.md`
 - `.github/workflows/test.yml`
 - `tests/test_documented_commands.py`
 
-**Approach:** Lead documentation with what is in Stack and how it routes, then explain package ownership, installation, lifecycle, private overlays, and Phase 2 maintenance. Generate family/command indexes from registries. Run the full test and sensitive-content suite in GitHub Actions.
+**Approach:** Lead documentation with what is in Stack and how it routes, then explain package ownership, private knowledge boundaries, installation, design intelligence, candidate quarantine, publication, scheduling, and recovery. Generate family/command indexes from registries. Run the full test and sensitive-content suite in GitHub Actions. U20 supplies final live-scheduler evidence without making the documentation claim ahead of proof.
 
 **Test scenarios:**
 
@@ -731,29 +933,346 @@ stateDiagram-v2
 2. A reader can answer what is kept, imported, internal, deprecated, or external from the generated architecture index.
 3. Quick start performs a fresh-clone bootstrap and doctor check without exposing private overlays.
 4. Documentation does not claim runtime parity or package health beyond current receipts.
-5. CI executes registry, routing, package, runtime-parity, fresh-clone, and sensitive-content checks.
+5. CI executes registry, routing, package, runtime-parity, fresh-clone, source-contract, retrieval, candidate-quarantine, maintenance, and sensitive-content checks.
+6. The runbook distinguishes source capture, private import, indexing, candidate preparation, merge, runtime publication, and scheduler enablement receipts.
 
 **Verification:** A new agent or work-machine user can understand the Stack, install it, route representative work, and trace each command to its owner and source using repository documentation alone.
+
+### U14. Reconcile the Live Baseline and Prove Routing
+
+**Goal:** Establish a protected, current execution baseline and replace metadata-only routing confidence with an executable resolver contract.
+
+**Requirements:** R2-R8, R13-R14, R41
+
+**Dependencies:** U4, U11
+
+**Files:**
+
+- `scripts/build-command-registry.py`
+- `scripts/resolve-command.py`
+- `registry/commands.json`
+- `registry/routing-rules.json`
+- `config/runtime-targets.json`
+- `tests/test_intent_routing.py`
+- `tests/test_runtime_command_adapters.py`
+- `tests/fixtures/routing/**`
+
+**Approach:** Start in an isolated branch or worktree from a verified current `origin/main`. Preserve the user-owned untracked maintenance plan and design-skill directories before any branch integration. Hold callable skills without `capability.json` outside generated runtime changes until they receive a reviewed disposition. Implement one deterministic resolver that consumes registry data and emits the logical command, match reason, ambiguity state, trust class, effect vector, and required evidence context. Register extended command `stack.design.intelligence` with its context-aware subcommands. Make generated Claude and Codex adapters call or characterize that same resolver contract.
+
+**Test scenarios:**
+
+1. The current catalog rebuild accounts for every allowlisted capability and reports the same active/deprecated set from a clean checkout.
+2. User-owned untracked files survive baseline reconciliation byte-for-byte and never enter allowlisted staging by accident.
+3. Representative natural-language requests resolve across every primary family with a recorded reason.
+4. Ambiguous design-versus-code review context produces an explicit choice instead of incidental ordering.
+5. Direct aliases and canonical IDs converge on the same logical route and trust class.
+6. Claude and Codex fixtures receive equivalent route, context, evidence, and approval state.
+7. An unknown or metadata-incomplete capability stays out of the runtime rather than inheriting a route.
+8. “Show me relevant inspiration for this screen” resolves to `stack.design.intelligence retrieve` with task-context inputs in Claude and Codex.
+
+**Verification:** `python3 -m unittest tests.test_intent_routing tests.test_runtime_command_adapters tests.test_command_registry tests.test_runtime_parity` passes from the reconciled baseline, and `scripts/stack-doctor.py --dry-run` reports the verified source commit without mutating runtimes.
+
+### U15. Complete Private X Capture and Historical Reconciliation
+
+**Goal:** Prove that every available X bookmark has a private, regenerable disposition before weekly delta collection begins.
+
+**Requirements:** R23-R27, R38-R40, R42-R44
+
+**Dependencies:** U5, U9, U14
+
+**Files:**
+
+- `registry/source-observation.schema.json`
+- `registry/source-snapshot.schema.json`
+- `registry/source-page-receipt.schema.json`
+- `registry/gbrain-import-receipt.schema.json`
+- `config/bookmark-sources.json`
+- `config/bookmark-fetch-policy.json`
+- `config/bookmark-private-ledger.json`
+- `references/bookmark-source-adapters.md`
+- `scripts/reconcile-bookmark-sources.py`
+- `scripts/backfill-bookmark-history.py`
+- `scripts/import-bookmark-deltas.py`
+- `tests/test_bookmark_completeness.py`
+- `tests/test_bookmark_backfill.py`
+- `tests/test_bookmark_gbrain_import.py`
+- `tests/fixtures/bookmark-sources/**`
+
+**Approach:** Extend collection into a snapshot and page ledger. Allowlist exact Field Theory tables, columns, export roots, and media roots instead of scanning arbitrary SQLite tables. Record the source lane, opaque account identity, endpoint or query, requested cursor, returned cursor, page ordinal, canonical IDs, folder membership, raw-response digest, retry or rate-limit state, media resolution, adapter version, and policy/schema digest. Canonicalize JSON before SHA-256 hashing. Compare Field Theory and any separately approved X snapshot by canonical ID and folder-membership sets. Classify missing, extra, duplicate, revised, deleted, and unavailable-media observations. Default every adapter to audit/read-only. After one-time source-contract approval, hand idempotent deltas to the owning GBrain CLI under source `x-bookmarks` and record accepted, rejected, pending, and indexed canary identities. Treat the Stack ledger as an owner-local outbox and receipt cache. Route source repair through Field Theory/GBrain instead of writing around either owner.
+
+**Test scenarios:**
+
+1. A multi-page history terminates only when every cursor closes, with no cursor cycle or unclassified error.
+2. Folder membership and post/media hydration reconcile independently.
+3. Missing media records MIME type, byte count, digest, or an explicit unavailable reason.
+4. Field Theory and optional X parity snapshots report set differences without treating ordering as drift.
+5. A 429 or partial page produces `partial` or `unknown`, persists a safe resume cursor, and never reports parity pass.
+6. An optional X adapter requests read scopes only, detects required-field or scope drift, and stops before provider use when approval is absent.
+7. A dry run against a missing ledger path creates no database, directory, or source mutation.
+8. A second identical backfill is zero-delta and does not restart full history.
+9. An interrupted GBrain import resumes only unaccepted identities and does not duplicate accepted content.
+10. A successful import is not `indexed` until a source-scoped text retrieval canary passes; missing multimodal indexing remains a separate visible state.
+
+**Verification:** `python3 -m unittest tests.test_collect_bookmark_candidates tests.test_materialize_bookmark_candidates tests.test_bookmark_completeness tests.test_bookmark_backfill tests.test_bookmark_gbrain_import` passes. A manually approved backfill yields a complete or truthfully partial source snapshot, an idempotent `x-bookmarks` import receipt, a source-scoped retrieval canary, and no public artifact leakage.
+
+### U16. Build Design Cards, Critique, and Weekly Digest
+
+**Goal:** Convert new design evidence into durable, source-faithful intelligence that can be reviewed and retrieved.
+
+**Requirements:** R25-R29, R32, R38-R39, R44
+
+**Dependencies:** U15
+
+**Files:**
+
+- `registry/design-card.schema.json`
+- `registry/design-intelligence-packet.schema.json`
+- `scripts/build-design-intelligence-packet.py`
+- `skills/design/design-intelligence/SKILL.md`
+- `skills/design/design-intelligence/references/card-contract.md`
+- `templates/weekly-design-intelligence.md`
+- `tests/test_design_intelligence_packet.py`
+- `tests/fixtures/design-intelligence/**`
+
+**Approach:** Normalize each eligible observation into a versioned design card. Keep visible facts, interpretation, reusable principle, appropriate context, anti-pattern, accessibility, motion, responsive behavior, implementation cue, uncertainty, and citations in separate fields. Run model-assisted extraction and critique only after deterministic source and privacy checks. Record model, prompt, policy, config, code commit, sampling, and parent digests. Cluster cards by interface problem and design behavior. Emit a delta digest and explicit candidate or no-action set. Keep all raw inputs and unapproved cards owner-local.
+
+**Test scenarios:**
+
+1. A screenshot-heavy bookmark produces visual facts and accessibility observations without inventing unseen behavior.
+2. A thread, linked article, and duplicate Arc observation collapse into one lineage graph without losing source-specific evidence.
+3. A non-software or private-topic bookmark receives a private no-candidate disposition.
+4. Conflicting sources remain distinct and the digest states the disagreement.
+5. Prompt or model changes create a new derived revision rather than overwriting the prior card.
+6. Malicious instructions inside source content remain quoted evidence and cannot influence tools, routing, or approval state.
+7. An unchanged week produces an empty delta and a no-action digest without tracked churn.
+
+**Verification:** `python3 -m unittest tests.test_design_intelligence_packet tests.test_triage_bookmark_candidates` passes, schema fixtures regenerate byte-identical outputs, and a redacted manual digest traces every claim to an evidence ID.
+
+### U17. Add Task-Context Retrieval Through GBrain
+
+**Goal:** Surface the most relevant private design inspiration while an agent works on a similar interface.
+
+**Requirements:** R26, R30-R32, R41-R43
+
+**Dependencies:** U9, U14, U16
+
+**Files:**
+
+- `registry/design-retrieval-request.schema.json`
+- `registry/design-retrieval-response.schema.json`
+- `scripts/query-design-intelligence.py`
+- `skills/design/design-intelligence/references/retrieval-contract.md`
+- `tests/test_design_retrieval.py`
+- `tests/fixtures/design-retrieval/qrels.json`
+- `tests/fixtures/design-retrieval/**`
+
+**Approach:** Build a structured request from the active project, repository, route, component, viewport, device, brief, code, markup, screenshot, source filter, and freshness requirement. Query exact metadata/lexical matches and approved GBrain text/image retrieval under canonical source `x-bookmarks`. Fuse candidate rankings with transparent reciprocal-rank fusion and rerank against the task context. Return three to seven results with evidence ID, source scope, media identity, citation locator, similarity explanation, uncertainty, model/index version, and freshness. Keep GBrain configuration frozen. Any new multimodal backend or reindex remains a separate GBrain project after its protected migration gate.
+
+**Test scenarios:**
+
+1. Exact ID, author, date, folder, URL, and source-scope canaries rank at one.
+2. Text-to-image, image-to-text, and mixed exact-token/visual queries return relevant graded results.
+3. Same-topic hard negatives, duplicates, missing alt text, corrupt media, and unavailable media do not erase provenance.
+4. Private-source filters cannot leak results or metadata across target identities.
+5. GBrain image retrieval unavailable yields labeled lexical/metadata degradation with no reindex or paid fallback.
+6. Repeated queries against pinned inputs produce deterministic top-k IDs and explanations within the declared tolerance.
+7. Claude and Codex receive the same evidence and approval context for equivalent requests.
+
+**Verification:** `python3 -m unittest tests.test_design_retrieval tests.test_private_overlay_contract tests.test_runtime_parity` passes. The locked benchmark meets R30-R31 success thresholds, every valid canary ranks at five or better, and a read-only live canary returns cited evidence without source mutation.
+
+### U18. Materialize and Evaluate Skill/Reference Learning
+
+**Goal:** Turn defensible weekly insights into isolated, reviewable Stack changes that demonstrably improve behavior.
+
+**Requirements:** R20-R22, R33-R36, R41-R44
+
+**Dependencies:** U6, U16, U17
+
+**Files:**
+
+- `registry/capability-change.schema.json`
+- `scripts/materialize-capability-change.py`
+- `scripts/evaluate-design-intelligence-candidate.py`
+- `config/candidate-evaluation-profiles.json`
+- `config/capability-activation-policy.json`
+- `templates/capability-change-review.md`
+- `tests/test_materialize_capability_change.py`
+- `tests/test_design_intelligence_candidate.py`
+- `tests/fixtures/design-evaluation/**`
+
+**Approach:** Map each candidate to an existing capability before considering a new leaf or route. Materialize the smallest allowlisted change against a recorded base commit in a disposable worktree. Bind the patch to evidence IDs, parent digests, target path, upstream pin, expected behavior, overlap analysis, license/privacy class, and rollback pointer. Run deterministic structure, behavior, accessibility, citation, private-leak, and visual checks before model or human rubric review. Freeze development, locked holdout, and rotating canary manifests before evaluation. Candidate-generated artifacts remain quarantined until publication.
+
+**Test scenarios:**
+
+1. A reference-only insight cannot become a command or broad router change.
+2. A patch may touch only allowlisted existing capability, reference, registry, test, and documentation paths declared in its packet.
+3. A missing design harness yields `blocked-eval` even when structural tests pass.
+4. A candidate that wins four development fixtures but regresses a holdout or hard gate is rejected.
+5. An LLM rubric disagreement or unstable repeated score routes to human review and cannot promote the candidate alone.
+6. A passing candidate produces one patch or lineage-bound draft PR and stops at `awaiting_approval`.
+7. Approved publication advances the active-evidence pointer only after compile, install, discovery, and rollback receipts pass.
+
+**Verification:** `python3 -m unittest tests.test_prepare_capability_candidate tests.test_evaluate_capability_candidate tests.test_materialize_capability_change tests.test_design_intelligence_candidate tests.test_record_capability_review` passes. A seeded candidate demonstrates both rejection and prepared-review paths without touching the active checkout or runtime.
+
+### U19. Add Upstream Discovery to the Maintenance Lane
+
+**Goal:** Detect meaningful upstream change each week and prepare one safe provider-scoped proposal without duplicating the maintenance control plane.
+
+**Requirements:** R11-R14, R20-R22, R37-R39, R42
+
+**Dependencies:** U12, U14
+
+**Files:**
+
+- `config/stack-maintenance.json`
+- `registry/maintenance-sources.json`
+- `registry/stack-maintenance-receipt.schema.json`
+- `scripts/stack-maintenance.py`
+- `scripts/sync-upstreams.py`
+- `scripts/discover-upstream-updates.py`
+- `scripts/materialize-maintenance-proposal.py`
+- `tests/test_stack_maintenance.py`
+- `tests/test_upstream_discovery.py`
+- `tests/test_maintenance_materializer.py`
+
+**Approach:** First reconcile the reviewed maintenance implementation from the current `origin/main` and verify it against the companion maintenance plan. Add discovery as a read-only stage that checks one canonical provider and immutable candidate pin per proposal. Isolate majors, deprecations, security changes, license or terms changes, and costly/network requirements. Record old/new pins and digests, changed exports, affected runtimes, release or deprecation evidence, baseline/candidate checks, approval owner, and last-known-good pointer. Reuse the existing single-PR lane, receipts, circuit, and isolated materializer.
+
+**Test scenarios:**
+
+1. An unchanged provider proves identical pin, source/tree digest, generated manifest, and output digests with no PR.
+2. One compatible provider update creates one review packet and never changes the active pin during discovery.
+3. A major, license, terms, security, or required-scope change remains isolated for explicit review.
+4. Multiple candidate PRs, unsafe lineage, dirty vendor evidence, or an unexpected path blocks instead of converging by force.
+5. A failed update remains visible with bounded retry/backoff and a prior rollback pointer.
+6. Publication restores the prior pin, runtime manifest, pointers, and discovery state atomically when post-install verification fails.
+
+**Verification:** `python3 -m unittest tests.test_stack_maintenance tests.test_upstream_discovery tests.test_maintenance_materializer tests.test_upstream_packages` passes. An unchanged manual audit is a true no-op, and a synthetic newer pin produces a provider-scoped prepared packet only.
+
+### U20. Prove and Operate the Weekly Campaign
+
+**Goal:** Run the intelligence and freshness system every week with bounded cost, resumable state, visible failure, and no silent publication.
+
+**Requirements:** R17-R18, R29, R38-R44
+
+**Dependencies:** U7-U8, U15-U19
+
+**Files:**
+
+- `registry/weekly-campaign-receipt.schema.json`
+- `config/weekly-intelligence.json`
+- `scripts/run-stack-weekly-intelligence.py`
+- `templates/weekly-stack-report.md`
+- `docs/weekly-intelligence-operations.md`
+- `tests/test_weekly_intelligence.py`
+- `tests/test_install_hermes_stack_curation_job.py`
+
+**Approach:** Compose deterministic child commands under one campaign receipt. Use child-specific leases and checkpoints. Link the most recent canonical upstream-maintenance receipt rather than starting a duplicate maintenance run. Inventory existing Hermes daily/Monday jobs and prevent them from owning a second curation writer; approved Hermes intake may remain a non-overlapping child. Run model-heavy card, critique, retrieval, and candidate stages only for changed evidence. Record quota/model/config state and permit a configured analysis budget without weakening provider-spend or publication gates. Prove historical backfill, one changed-input manual campaign, and two identical-input manual campaigns with a true second-run no-op. After separate approval, install one Saturday 09:00 local Codex automation for design intelligence and keep the existing Monday maintenance automation separate. Verify persisted scheduler identity, cadence, project binding, prompt contract, and notification behavior.
+
+**Test scenarios:**
+
+1. A changed week produces a source manifest, digest, retrieval metrics, candidate or no-action result, linked maintenance status, and one terminal campaign receipt.
+2. An unchanged week skips model-heavy stages and creates no tracked diff, branch, PR, or runtime churn.
+3. A failed child leaves completed artifacts intact, marks the campaign partial, and resumes only the failed stage.
+4. Concurrent campaigns cannot duplicate a child lease or candidate proposal.
+5. Three identical non-transient blocker fingerprints open the owning circuit and later runs exit cheaply until manual recovery.
+6. Missing or stale Monday maintenance evidence appears as a campaign alert without launching a second maintenance writer.
+7. Scheduler enablement remains blocked until manual proof passes and the persisted automation state matches the approved contract.
+8. Every post-enable eight-day window has a terminal receipt or a visible alert with a safe restart command.
+
+**Verification:** `python3 -m unittest tests.test_weekly_intelligence tests.test_stack_bookmark_curation tests.test_install_hermes_stack_curation_job tests.test_stack_maintenance` passes. Three manual campaigns prove changed-input behavior and identical-input no-op behavior. A separately approved scheduler canary persists, wakes once, produces a terminal receipt, and leaves merge/publication awaiting approval.
 
 ---
 
 ## Phased Delivery
 
-### Phase 1: Organize and ship the working Stack
+### Phase 0: Protect and Reconcile the Execution Baseline
 
-1. **Architecture:** U10 defines families, roles, visibility, and physical organization. U11 defines the command tree and routing contract. U12 makes Compound Engineering, GStack, Stack-Codex, and imported providers first-class packages.
-2. **Classification:** U1 extends the catalog; U2 classifies the complete local and upstream estate against the architecture.
-3. **Consolidation:** U3 applies moves, router merges, aliases, provider grouping, and stale snapshot removal. U13 integrates goals, parallel agents, worktrees, handoffs, review, QA, and ship into one workflow-run contract. U9 defines and proves authorized private reference joins before runtime compilation consumes them.
-4. **Usable release:** U4 activates the approved batch, compiles Claude/Codex outputs, supplies bootstrap/doctor, proves clean-clone discovery, and publishes rollback receipts.
+**Units:** U14, with current evidence from U1-U4 and U10-U12.
 
-Phase 1 is independently valuable and shippable. It does not depend on bookmark automation.
+**Outcome:** Execution starts from a verified current `origin/main` in an isolated branch or worktree. User-owned untracked plans and design skills are preserved. Callable skills without complete manifests stay on hold. The maintenance control plane is present and tests are discoverable.
 
-### Phase 2: Add and maintain capabilities
+**Gate:** Catalog, doctor, and clean-checkout facts agree on one source commit. No user-owned file is changed or staged. The command resolver characterization suite passes in both runtime shapes.
 
-5. **Intake:** U5 collects and triages bookmarks and repositories against the Phase 1 architecture.
-6. **Promotion:** U6 evaluates and promotes reference, leaf, route, or package changes through the same catalog and runtime proof.
-7. **Automation:** U7 connects Hermes manual intake first and enables recurring scheduling only after separate approval.
-8. **Governance:** U8 keeps architecture, indexes, CI, package health, aliases, and reassessment durable.
+### Phase 1: Finish the Stack Control Plane
+
+**Units:** U10-U13, U1-U4, U8-U9, with U14 closing the remaining behavior seam.
+
+**Outcome:** Families, catalog, package pins, aliases, resolver behavior, trust classes, orchestration, private overlays, compilation, installation, and documentation form one proven architecture. This phase verifies shipped work rather than assuming the historical plan is complete.
+
+**Gate:** A fresh clone resolves representative explore, plan, design, build, orchestrate, review, QA, ship, learn, and maintain requests to equivalent Claude/Codex artifacts. No active capability remains unclassified or unroutable.
+
+### Phase 2: Capture and Reconcile the Private Knowledge Corpus
+
+**Units:** U5, U9, U15.
+
+**Outcome:** Field Theory/GBrain has a complete, source-scoped disposition for the available X bookmark history. The observation ledger preserves cursor, folder, media, revision, dedupe, and derivation evidence. Historical backfill is separate from weekly deltas.
+
+**Gate:** The backfill terminates without cursor cycles or unclassified errors, reports every source difference honestly, and a second identical run proves zero delta. After the protected GBrain owner handoff, approved deltas import idempotently to `x-bookmarks` and pass a source-scoped retrieval canary. Direct X parity remains `not approved` unless its separate OAuth and spend gate is satisfied.
+
+### Phase 3: Produce Design Intelligence
+
+**Units:** U16.
+
+**Outcome:** New design bookmarks become cited design cards, a weekly delta digest, clustered themes, critiques, reusable patterns, contradictions, and candidate/no-action decisions. Raw private evidence remains outside Stack.
+
+**Gate:** Deterministic fixtures reproduce the same cards and digests for pinned inputs. Every claim cites an evidence ID. Public leak checks remain empty.
+
+### Phase 4: Surface Inspiration During Design Work
+
+**Units:** U17.
+
+**Outcome:** Design agents can query from the active brief, route, component, code, viewport, and screenshot. They receive a small ranked set of relevant inspiration with similarity reasons, provenance, and freshness.
+
+**Gate:** The locked benchmark meets retrieval thresholds, exact/source-scope canaries rank at five or better, and the degraded lexical path works without changing GBrain or incurring unapproved provider spend.
+
+### Phase 5: Learn Safely Into Skills and References
+
+**Units:** U6, U18.
+
+**Outcome:** Weekly insights can become the smallest evidence-backed patch to an existing skill, reference, registry, or package. Candidate output remains quarantined. Passing work stops at an isolated patch or one draft PR.
+
+**Gate:** A seeded weak candidate is rejected. A seeded strong candidate improves four fixtures, passes protected holdouts and every hard gate, produces a review artifact, and leaves the active checkout and runtimes unchanged.
+
+### Phase 6: Keep Packages and Providers Current
+
+**Units:** U12, U19, governed by `docs/plans/2026-08-17-001-fix-stack-maintenance-automation-plan.md`.
+
+**Outcome:** Canonical upstream changes produce provider-scoped review packets with immutable pins, compatibility evidence, risk classification, and rollback pointers. Unchanged providers create no tracked churn.
+
+**Gate:** The reviewed maintenance suite passes from the reconciled branch. A synthetic update prepares one proposal. A no-change run proves identical input/output digests and no duplicate PR.
+
+### Phase 7: Prove and Enable the Weekly Operating Loop
+
+**Units:** U7-U8, U20.
+
+**Outcome:** A Saturday intelligence campaign links bookmark, design, retrieval, candidate, and latest Monday maintenance receipts. It skips unchanged model work, survives partial failure, reports freshness, and stops before merge or publication.
+
+**Gate:** Historical backfill is complete. One changed-input manual run and two identical-input manual runs pass. The second identical run is a true no-op. Scheduler enablement then receives separate approval and a persisted one-wake canary proves the installed contract.
+
+### Phase 8: Operate, Measure, and Tighten
+
+**Units:** U8, U20 and future proposal units created from evidence.
+
+**Outcome:** Weekly reports track source completeness, corpus age, retrieval quality, citation precision, candidate outcomes, hard failures, no-op behavior, upstream freshness, model spend, and approval latency. Threshold changes and new source adapters follow the same reviewed lifecycle.
+
+**Gate:** Four consecutive scheduled weeks have terminal receipts or actionable alerts, no duplicate writers or private leaks, and no unresolved blocker fingerprint repeated without circuit behavior.
+
+### Roadmap Dependency Graph
+
+```mermaid
+flowchart LR
+  P0["P0 Protect baseline"] --> P1["P1 Control plane"]
+  P1 --> P2["P2 Private corpus"]
+  P2 --> P3["P3 Design intelligence"]
+  P3 --> P4["P4 Context retrieval"]
+  P3 --> P5["P5 Evaluated learning"]
+  P4 --> P5
+  P1 --> P6["P6 Upstream freshness"]
+  P2 --> P7["P7 Weekly loop"]
+  P5 --> P7
+  P6 --> P7
+  P7 --> P8["P8 Operate and tighten"]
+```
 
 ---
 
@@ -765,6 +1284,11 @@ Phase 1 is independently valuable and shippable. It does not depend on bookmark 
 - **Source ownership:** Stack-native, curated import, external package, private overlay, and native-owner content have distinct update paths.
 - **Long-running work:** Goals and parallel-agent runs share durable identities, checkpoints, ownership, and gate receipts.
 - **Work use:** Public Stack code and prompts remain separate from company-proprietary overlays; company policy and approved tooling still govern installation.
+- **Private knowledge:** Field Theory and GBrain remain the corpus and retrieval authorities. Stack stores only owner-local outbox state, public-safe schemas, and reviewed derivatives.
+- **Design behavior:** Design workflows gain cited, task-context inspiration and critique without forcing every request through a large generic context window.
+- **Learning behavior:** Unapproved candidates remain quarantined, so model-generated output cannot recursively become source truth or eval data.
+- **Operational topology:** Monday maintenance and Saturday intelligence have distinct scheduler identities, locks, writes, and receipts. The Saturday report links rather than duplicates Monday work.
+- **Cost posture:** Changed evidence may use a generous configured model-analysis budget. Paid data providers, new embedding services, and GBrain reindexing retain separate approval and cost evidence.
 
 ---
 
@@ -777,8 +1301,18 @@ Phase 1 is independently valuable and shippable. It does not depend on bookmark 
 - **Upstream drift silently changes behavior:** Pins, exported-command digests, compatibility tests, last-known-good outputs, and quarantine state are mandatory.
 - **Claude and Codex diverge:** Parity tests compare logical route, context, artifacts, and trust class rather than file presence alone.
 - **Imported licenses are unclear:** Preserve upstream licenses and provenance in `THIRD_PARTY_NOTICES.md`; Stack-owned licensing must not relicense third-party content.
-- **Dirty worktree obscures the baseline:** Execution must first isolate the existing refactor and user-owned design-skill changes on a release branch before mechanical migration.
+- **Dirty worktree obscures the baseline:** U14 must preserve the untracked maintenance plan and design-skill directories, then execute from an isolated current branch or worktree before any migration.
 - **Ingestion distracts from architecture:** Phase 2 cannot begin until every active Phase 1 command is classified, compiled, and discoverable.
+- **“All bookmarks” becomes an unverifiable claim:** R24 requires cursor, set, folder, media, and zero-delta evidence. Any source or page gap downgrades the claim to partial or unknown.
+- **X API cost or contract drift surprises the loop:** Direct API parity stays disabled by default. An approved adapter pins docs/spec digests, minimum read scopes, rate-limit behavior, and a spending boundary.
+- **Private content leaks through cards or logs:** Public-leak fixtures inspect manifests, receipts, patches, PR bodies, generated registries, and runtime outputs for raw fields and identifying metadata.
+- **The learner reinforces its own mistakes:** R44 and KTD30 quarantine generated artifacts and freeze development, holdout, and canary sets before evaluation.
+- **Visual similarity overwhelms exact provenance:** Retrieval uses exact filters plus similarity, preserves source scope, and gives exact-ID/source canaries non-averagable gates.
+- **GBrain work collides with a protected migration:** Import writers, backend changes, and reindexing wait for the existing migration's completion audit and owner handoff.
+- **Two schedulers mutate the same lane:** KTD31-KTD32 separate maintenance and intelligence ownership and block overlapping Hermes curation.
+- **Weekly reports create noise:** Delta fingerprints skip unchanged model stages, and no-op proof forbids timestamp-only tracked changes or duplicate PRs.
+- **A healthy upstream is copied into Stack:** U18 targets Stack-owned leaves and references; provider-owned behavior changes through pins, adapters, or upstream contribution. Synced vendor material is never patched directly.
+- **Evaluation overfits a static benchmark:** Development fixtures, locked holdouts, rotating canaries, repeated runs, and human approval keep promotion from optimizing one visible rubric.
 
 ---
 
@@ -795,32 +1329,150 @@ Phase 1 is independently valuable and shippable. It does not depend on bookmark 
 | Fresh-clone usability | U4 | Clone, bootstrap, doctor, compile, install, and discovery smoke complete idempotently |
 | Private boundary | U9 | Authorized use succeeds while public and unauthorized outputs reveal no private identifying data |
 | Intake conformance | U5-U7 | Every candidate names architecture placement and cannot create or publish an undeclared route |
-| Repository quality | All | `python3 -m unittest discover -s tests`, deterministic registry checks, sensitive-content scan, and diff checks pass |
+| Executed routing | U14 | `stack.design.intelligence` and representative primary/alias/ambiguous requests resolve through one tested contract in Claude and Codex |
+| X source completeness | U15 | Page/cursor/folder/media/set ledgers close or truthfully report partial; the second identical backfill is zero-delta |
+| GBrain handoff | U15 | Approved deltas import idempotently to source `x-bookmarks`; accepted, pending, rejected, and indexed canary states remain distinct |
+| Design-card integrity | U16 | Pinned inputs regenerate cards/digests; every claim cites evidence; public leak scan is empty |
+| Retrieval quality | U17 | `Recall@5`, `nDCG@5`, baseline ratio, exact canaries, source isolation, repeatability, and degraded mode meet R30-R31 |
+| Learning promotion | U18 | Candidate beats four fixtures, passes holdouts and hard gates, and produces only an owner-local isolated patch by default |
+| Upstream discovery | U19 | Immutable provider comparison produces one scoped proposal or a digest-proven no-op without changing active pins |
+| Weekly resilience | U20 | Changed-input, identical-input, partial-failure, resume, overlap, stale-maintenance, circuit, and eight-day alert scenarios pass |
+| Approval boundaries | U15, U18-U20 | Tests prove no OAuth, spend, source expansion, PR, scheduler, merge, publish, reindex, or cleanup without the owning approval state |
+| Repository quality | All | `python3 -m unittest discover -s tests`, deterministic registry regeneration, sensitive-content scan, `git diff --check`, and documented-command checks pass |
+
+### Authoritative Command Sets
+
+- **Baseline and routing:** `python3 -m unittest tests.test_capability_registry tests.test_command_registry tests.test_intent_routing tests.test_runtime_command_adapters tests.test_runtime_parity`
+- **Private corpus:** `python3 -m unittest tests.test_collect_bookmark_candidates tests.test_materialize_bookmark_candidates tests.test_bookmark_completeness tests.test_bookmark_backfill tests.test_bookmark_gbrain_import`
+- **Design intelligence:** `python3 -m unittest tests.test_design_intelligence_packet tests.test_design_retrieval tests.test_design_intelligence_candidate`
+- **Candidate safety:** `python3 -m unittest tests.test_prepare_capability_candidate tests.test_evaluate_capability_candidate tests.test_materialize_capability_change tests.test_record_capability_review`
+- **Maintenance and campaign:** `python3 -m unittest tests.test_stack_maintenance tests.test_upstream_discovery tests.test_maintenance_materializer tests.test_weekly_intelligence`
+- **Full repository:** `python3 -m unittest discover -s tests`
+
+New test modules in these command sets become authoritative when their owning unit adds them. Before that point, their absence is a unit not yet implemented, not a passing gate.
 
 ---
 
 ## Definition of Done
 
-### Phase 1
+### Global Completion
+
+- Every R-ID maps to at least one acceptance example, implementation unit, or verification gate.
+- Every implemented unit passes its focused tests and the full repository suite.
+- All tracked schemas, registries, generated outputs, documentation, and runtime adapters agree on the same source commit and policy digests.
+- No raw private bookmark content, media, private path, credential, or restricted metadata appears in public source, diffs, logs, receipts, PR bodies, or runtime catalogs.
+- Every external or costly action has an owning approval state and a tested denial path.
+- Every long-running stage can resume from a checkpoint without duplicating accepted work.
+- No generated candidate can enter retrieval, evaluation truth, or later training inputs before approved publication.
+- Abandoned experiments, duplicate coordinators, temporary adapters, ghost paths, and dead candidate code are removed from the final implementation diff.
+- Documentation explains source ownership, operating cadence, manual gates, degraded modes, recovery, and exact verification without relying on chat history.
+
+### Phase 0: Protected Baseline
+
+- The execution branch includes the current reviewed maintenance control plane and records its verified `origin/main` base.
+- User-owned untracked plans and design-skill directories are preserved byte-for-byte and receive no silent catalog disposition.
+- Every callable active skill has required manifest coverage or remains held outside generated runtimes.
+- The executable resolver and its Claude/Codex characterization suite pass for primary, extended, alias, ambiguous, and denied routes.
+
+### Phase 1: Control Plane
 
 - Every current local capability, nested entrypoint, router, plugin command/agent, imported collection, CE/GStack/Stack-Codex export, alias, runtime injection, and private declaration appears in the reviewed estate matrix.
 - No active catalog entry remains `unclassified`, and artifact roles distinguish leaves, routers, workflows, packages, references, aliases, and private overlays.
-- The canonical command tree is published with logical IDs, subcommands, aliases, intent metadata, trust classes, owners, inputs/outputs, and runtime mappings.
-- `agent-operating-stack`, `mega-workflow`, `departments`, and `ideate` no longer compete as independent broad routers.
+- The canonical command tree includes logical IDs, subcommands, aliases, intent metadata, trust classes, owners, inputs/outputs, and runtime mappings.
 - Compound Engineering, GStack, and Stack-Codex are pinned first-class packages with compatibility evidence and last-known-good recovery.
-- The nine external moves remain with their native owners; four duplicate implementations remain consolidated behind canonical aliases.
-- Claude and Codex pass representative route and artifact parity across explore, plan, design, build, orchestrate, review, QA, ship, learn, and maintain.
-- `orchestrate-parallel-goals` and related goal/worktree/handoff capabilities participate in one durable workflow-run lifecycle.
-- A clean GitHub clone can bootstrap, doctor, compile, install, and discover the active Stack without private data or local path assumptions.
-- The approved Phase 1 batch is active and usable; validation is structural for every entry and behavioral by representative family/trust-class scenarios rather than one-by-one manual testing.
-- Private overlay fixtures work only in explicitly authorized targets.
-- CI runs the full registry, routing, upstream, orchestration, runtime-parity, fresh-clone, and sensitive-content checks.
-- Abandoned router variants, stale snapshots, ghost paths, and experimental migration code are removed from the release diff.
+- Claude and Codex pass representative route and artifact parity across explore, plan, design, build, orchestrate, review, QA, ship, learn, maintain, and `stack.design.intelligence`.
+- A clean clone can bootstrap, doctor, compile, install, and discover the active Stack without private data or local path assumptions.
+- Private-overlay fixtures work only for authorized targets.
 
-### Phase 2
+### Phase 2: Private Bookmark Corpus
 
-- Bookmark and repository intake targets the Phase 1 architecture and cannot invent a parallel taxonomy or command tree.
-- Candidate outcomes distinguish no action, evidence update, reference update, leaf update, package update, new candidate, and blocked import.
-- No automated path can activate, publish, schedule, or execute untrusted candidate instructions without the declared review and approval gates.
-- Explicit Hermes links and scheduled discoveries share one receipted lifecycle, while live recurring jobs remain separately approved.
-- Periodic reassessment covers overlap, package health, alias expiry, route usage, runtime parity, validation, and maintenance evidence without automatic deletion.
+- Every approved X source observation has an accepted, rejected, unavailable, deleted, duplicate, or pending disposition.
+- Page, cursor, folder, media, revision, and source-set evidence has no unexplained gap or the run is labeled partial or unknown.
+- Historical backfill has a terminal baseline and a second identical run proves zero delta.
+- Approved deltas import idempotently into GBrain source `x-bookmarks` after the protected migration handoff.
+- Text retrieval canaries distinguish accepted content from indexed content; unavailable multimodal indexing stays visible.
+- Optional X API parity remains disabled or has explicit OAuth, scope, contract, and spend approval.
+
+### Phase 3: Design Intelligence
+
+- Every eligible new observation produces a versioned design card or a reasoned no-card disposition.
+- Each card separates evidence, interpretation, recommendation, uncertainty, accessibility, motion, responsive behavior, and implementation cues.
+- The weekly digest reports deltas, clusters, contradictions, candidate targets, and no-action decisions with cited evidence.
+- Pinned fixtures regenerate identical structural artifacts and leak scans remain empty.
+
+### Phase 4: Contextual Retrieval
+
+- `stack.design.intelligence retrieve` accepts the declared project and interface context in Claude and Codex.
+- Results contain three to seven ranked exemplars with source scope, evidence/media identity, similarity reason, uncertainty, freshness, and model/index version.
+- The locked benchmark meets the absolute and baseline-relative thresholds.
+- Exact ID and source-scope canaries cannot be averaged away.
+- Lexical/metadata degraded mode works when image retrieval is unavailable and never starts an unapproved fallback or reindex.
+
+### Phase 5: Evaluated Learning
+
+- Candidate generation targets existing Stack-owned capabilities before new leaves or routes.
+- Provider-owned and synced vendor content changes through pins, adapters, or upstream contribution rather than direct patching.
+- Development, holdout, and rotating-canary manifests are frozen before evaluation.
+- A passing design candidate improves at least four fixtures and has zero structural, behavioral, visual, accessibility, privacy, citation, or holdout hard failures.
+- The default successful artifact is an owner-local patch in an isolated worktree; draft PR authority, merge, and publication remain separately approved.
+- The active-evidence pointer advances only after merge, compilation, installation, discovery, and rollback receipts pass.
+
+### Phase 6: Upstream Freshness
+
+- Each declared provider has a canonical source, immutable current pin, discovery policy, compatibility contract, and last-known-good pointer.
+- A newer provider produces one scoped proposal with release, export, license/terms, security, runtime, cost, and rollback evidence.
+- An unchanged provider produces no tracked diff or PR and proves identical semantic input/output digests.
+- The maintenance lane has at most one canonical candidate PR and blocks on unsafe lineage, unexpected paths, or protected vendor state.
+- Companion-plan gates are cited with `MA-*` prefixes and remain unambiguous from master-plan IDs.
+
+### Phase 7: Weekly Rollout
+
+- The existing Monday maintenance automation and any Hermes jobs are inventoried before the Saturday campaign is installed.
+- No Hermes or Codex task competes for design-curation or maintenance write ownership.
+- One changed-input manual campaign and two identical-input manual campaigns pass; the second identical run is a true no-op.
+- Partial source, import, index, eval, and maintenance failures retain successful work and resume only failed stages.
+- Three identical non-transient blockers open the owning circuit.
+- Scheduler enablement receives separate approval and the persisted Saturday 09:00 local automation passes one wake canary.
+- Each eight-day window produces a terminal campaign receipt or an actionable alert.
+
+### Phase 8: Steady State
+
+- Four consecutive scheduled weeks meet receipt, freshness, privacy, no-duplicate-writer, and no-silent-publication gates.
+- Weekly reports include corpus completeness, source age, unresolved media, retrieval metrics, citation precision, candidate dispositions, upstream status, model use, and approval backlog.
+- Threshold, adapter, model, source, schedule, and retention changes enter the same reviewed proposal lifecycle.
+- Repeated no-action weeks remain cheap and create no tracked timestamp churn.
+
+---
+
+## Appendix
+
+### Alternatives Considered
+
+- **Use direct X API as the primary source:** Rejected for the default path because it adds OAuth and provider spend. It remains an optional parity lane under KTD15.
+- **Add a Stack-owned vector database:** Rejected because GBrain already owns source-scoped text/image retrieval. A second index would split privacy, freshness, and rollback authority.
+- **Let the weekly model edit and publish skills directly:** Rejected because it collapses evidence, evaluation, approval, and publication into one feedback loop.
+- **Use one scheduler for maintenance and intelligence writes:** Rejected because the existing maintenance control plane has its own lease, PR, circuit, and approval semantics.
+- **Fine-tune model weights on bookmark content:** Rejected because the desired behavior can be achieved with cited retrieval and evaluated skill/reference patches while retaining reversibility.
+- **Create a new primary command family:** Rejected because an extended `stack.design.intelligence` route fits the established design taxonomy without expanding the root surface.
+
+### Evidence Snapshot
+
+- The 2026-08-23 live catalog contains 141 records: 133 active and eight deprecated.
+- The local worktree contains user-owned untracked maintenance-plan and design-skill paths that Phase 0 must preserve.
+- The local branch predates the reviewed maintenance control plane on `origin/main`; execution must reconcile rather than assume either checkout is canonical.
+- Current bookmark source configuration covers Field Theory SQLite, Arc sidebar state, GitHub stars or linked repositories, and Hermes links. It does not yet implement complete X backfill, Arc History, design media reconciliation, or GBrain import receipts.
+- Current design-intelligence policy blocks promotion when the external design-eval root is absent. Historical eval receipts are not current promotion proof.
+- Current upstream synchronization verifies declared pins but does not discover new upstream releases.
+- Official X documentation reviewed on 2026-08-23 still presents the v2 bookmark and folder endpoints as current and contains no bookmark-specific deprecation notice; the optional adapter must repeat this check against pinned docs/OpenAPI before enablement.
+
+### Sources and Research
+
+- Local architecture and runtime: `registry/capabilities.json`, `registry/commands.json`, `registry/routing-rules.json`, `config/runtime-targets.json`, `scripts/compile-runtime.py`, and `scripts/stack-doctor.py`.
+- Local bookmark and design intelligence: `docs/bookmark-curation.md`, `docs/design-intelligence-loop.md`, `references/bookmark-source-adapters.md`, `config/bookmark-sources.json`, and `skills/design/design-intelligence/SKILL.md`.
+- Local maintenance: `docs/plans/2026-08-17-001-fix-stack-maintenance-automation-plan.md` and the reviewed `origin/main` maintenance files named by KTD29.
+- [X Get Bookmarks](https://docs.x.com/x-api/users/get-bookmarks), [pagination](https://docs.x.com/x-api/fundamentals/pagination), [rate limits](https://docs.x.com/x-api/fundamentals/rate-limits), [pricing](https://docs.x.com/x-api/getting-started/pricing), [versioning](https://docs.x.com/x-api/fundamentals/versioning), and [OpenAPI](https://api.x.com/2/openapi.json) define the optional parity contract and its change checks.
+- [W3C PROV-O](https://www.w3.org/TR/prov-o/), [RFC 8785 JSON Canonicalization Scheme](https://www.rfc-editor.org/rfc/rfc8785.html), and [NIST FIPS 180-4](https://csrc.nist.gov/pubs/fips/180-4/upd1/final) ground derivation edges and deterministic digests.
+- [Reciprocal Rank Fusion](https://research.google/pubs/reciprocal-rank-fusion-outperforms-condorcet-and-individual-rank-learning-methods/), [BEIR](https://arxiv.org/abs/2104.08663), and [CLIP](https://arxiv.org/abs/2103.00020) ground the transparent hybrid-retrieval baseline and benchmark dimensions.
+- [Playwright screenshot assertions](https://playwright.dev/docs/api/class-pageassertions) and [Storybook visual testing](https://storybook.js.org/docs/8/writing-tests/visual-testing) ground deterministic rendered-fixture evaluation.
+- [Renovate Dependency Dashboard](https://docs.renovatebot.com/key-concepts/dashboard/) is governance prior art for visible deferred, approved, and rejected update proposals; this plan does not add Renovate or auto-merge.
+- [Feedback Loops With Language Models](https://arxiv.org/abs/2402.06627) and [HELM](https://arxiv.org/abs/2211.09110) support quarantined candidates, frozen holdouts, varied canaries, and multi-metric evaluation instead of trusting one self-referential score.

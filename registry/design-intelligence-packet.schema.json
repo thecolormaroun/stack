@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "stack://registry/design-intelligence-packet.schema.json",
+  "title": "Owner-local design-intelligence weekly packet",
+  "description": "Deterministic source manifest, quarantined cards, critique, and no-action/candidate receipt.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "packet_id", "packet_digest", "status", "approval_state", "input_digest",
+    "source_manifest", "cards", "dispositions", "lineage_graph", "clusters", "contradictions",
+    "reusable_patterns", "retrieval_updates", "candidate_changes", "egress", "derivation",
+    "privacy", "weekly_markdown"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "packet_id": {"$ref": "#/$defs/opaque"},
+    "packet_digest": {"$ref": "#/$defs/digest"},
+    "status": {"enum": ["no_action", "prepared", "partial", "failed"]},
+    "approval_state": {"const": "unapproved"},
+    "input_digest": {"$ref": "#/$defs/input_digest"},
+    "source_manifest": {"$ref": "#/$defs/source_manifest"},
+    "cards": {"type": "array", "items": {"$ref": "design-card.schema.json"}},
+    "dispositions": {"type": "array", "items": {"$ref": "#/$defs/disposition"}},
+    "lineage_graph": {"type": "array", "items": {"$ref": "#/$defs/lineage"}},
+    "clusters": {"type": "array", "items": {"$ref": "#/$defs/cluster"}},
+    "contradictions": {"type": "array", "items": {"$ref": "#/$defs/contradiction"}},
+    "reusable_patterns": {"type": "array", "items": {"$ref": "#/$defs/pattern"}},
+    "retrieval_updates": {"type": "array", "items": {"$ref": "#/$defs/retrieval"}},
+    "candidate_changes": {"type": "array", "items": {"$ref": "#/$defs/candidate"}},
+    "egress": {"$ref": "#/$defs/egress"},
+    "derivation": {"$ref": "#/$defs/derivation"},
+    "privacy": {"$ref": "#/$defs/privacy"},
+    "weekly_markdown": {"type": "string"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "opaque": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,32}:[a-f0-9]{16,64}$"},
+    "input_digest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state", "digest", "source_manifest_digest", "delta_digest", "delta_state"],
+      "properties": {
+        "state": {"enum": ["empty", "complete", "partial", "failed"]},
+        "digest": {"$ref": "#/$defs/digest"},
+        "source_manifest_digest": {"$ref": "#/$defs/digest"},
+        "delta_digest": {"$ref": "#/$defs/digest"},
+        "delta_state": {"enum": ["empty", "complete", "partial", "failed", "unchanged", "changed"]}
+      }
+    },
+    "source_manifest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["manifest_id", "digest", "state", "source_count", "observation_count", "delta_digest", "owner_local"],
+      "properties": {
+        "manifest_id": {"$ref": "#/$defs/opaque"},
+        "digest": {"$ref": "#/$defs/digest"},
+        "state": {"enum": ["empty", "complete", "partial", "failed"]},
+        "source_count": {"type": "integer", "minimum": 0},
+        "observation_count": {"type": "integer", "minimum": 0},
+        "delta_digest": {"$ref": "#/$defs/digest"},
+        "owner_local": {"const": true}
+      }
+    },
+    "disposition": {
+      "type": "object", "additionalProperties": false,
+      "required": ["evidence_id", "state", "reason"],
+      "properties": {
+        "evidence_id": {"$ref": "#/$defs/opaque"},
+        "state": {"enum": ["carded", "no_candidate", "quarantined"]},
+        "reason": {"type": "string", "minLength": 1},
+        "source_identity": {"$ref": "#/$defs/opaque"},
+        "canonical_source_identity": {"$ref": "#/$defs/opaque"}
+      }
+    },
+    "lineage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["lineage_id", "evidence_ids", "source_identities", "original_source_identities", "canonical_source_identities", "card_ids", "edges"],
+      "properties": {
+        "lineage_id": {"$ref": "#/$defs/opaque"},
+        "evidence_ids": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "source_identities": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "original_source_identities": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "canonical_source_identities": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "card_ids": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "edges": {"type": "array", "items": {"$ref": "#/$defs/edge"}}
+      }
+    },
+    "edge": {
+      "type": "object", "additionalProperties": false,
+      "required": ["from_evidence_id", "to_evidence_id", "relation"],
+      "properties": {
+        "from_evidence_id": {"$ref": "#/$defs/opaque"},
+        "to_evidence_id": {"$ref": "#/$defs/opaque"},
+        "relation": {"enum": ["duplicate_or_related", "revision", "conflict"]}
+      }
+    },
+    "cluster": {
+      "type": "object", "additionalProperties": false,
+      "required": ["cluster_id", "interface_problem", "design_behavior", "card_ids", "count"],
+      "properties": {
+        "cluster_id": {"$ref": "#/$defs/opaque"},
+        "interface_problem": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+        "design_behavior": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+        "card_ids": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "count": {"type": "integer", "minimum": 1}
+      }
+    },
+    "contradiction": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contradiction_id", "lineage_id", "claim_digests", "card_ids", "evidence_ids", "uncertainty"],
+      "properties": {
+        "contradiction_id": {"$ref": "#/$defs/opaque"},
+        "lineage_id": {"$ref": "#/$defs/opaque"},
+        "claim_digests": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/digest"}},
+        "card_ids": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "evidence_ids": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "uncertainty": {"type": "string", "minLength": 1}
+      }
+    },
+    "pattern": {
+      "type": "object", "additionalProperties": false,
+      "required": ["pattern_id", "interface_problem", "design_behavior", "card_ids", "state"],
+      "properties": {
+        "pattern_id": {"$ref": "#/$defs/opaque"},
+        "interface_problem": {"type": "string"},
+        "design_behavior": {"type": "string"},
+        "card_ids": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "state": {"const": "quarantined"}
+      }
+    },
+    "retrieval": {
+      "type": "object", "additionalProperties": false,
+      "required": ["update_id", "state", "card_id", "revision_id", "evidence_ids", "retrieval_truth"],
+      "properties": {
+        "update_id": {"$ref": "#/$defs/opaque"},
+        "state": {"const": "pending_quarantined"},
+        "card_id": {"$ref": "#/$defs/opaque"},
+        "revision_id": {"$ref": "#/$defs/opaque"},
+        "evidence_ids": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "retrieval_truth": {"const": false}
+      }
+    },
+    "candidate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["change_id", "state", "card_id", "revision_id", "evidence_ids", "target", "promotion"],
+      "properties": {
+        "change_id": {"$ref": "#/$defs/opaque"},
+        "state": {"const": "candidate_quarantined"},
+        "card_id": {"$ref": "#/$defs/opaque"},
+        "revision_id": {"$ref": "#/$defs/opaque"},
+        "evidence_ids": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "target": {"type": "string"},
+        "promotion": {"const": "blocked_pending_human_review_and_eval"}
+      }
+    },
+    "egress": {
+      "type": "object", "additionalProperties": false,
+      "required": ["default_deny", "provider_contract", "provider_contract_digest", "analyzer_state", "denial_reason", "analyzer_calls", "provider_calls", "analyzer", "network"],
+      "properties": {
+        "default_deny": {"const": true},
+        "provider_contract": {"type": "string"},
+        "provider_contract_digest": {"$ref": "#/$defs/digest"},
+        "analyzer_state": {"enum": ["not_requested", "denied", "approved_contract"]},
+        "denial_reason": {"type": ["string", "null"]},
+        "analyzer_calls": {"type": "integer", "minimum": 0},
+        "provider_calls": {"const": 0},
+        "analyzer": {"enum": ["local-deterministic", "injected-fake"]},
+        "network": {"const": "not_attempted"}
+      }
+    },
+    "derivation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["policy_digest", "config_digest", "code_digest", "prompt_digest", "model_digest", "sampling_digest"],
+      "properties": {
+        "policy_digest": {"$ref": "#/$defs/digest"},
+        "config_digest": {"$ref": "#/$defs/digest"},
+        "code_digest": {"$ref": "#/$defs/digest"},
+        "prompt_digest": {"$ref": "#/$defs/digest"},
+        "model_digest": {"$ref": "#/$defs/digest"},
+        "sampling_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "privacy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["raw_inputs_owner_local", "unapproved_outputs_quarantined", "retrieval_truth", "public_leak_scan", "prompt_instructions_are_data"],
+      "properties": {
+        "raw_inputs_owner_local": {"const": true},
+        "unapproved_outputs_quarantined": {"const": true},
+        "retrieval_truth": {"const": false},
+        "public_leak_scan": {"const": "passed"},
+        "prompt_instructions_are_data": {"const": true}
+      }
+    }
+  }
+}

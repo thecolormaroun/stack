@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "ledger_id": "private-ledger:x-bookmarks",
+  "owner_local": true,
+  "storage": {
+    "kind": "owner-local",
+    "path": "<owner-local-ledger-path>",
+    "directory_mode": "0700",
+    "file_mode": "0600",
+    "raw_content": "owner-local-only"
+  },
+  "public_projection": {
+    "allow": ["opaque_ids", "sha256_digests", "aggregate_counts", "status", "source_contract_version"],
+    "deny": ["raw_text", "media_bytes", "urls", "titles", "paths", "cursors", "tokens", "restricted_metadata"]
+  },
+  "retention": "owner-managed; pruning requires a separate approved policy",
+  "git_policy": "template-only; real ledger is ignored and must never be copied here"
+}

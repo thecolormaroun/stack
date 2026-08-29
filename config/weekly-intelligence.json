@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "campaign_id": "stack-weekly-intelligence",
+  "provider_egress": "deny",
+  "analysis_budget": {
+    "unit": "model_calls",
+    "maximum": 3,
+    "authorized": false,
+    "note": "A budget is recorded for planning only; this contract never authorizes provider spend."
+  },
+  "stages": [
+    {
+      "id": "source_intake",
+      "role": "source-bookmark-intake",
+      "model_heavy": false
+    },
+    {
+      "id": "design_packet",
+      "role": "design-packet",
+      "model_heavy": true
+    },
+    {
+      "id": "retrieval",
+      "role": "source-scoped-retrieval",
+      "model_heavy": true
+    },
+    {
+      "id": "candidate_evaluation",
+      "role": "candidate-evaluation",
+      "model_heavy": true
+    },
+    {
+      "id": "maintenance_link",
+      "role": "maintenance-link",
+      "model_heavy": false
+    },
+    {
+      "id": "report_receipt",
+      "role": "report-receipt",
+      "model_heavy": false
+    }
+  ],
+  "maintenance": {
+    "task_id": "stack-maintenance",
+    "receipt_directory": "maintenance/receipts",
+    "receipt_max_age_seconds": 604800,
+    "safe_restart": "Run one approved stack-maintenance audit or prepare manually, then retry this campaign."
+  },
+  "scheduler": {
+    "contract_id": "stack-weekly-intelligence-saturday-0900-local-v1",
+    "automation_id": "weekly-design-intelligence-loop",
+    "project_id": "3cafa0b4-8b90-4699-a0f4-062dff1b59da",
+    "day": "Saturday",
+    "local_time": "09:00",
+    "timezone": "America/Los_Angeles",
+    "rrule": "FREQ=WEEKLY;BYDAY=SA;BYHOUR=9;BYMINUTE=0",
+    "model": "gpt-5.6-luna",
+    "reasoning_effort": "medium",
+    "execution_environment": "local",
+    "prompt_path": "config/weekly-intelligence-automation-prompt.md",
+    "prompt_digest": "4a98c9f4aa75007dc0d256805a15d077c9174a793405b9166aa240cf203986bb",
+    "enabled": true,
+    "approval_required": true,
+    "state": "active"
+  },
+  "state": {
+    "directory_mode": "0700",
+    "file_mode": "0600",
+    "receipts_directory": "receipts",
+    "reports_directory": "reports",
+    "circuit_file": "weekly-intelligence.circuit.json",
+    "run_state_db": "runs.sqlite3",
+    "lease_seconds": 900,
+    "circuit_threshold": 3,
+    "health_window_seconds": 691200
+  },
+  "approval": {
+    "evidence": "manual_review_required",
+    "promotion": "prohibited",
+    "publication": "prohibited",
+    "upstream_maintenance": "separate_approved_workflow"
+  }
+}

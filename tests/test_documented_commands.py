@@ -15,7 +15,9 @@ DOCUMENTS = (
     ROOT / "docs/architecture.md",
     ROOT / "docs/capability-lifecycle.md",
     ROOT / "docs/bookmark-curation.md",
+    ROOT / "docs/design-intelligence-loop.md",
     ROOT / "docs/runtime-publication.md",
+    ROOT / "docs/weekly-intelligence-operations.md",
     ROOT / "docs/private-overlay.md",
     ROOT / "docs/stack-maintenance.md",
     ROOT / "templates/periodic-reassessment.md",
@@ -92,6 +94,26 @@ class DocumentedCommandsTests(unittest.TestCase):
             "before/after checks",
             "owner-only",
             "pr #23",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, text)
+
+    def test_weekly_intelligence_boundaries_are_documented(self) -> None:
+        text = "\n".join(
+            (
+                (ROOT / "docs/design-intelligence-loop.md").read_text(encoding="utf-8"),
+                (ROOT / "docs/weekly-intelligence-operations.md").read_text(
+                    encoding="utf-8"
+                ),
+            )
+        ).lower()
+        for required in (
+            "x-bookmarks",
+            "adapter_not_configured",
+            "blocked-eval",
+            "saturday",
+            "separate approval",
+            "never launches maintenance",
         ):
             with self.subTest(required=required):
                 self.assertIn(required, text)

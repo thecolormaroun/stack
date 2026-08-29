@@ -8,3 +8,9 @@ gitleaks-findings*.json
 trufflehog-report*.json
 .gstack/
 .worktrees/
+# U15 owner-local private corpus state.  The repository carries only the
+# public-safe template and schemas; raw rows, checkpoints, and import markers
+# stay outside the checkout.
+bookmark-private-ledger*.sqlite*
+bookmark-source*.sqlite*
+.x-bookmarks-import-state.json

@@ -15,6 +15,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+try:
+    from bookmark_private_corpus import FIELD_THEORY_COLUMNS, FIELD_THEORY_REQUIRED_COLUMNS  # type: ignore
+except ModuleNotFoundError:  # imported by a focused test through a file spec
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from bookmark_private_corpus import FIELD_THEORY_COLUMNS, FIELD_THEORY_REQUIRED_COLUMNS  # type: ignore
+
 TRACKING_KEYS = {"fbclid", "gclid", "mc_cid", "mc_eid"}
 URL_RE = re.compile(r"https?://[^\s)>\]}'\"]+")
 MARKDOWN_LINK_RE = re.compile(r"\[([^\]]*)\]\((https?://[^)\s]+)\)")
@@ -106,19 +112,21 @@ def hermes_link_inbox_items(source: dict) -> tuple[list[dict], str | None]:
         return [], "source_unavailable"
 
 
-def read_path(path: Path, source_id: str) -> list[dict]:
+def read_path(path: Path, source_id: str, source: dict | None = None) -> list[dict]:
     if path.suffix.lower() in {".sqlite", ".sqlite3", ".db"}:
+        source = source or {}
+        contract = source.get("field_theory_contract") or source.get("sqlite") or {}
+        table = contract.get("table", "bookmarks")
+        columns = contract.get("columns", list(FIELD_THEORY_COLUMNS))
+        media_roots = contract.get("media_roots", [])
+        if table != "bookmarks" or not isinstance(columns, list) or not set(FIELD_THEORY_REQUIRED_COLUMNS) <= set(columns):
+            raise ValueError("field_theory SQLite contract is not allowlisted")
+        if any(column not in FIELD_THEORY_COLUMNS for column in columns) or not isinstance(media_roots, list):
+            raise ValueError("field_theory SQLite contract is not allowlisted")
         connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
         try:
-            tables = [r[0] for r in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")]
-            rows: list[dict] = []
-            for table in tables:
-                try:
-                    cursor = connection.execute(f'SELECT * FROM "{table.replace(chr(34), chr(34)*2)}"')
-                    columns = [d[0] for d in cursor.description]
-                    rows.extend(dict(zip(columns, row)) for row in cursor)
-                except sqlite3.DatabaseError:
-                    continue
+            select = ", ".join(f'"{column}"' for column in columns)
+            rows = [dict(zip(columns, row)) for row in connection.execute(f'SELECT {select} FROM "{table}" ORDER BY "id"')]
             return [item for row in rows if (item := item_from(row, source_id))]
         finally:
             connection.close()
@@ -295,7 +303,7 @@ def collect(source: dict, discovered_items: list[dict] | None = None) -> tuple[l
             return dedupe(items), None
         items = []
         for path in paths:
-            items.extend(read_path(path, source_id))
+            items.extend(read_path(path, source_id, source))
         return dedupe(items), None
     except (OSError, ValueError, sqlite3.Error):
         return [], "source_unavailable"

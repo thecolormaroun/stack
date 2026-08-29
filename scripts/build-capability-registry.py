@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -203,11 +204,37 @@ def validate_manifest(manifest: dict[str, Any], path: Path, root: Path) -> None:
 
 
 def manifest_paths(root: Path) -> list[Path]:
-    return sorted((root / "skills").glob("**/capability.json"))
+    return _estate_paths(root, "capability.json")
 
 
 def callable_skill_paths(root: Path) -> list[Path]:
-    return sorted((root / "skills").glob("**/SKILL.md"))
+    return _estate_paths(root, "SKILL.md")
+
+
+def _estate_paths(root: Path, filename: str) -> list[Path]:
+    """Return the reviewed tracked estate; hold untracked callables aside.
+
+    A real checkout is intentionally index-bound so owner-local untracked
+    skills cannot become catalog or runtime inputs.  Isolated unit fixtures do
+    not have a Git index and retain the historical tree-scan behavior.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "--cached", "-z", "--", f"skills/**/{filename}"],
+            check=True,
+            capture_output=True,
+            text=False,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return sorted((root / "skills").glob(f"**/{filename}"))
+    paths = []
+    for raw in result.stdout.split(b"\0"):
+        if not raw:
+            continue
+        path = root / raw.decode("utf-8")
+        if path.is_file():
+            paths.append(path)
+    return sorted(paths)
 
 
 def declared_command_ids(root: Path) -> set[str]:

@@ -10,6 +10,7 @@ only when the registry changes.
 | `stack.explore` | `cpo` | `read-only` |
 | `stack.plan` | `compound-engineering` | `read-only` |
 | `stack.design` | `cdo` | `read-only` |
+| `stack.design.intelligence` | `design-intelligence` | `read-only` |
 | `stack.build` | `compound-engineering` | `local-mutation` |
 | `stack.orchestrate` | `stack-codex` | `local-mutation` |
 | `stack.review` | `compound-engineering` | `read-only` |

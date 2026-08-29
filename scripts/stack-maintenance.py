@@ -49,6 +49,16 @@ TERMINAL_CLASSIFICATIONS = {
     "failed",
     "published",
 }
+DISCOVERY_RISK_CLASSES = {
+    "none",
+    "compatible",
+    "major",
+    "deprecation",
+    "security",
+    "license-or-terms",
+    "cost-or-scope",
+    "unknown",
+}
 DISPOSITIONS = {
     "catalog-managed-provider",
     "repository-owned-capability",
@@ -197,6 +207,7 @@ def load_policy(path: Path = DEFAULT_POLICY) -> Dict[str, Any]:
         "terminal_classifications",
         "retry_classes",
         "canonical_candidate",
+        "discovery",
         "diff_allowlist",
         "authority",
         "state",
@@ -208,7 +219,7 @@ def load_policy(path: Path = DEFAULT_POLICY) -> Dict[str, Any]:
 
 def load_sources(path: Path = DEFAULT_SOURCES) -> Dict[str, Any]:
     sources = _read_json(Path(path), "source_inventory")
-    if set(sources) != {"schema_version", "sources"}:
+    if set(sources) != {"schema_version", "discovery", "sources"}:
         raise PolicyError("source_inventory_fields_invalid")
     return sources
 
@@ -237,6 +248,30 @@ def validate_policy(policy: Mapping[str, Any], sources: Mapping[str, Any]) -> No
     candidate = policy.get("canonical_candidate")
     if not isinstance(candidate, dict) or candidate.get("identity") != TASK_ID or candidate.get("max_open") != 1:
         raise PolicyError("canonical_candidate_invalid")
+    discovery = policy.get("discovery")
+    if not isinstance(discovery, dict) or discovery.get("schema_version") != SCHEMA_VERSION:
+        raise PolicyError("discovery_policy_invalid")
+    if discovery.get("provider_scope") != "one-canonical-provider" or discovery.get("candidate_pin") != "immutable":
+        raise PolicyError("discovery_policy_invalid")
+    if not isinstance(discovery.get("approval_owner"), str) or not discovery["approval_owner"].strip():
+        raise PolicyError("discovery_policy_invalid")
+    if discovery.get("max_candidates") != 1:
+        raise PolicyError("discovery_policy_invalid")
+    if (
+        not isinstance(discovery.get("live_observation_timeout_seconds"), int)
+        or isinstance(discovery.get("live_observation_timeout_seconds"), bool)
+        or discovery["live_observation_timeout_seconds"] < 1
+        or discovery["live_observation_timeout_seconds"] > NETWORK_TIMEOUT_SECONDS
+    ):
+        raise PolicyError("discovery_policy_invalid")
+    if (
+        not isinstance(discovery.get("retry_limit"), int)
+        or isinstance(discovery.get("retry_limit"), bool)
+        or discovery["retry_limit"] < 1
+    ):
+        raise PolicyError("discovery_policy_invalid")
+    if set(discovery.get("risk_classes", [])) != DISCOVERY_RISK_CLASSES:
+        raise PolicyError("discovery_policy_invalid")
     allowlist = policy.get("diff_allowlist")
     if not isinstance(allowlist, list) or not allowlist or any(not isinstance(item, str) or item.startswith("/") or ".." in Path(item).parts for item in allowlist):
         raise PolicyError("diff_allowlist_invalid")
@@ -261,6 +296,16 @@ def validate_policy(policy: Mapping[str, Any], sources: Mapping[str, Any]) -> No
 
     if sources.get("schema_version") != SCHEMA_VERSION or not isinstance(sources.get("sources"), list):
         raise PolicyError("source_inventory_schema_invalid")
+    source_discovery = sources.get("discovery")
+    if not isinstance(source_discovery, Mapping):
+        raise PolicyError("source_discovery_contract_invalid")
+    if source_discovery.get("schema_version") != SCHEMA_VERSION or source_discovery.get("provider_scope") != "one-canonical-provider" or source_discovery.get("candidate_pin") != "immutable":
+        raise PolicyError("source_discovery_contract_invalid")
+    required_evidence = source_discovery.get("required_evidence")
+    if not isinstance(required_evidence, list) or len(required_evidence) != len(set(required_evidence)) or not all(isinstance(field, str) and field for field in required_evidence):
+        raise PolicyError("source_discovery_contract_invalid")
+    if set(source_discovery.get("risk_classes", [])) != DISCOVERY_RISK_CLASSES:
+        raise PolicyError("source_discovery_contract_invalid")
     source_ids: List[str] = []
     for source in sources["sources"]:
         if not isinstance(source, dict):
@@ -2952,7 +2997,13 @@ def input_fingerprint(policy: Mapping[str, Any], sources: Mapping[str, Any], ext
         "schema_version": SCHEMA_VERSION,
         "task_id": TASK_ID,
         "policy": _without_volatile(policy),
-        "sources": _without_volatile({"schema_version": sources.get("schema_version"), "sources": source_rows}),
+        "sources": _without_volatile(
+            {
+                "schema_version": sources.get("schema_version"),
+                "discovery": sources.get("discovery"),
+                "sources": source_rows,
+            }
+        ),
     }
     if extra is not None:
         payload["extra"] = _without_volatile(extra)
@@ -3377,6 +3428,63 @@ def validate_receipt(receipt: Mapping[str, Any], schema_path: Path = DEFAULT_REC
             raise MaintenanceError("receipt_state_invalid")
     if not isinstance(receipt.get("checks"), dict):
         raise MaintenanceError("receipt_checks_invalid")
+    discovery = receipt.get("discovery")
+    if discovery is not None:
+        if not isinstance(discovery, Mapping):
+            raise MaintenanceError("receipt_discovery_invalid")
+        required_discovery = {
+            "schema_version",
+            "provider_id",
+            "provider_ref",
+            "status",
+            "old_pin",
+            "new_pin",
+            "old_pin_digest",
+            "new_pin_digest",
+            "source_tree_digest",
+            "generated_manifest_digest",
+            "output_semantic_digest",
+            "changed_exports",
+            "affected_runtimes",
+            "release_evidence",
+            "deprecation_evidence",
+            "version_risk_class",
+            "compatibility_evidence",
+            "approval_owner",
+            "last_known_good",
+            "rollback_pointer",
+        }
+        if not required_discovery.issubset(discovery):
+            raise MaintenanceError("receipt_discovery_invalid")
+        if discovery.get("schema_version") != SCHEMA_VERSION or discovery.get("status") not in {"no_action", "prepared", "blocked", "failed"}:
+            raise MaintenanceError("receipt_discovery_invalid")
+        provider_id = discovery.get("provider_id")
+        provider_ref = discovery.get("provider_ref")
+        if not isinstance(provider_id, str) or not re.fullmatch(r"[a-z0-9][a-z0-9-]*", provider_id):
+            raise MaintenanceError("receipt_discovery_invalid")
+        if not isinstance(provider_ref, str) or not provider_ref.startswith("https://"):
+            raise MaintenanceError("receipt_discovery_invalid")
+        for field in ("old_pin", "new_pin"):
+            value = discovery.get(field)
+            if not isinstance(value, str) or not (SHA1_PATTERN.fullmatch(value) or SHA256_PATTERN.fullmatch(value)):
+                raise MaintenanceError("receipt_discovery_invalid")
+        for field in ("old_pin_digest", "new_pin_digest"):
+            value = discovery.get(field)
+            if not isinstance(value, str) or not DIGEST_PATTERN.fullmatch(value):
+                raise MaintenanceError("receipt_discovery_invalid")
+        for field in ("source_tree_digest", "generated_manifest_digest", "output_semantic_digest"):
+            pair = discovery.get(field)
+            if not isinstance(pair, Mapping) or not {"current", "candidate"}.issubset(pair):
+                raise MaintenanceError("receipt_discovery_invalid")
+            for value in (pair.get("current"), pair.get("candidate")):
+                if value is not None and (not isinstance(value, str) or not DIGEST_PATTERN.fullmatch(value)):
+                    raise MaintenanceError("receipt_discovery_invalid")
+        if discovery.get("version_risk_class") not in DISCOVERY_RISK_CLASSES:
+            raise MaintenanceError("receipt_discovery_invalid")
+        if not isinstance(discovery.get("changed_exports"), list) or not isinstance(discovery.get("affected_runtimes"), list):
+            raise MaintenanceError("receipt_discovery_invalid")
+        if not isinstance(discovery.get("approval_owner"), str) or not discovery["approval_owner"].strip():
+            raise MaintenanceError("receipt_discovery_invalid")
 
 
 def _safe_append(paths: Mapping[str, Path], receipt: Dict[str, Any]) -> Dict[str, Any]:
@@ -3414,6 +3522,7 @@ def _preflight(
     vendor_hold_path: Optional[Path] = None,
     vendor_manifest_path: Optional[Path] = None,
     observe_remotes: bool = False,
+    observed_refs: Optional[Mapping[str, str]] = None,
     proposed_files: Optional[Mapping[str, Any]] = None,
     upstream_metadata: Optional[tuple[Mapping[str, Any], Mapping[str, Any]]] = None,
     run_stage_readiness: bool = True,
@@ -3430,6 +3539,7 @@ def _preflight(
         vendor_hold_path=vendor_hold_path,
         vendor_manifest_path=vendor_manifest_path,
         observe_remotes=observe_remotes,
+        observed_refs=observed_refs,
         upstream_metadata=upstream_metadata,
     )
     candidate: Dict[str, Any] = {
@@ -3454,7 +3564,7 @@ def _preflight(
         "protected_surfaces_declared": True,
         "terminal_classification_declared": True,
         "disposable_stage_not_created": stage_dir is None or not stage_dir.exists(),
-        "network_not_started": not observe_remotes,
+        "network_not_started": not observe_remotes and observed_refs is None,
         "github_not_contacted": True,
         "source_audit": audit,
         "source_audit_digest": digest(audit),
@@ -3484,6 +3594,8 @@ def run(
     vendor_hold_path: Optional[Path] = None,
     vendor_manifest_path: Optional[Path] = None,
     observe_remotes: bool = False,
+    observed_refs: Optional[Mapping[str, str]] = None,
+    discovery_packet: Optional[Mapping[str, Any]] = None,
     audit_receipt_path: Optional[Path] = None,
     proposal_dir: Optional[Path] = None,
     github: Any = None,
@@ -3546,6 +3658,13 @@ def run(
         fingerprint_extra["vendor_manifest_sha256"] = _file_digest(Path(vendor_manifest_path))
     if audit_receipt_path is not None:
         fingerprint_extra["audit_receipt_sha256"] = _file_digest(Path(audit_receipt_path))
+    if observed_refs is not None:
+        fingerprint_extra["observed_refs"] = {
+            str(provider_id): str(pin)
+            for provider_id, pin in sorted(observed_refs.items())
+        }
+    if discovery_packet is not None:
+        fingerprint_extra["discovery"] = _without_volatile(discovery_packet)
     input_fp = input_fingerprint(policy, sources, extra=fingerprint_extra)
     refs = _provider_refs(sources)
     policy_digest = digest(_without_volatile(policy))
@@ -3620,6 +3739,7 @@ def run(
                 vendor_hold_path=vendor_hold_path,
                 vendor_manifest_path=vendor_manifest_path,
                 observe_remotes=observe_remotes,
+                observed_refs=observed_refs,
                 upstream_metadata=upstream_metadata,
             )
             if mode == "prepare":
@@ -3681,6 +3801,25 @@ def run(
             else ("upstream_updates_detected" if updates_available else ("manual_audit_cleared" if manual_cleared else "preflight_only"))
         )
         receipt["checks"] = checks
+        if discovery_packet is not None:
+            packet = dict(discovery_packet)
+            receipt["discovery"] = packet
+            receipt["checks"]["discovery"] = packet
+            packet_status = packet.get("status")
+            if packet_status == "no_action":
+                receipt["terminal_classification"] = "no_action"
+                receipt["result"] = "discovery_no_action"
+            elif packet_status == "prepared":
+                receipt["terminal_classification"] = "awaiting_approval"
+                receipt["result"] = "upstream_updates_detected"
+            elif packet_status == "blocked":
+                receipt["terminal_classification"] = "blocked"
+                receipt["result"] = str(packet.get("reason_code") or "discovery_blocked")
+                receipt["reason_code"] = receipt["result"]
+            else:
+                receipt["terminal_classification"] = "failed"
+                receipt["result"] = "discovery_status_invalid"
+                receipt["reason_code"] = "discovery_status_invalid"
         checkout = checks.get("caller_checkout", {}) if isinstance(checks, Mapping) else {}
         if isinstance(checkout, Mapping):
             receipt["checkout_state"] = {

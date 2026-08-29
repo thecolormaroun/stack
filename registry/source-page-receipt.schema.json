@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stack.maroun.co/registry/source-page-receipt.schema.json",
+  "title": "Private source page receipt",
+  "description": "Public-safe receipt for one bounded source page. Cursor values are represented only by digests.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "receipt_id", "source_id", "source_identity", "query_contract_digest", "page_ordinal",
+    "requested_cursor_digest", "returned_cursor_digest", "canonical_ids",
+    "canonical_id_set_digest", "raw_response_digest", "row_count", "retry",
+    "media_resolution", "link_capture", "adapter_version", "policy_digest",
+    "schema_digest", "status"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "receipt_id": {"$ref": "#/$defs/opaque"},
+    "source_id": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,127}$"},
+    "source_identity": {"$ref": "#/$defs/opaque"},
+    "query_contract_digest": {"$ref": "#/$defs/digest"},
+    "page_ordinal": {"type": "integer", "minimum": 0},
+    "requested_cursor_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+    "returned_cursor_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+    "canonical_ids": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+    "canonical_id_set_digest": {"$ref": "#/$defs/digest"},
+    "raw_response_digest": {"$ref": "#/$defs/digest"},
+    "row_count": {"type": "integer", "minimum": 0},
+    "retry": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "attempts"],
+      "properties": {
+        "status": {"enum": ["none", "rate_limited", "failed", "retried"]},
+        "attempts": {"type": "integer", "minimum": 1}
+      }
+    },
+    "media_resolution": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state"],
+      "properties": {"state": {"enum": ["complete", "partial", "unknown"]}}
+    },
+    "link_capture": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state"],
+      "properties": {"state": {"enum": ["complete", "partial", "unknown"]}}
+    },
+    "adapter_version": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,63}$"},
+    "policy_digest": {"$ref": "#/$defs/digest"},
+    "schema_digest": {"$ref": "#/$defs/digest"},
+    "status": {"enum": ["complete", "partial", "failed"]}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "opaque": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,32}:[a-f0-9]{16,64}$"}
+  }
+}

@@ -60,6 +60,13 @@ Direct Compound Engineering, GStack, and Stack-Codex invocations are declared pa
 
 `registry/upstreams.json` allows only canonical HTTPS sources and immutable commit or digest pins. `upstreams.lock.json` repeats those exact pins for deterministic audit. `scripts/sync-upstreams.py` is a fail-closed preflight: it validates metadata and, when given an acquired checkout, validates both origin and exact commit before any extraction or staging caller may continue. It performs no download, extraction, staging, or runtime publication itself.
 
+`scripts/discover-upstream-updates.py` observes exactly one selected provider
+against its immutable pin and writes into the existing maintenance audit/receipt
+lane. A newer upstream revision may prepare a scoped evidence packet, but
+discovery never changes `upstreams.lock.json`, the active runtime, a branch, or
+a pull request. Private or oversized release evidence blocks rather than being
+silently truncated or rerouted.
+
 Each provider declares exports, Stack adapters, compatibility evidence, license posture, and last-known-good metadata. `THIRD_PARTY_NOTICES.md` attributes copied or adapted material without claiming Stack ownership of upstream work. Matt, David, and design imports remain provider-namespaced and are not promoted to primary routes just because they are retained.
 
 Stack-Codex is the repository-local exception to the external-package rule. Stack owns and bundles its complete eight-skill plugin surface under `packages/stack-codex/content`, identifies this Stack repository as its canonical source, and pins the sorted package content with SHA-256. The current clean-home bundle pin is `483015638591618e884d4c21f1fa037b645bb872e33acf063fa7a5f802c80df3`. The same fail-closed preflight verifies that digest before a caller may stage the bundle.

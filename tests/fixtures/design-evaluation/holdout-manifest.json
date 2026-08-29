@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "split": "holdout",
+  "frozen": true,
+  "protected": true,
+  "candidate_generated_inputs": false,
+  "fixtures": [
+    {"id": "dense-mobile-table", "weight": 1.0},
+    {"id": "accessible-error-recovery", "weight": 1.0}
+  ]
+}

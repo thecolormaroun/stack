@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "policy_id": "stack-maintenance",
-  "revision": "2026-08-18-u8",
+  "revision": "2026-08-23-u19",
   "allowed_modes": ["audit", "prepare"],
   "legacy_target_ids": [
     "last30days",
@@ -64,6 +64,25 @@
     "marker": "stack-maintenance/v1",
     "max_open": 1
   },
+  "discovery": {
+    "schema_version": 1,
+    "provider_scope": "one-canonical-provider",
+    "candidate_pin": "immutable",
+    "approval_owner": "stack-maintainer",
+    "max_candidates": 1,
+    "live_observation_timeout_seconds": 30,
+    "retry_limit": 3,
+    "risk_classes": [
+      "none",
+      "compatible",
+      "major",
+      "deprecation",
+      "security",
+      "license-or-terms",
+      "cost-or-scope",
+      "unknown"
+    ]
+  },
   "diff_allowlist": [
     "config/stack-maintenance.json",
     "registry/maintenance-sources.json",
@@ -71,7 +90,12 @@
     "registry/upstreams.json",
     "upstreams.lock.json",
     "scripts/stack-maintenance.py",
+    "scripts/sync-upstreams.py",
+    "scripts/discover-upstream-updates.py",
+    "scripts/materialize-maintenance-proposal.py",
     "tests/test_stack_maintenance.py",
+    "tests/test_upstream_discovery.py",
+    "tests/test_maintenance_materializer.py",
     "tests/test_upstream_packages.py",
     "tests/test_fresh_clone.py",
     "registry/capabilities.json",

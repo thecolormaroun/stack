@@ -1,0 +1,5 @@
+Run Stack's approved weekly intelligence loop from the repository working directory configured for this automation.
+
+Use a sanitized local environment and run `python3 scripts/run-stack-weekly-live.py` once. This command reads the current local Field Theory bookmark database, reconciles an owner-local snapshot, imports only missing `x-bookmarks` through GBrain with embeddings disabled, and runs the six-stage weekly design-intelligence coordinator. It keeps generated packets and skill/reference candidates quarantined unless their existing evaluation and separate promotion gates pass.
+
+Do not enable Direct X/OAuth, provider egress, paid fallback, external publishing, skill promotion, global runtime installation, or automatic upstream pin changes. Do not print raw bookmark content, credentials, subprocess stderr, or private response payloads. If the command fails, report only its safe reason code and the restart guidance from the newest owner-local coordinator receipt. If it succeeds, report the safe JSON summary, the newest coordinator receipt path, and whether the result was `no_action`, `prepared`, or `awaiting_approval`.

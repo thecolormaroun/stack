@@ -1,5 +1,36 @@
 {
   "schema_version": 1,
+  "discovery": {
+    "schema_version": 1,
+    "provider_scope": "one-canonical-provider",
+    "candidate_pin": "immutable",
+    "required_evidence": [
+      "old_pin",
+      "new_pin",
+      "source_tree_digest",
+      "generated_manifest_digest",
+      "output_semantic_digest",
+      "changed_exports",
+      "affected_runtimes",
+      "release_evidence",
+      "deprecation_evidence",
+      "version_risk_class",
+      "compatibility_evidence",
+      "approval_owner",
+      "last_known_good",
+      "rollback_pointer"
+    ],
+    "risk_classes": [
+      "none",
+      "compatible",
+      "major",
+      "deprecation",
+      "security",
+      "license-or-terms",
+      "cost-or-scope",
+      "unknown"
+    ]
+  },
   "sources": [
     {
       "id": "last30days",

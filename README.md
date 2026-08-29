@@ -56,18 +56,22 @@ the product unless they directly support a named design/build workflow.
    [`registry/capabilities.json`](registry/capabilities.json) is a deterministic
    aggregate, not a hand-edited source of truth. The read-only audit produces
    evidence and proposed dispositions; it never moves or deletes content.
-2. **Curation.** Read-only bookmark collection records source observations in
-   an owner-local ledger. Triage compares candidates with the catalog and
-   prepares a bounded, redacted review packet. Capturing a link is not a
-   promotion.
-3. **Human gate.** Provenance, evaluation, activation, and publication require
+2. **Private knowledge and curation.** Field Theory supplies the default
+   bookmark boundary and the private `x-bookmarks` GBrain source is the search
+   authority. Reconciliation proves historical coverage and recurring deltas;
+   raw content stays owner-local while Stack receives only safe projections.
+3. **Design intelligence.** Safe source observations become cited design cards
+   and source-scoped retrieval results. Relevant evidence can prepare a minimal
+   skill or reference patch, but only a pinned evaluation can advance it to
+   `awaiting_approval`. Capturing or retrieving a link is never promotion.
+4. **Human gate.** Provenance, evaluation, activation, and publication require
    review. Automation may collect evidence and prepare candidates, but may not
    activate, merge, install, or publish a capability.
-4. **Publication and recovery.** The compiler selects only reviewed `active`
+5. **Publication and recovery.** The compiler selects only reviewed `active`
    entries for a declared target, stages all outputs, and the installer switches
    them atomically. Receipts preserve the catalog digest, source commit, and
    prior target pointers for rollback without rewriting source history.
-5. **Reassessment.** Periodic review uses validation, overlap, upstream health,
+6. **Reassessment.** Periodic review uses validation, overlap, upstream health,
    maintenance, scope, and usage as separate signals. Low usage alone never
    auto-archives a capability.
 
@@ -77,6 +81,8 @@ Read the detailed contracts:
 - [`docs/architecture.md`](docs/architecture.md) — ownership, catalog, and inclusion boundary.
 - [`docs/capability-lifecycle.md`](docs/capability-lifecycle.md) — evidence, review, and lifecycle transitions.
 - [`docs/bookmark-curation.md`](docs/bookmark-curation.md) — safe intake through review packet.
+- [`docs/design-intelligence-loop.md`](docs/design-intelligence-loop.md) — private evidence, cited critique, retrieval, and evaluated learning.
+- [`docs/weekly-intelligence-operations.md`](docs/weekly-intelligence-operations.md) — idempotent weekly coordination and recovery.
 - [`docs/runtime-publication.md`](docs/runtime-publication.md) — staging, receipts, rollback, and scheduler boundary.
 - [`docs/private-overlay.md`](docs/private-overlay.md) — owner-only private reference packs.
 - [`templates/periodic-reassessment.md`](templates/periodic-reassessment.md) — recurring governance report.
@@ -105,6 +111,12 @@ merges, installs, publishes runtimes, repairs protected checkouts, or mutates
 plugin state. See
 [`docs/stack-maintenance.md`](docs/stack-maintenance.md) and the `stack-sync`
 skill for the full unattended-run contract.
+
+The separate weekly intelligence coordinator links private bookmark deltas,
+design packets, retrieval, candidate evaluation, and the latest maintenance
+receipt. Its future Saturday 09:00 scheduler contract is checked in but disabled;
+enabling it requires separate approval and persisted run-now proof. The
+coordinator never launches maintenance or publishes a capability.
 
 ## Security and privacy
 

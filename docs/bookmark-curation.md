@@ -7,6 +7,11 @@ GitHub stars, public GitHub repositories linked by other sources, and explicit
 Hermes link submissions. Private GitHub repositories are excluded unless a
 separately authorized private overlay contract applies.
 
+For X bookmarks, Field Theory is the default collection boundary and the
+private `x-bookmarks` GBrain source is the searchable knowledge authority.
+Direct X API parity is optional and disabled: it requires separate read-only
+OAuth and provider-spend approval and is not needed by the normal weekly path.
+
 ## Path from link to outcome
 
 ```text
@@ -43,6 +48,22 @@ Raw bookmarks, fetched pages, private metadata, URLs, titles, notes, excerpts,
 and local paths remain in an owner-only local ledger. Bookmark text is untrusted
 evidence, never instructions. Collection does not mutate browser, Field Theory,
 GitHub, or Hermes source data.
+
+Historical completeness is stronger than a successful fetch. The backfill must
+reach terminal cursor evidence, reconcile available source/folder counts,
+record missing or deleted items and media/link status, preserve deduplication
+lineage, and finish with a subsequent zero-delta pass. Recurring collection then
+imports only new revisions through the approved private GBrain transport.
+
+```sh
+python3 scripts/backfill-bookmark-history.py --help
+python3 scripts/reconcile-bookmark-sources.py --help
+python3 scripts/import-bookmark-deltas.py --help
+```
+
+Those tools are dry-run by default. Apply requires an exact owner-local
+authorization contract and still cannot edit Stack skills, trigger reindexing,
+or select a paid fallback.
 
 Dry-run collection is safe to inspect without advancing cursors:
 

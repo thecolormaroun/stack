@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "stack://registry/design-retrieval-request.schema.json",
+  "title": "Owner-local design-intelligence retrieval request",
+  "description": "A target-attested, source-scoped request for private design evidence. This document remains owner-local.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "request_id", "source", "target", "context", "filters",
+    "freshness", "top_k"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "request_id": {"$ref": "#/$defs/opaque"},
+    "source": {"const": "x-bookmarks"},
+    "target": {"$ref": "#/$defs/target"},
+    "context": {"$ref": "#/$defs/context"},
+    "filters": {"$ref": "#/$defs/filters"},
+    "freshness": {"$ref": "#/$defs/freshness"},
+    "top_k": {"type": "integer", "minimum": 3, "maximum": 7}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "opaque": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,32}:[a-f0-9]{16,64}$"},
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "identity", "owner_identity"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "identity": {"type": "string", "pattern": "^local-target:[a-z0-9][a-z0-9-]*$"},
+        "owner_identity": {"type": "string", "pattern": "^local-owner:[a-z0-9][a-z0-9-]*$"}
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "project": {"type": "string"},
+        "repository": {"type": "string"},
+        "route": {"type": "string"},
+        "component": {"type": "string"},
+        "viewport": {"$ref": "#/$defs/viewport"},
+        "device": {"type": "string"},
+        "brief": {"type": "string"},
+        "code": {"type": "string"},
+        "markup": {"type": "string"},
+        "screenshot": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/screenshot"}
+          ]
+        }
+      }
+    },
+    "viewport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": {"type": "integer", "minimum": 1},
+        "height": {"type": "integer", "minimum": 1}
+      }
+    },
+    "screenshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "digest"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "filters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {"$ref": "#/$defs/opaque"},
+        "author": {"type": "string", "minLength": 1},
+        "date": {"type": "string", "minLength": 1},
+        "folder": {"type": "string", "minLength": 1},
+        "url": {"type": "string", "minLength": 1}
+      }
+    },
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["as_of", "max_age_days"],
+      "properties": {
+        "as_of": {"type": "string", "format": "date-time"},
+        "max_age_days": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

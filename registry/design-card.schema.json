@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "stack://registry/design-card.schema.json",
+  "title": "Owner-local quarantined design card",
+  "description": "A source-faithful, unapproved design observation. Raw source prose, URLs, paths, and media are not part of the public projection.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "card_id", "lineage_id", "revision_id", "status", "approval_state",
+    "interface_problem", "design_behavior", "visible_facts", "interpretation_critique",
+    "reusable_principle", "suitable_contexts", "anti_pattern_failure_mode", "accessibility",
+    "motion", "responsive_behavior", "implementation_cue", "uncertainty", "claim_digest",
+    "evidence_citations", "provenance"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "card_id": {"$ref": "#/$defs/opaque"},
+    "lineage_id": {"$ref": "#/$defs/opaque"},
+    "revision_id": {"$ref": "#/$defs/opaque"},
+    "status": {"enum": ["quarantined", "rejected"]},
+    "approval_state": {"const": "unapproved"},
+    "interface_problem": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+    "design_behavior": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+    "visible_facts": {"$ref": "#/$defs/string_array"},
+    "interpretation_critique": {"$ref": "#/$defs/string_array"},
+    "reusable_principle": {"$ref": "#/$defs/string_array"},
+    "suitable_contexts": {"$ref": "#/$defs/string_array"},
+    "anti_pattern_failure_mode": {"$ref": "#/$defs/string_array"},
+    "accessibility": {"$ref": "#/$defs/structured"},
+    "motion": {"$ref": "#/$defs/structured"},
+    "responsive_behavior": {"$ref": "#/$defs/structured"},
+    "implementation_cue": {"$ref": "#/$defs/string_array"},
+    "uncertainty": {"$ref": "#/$defs/string_array"},
+    "claim_digest": {"$ref": "#/$defs/digest"},
+    "evidence_citations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/citation"}},
+    "provenance": {"$ref": "#/$defs/provenance"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "opaque": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,32}:[a-f0-9]{16,64}$"},
+    "string_array": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "structured": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observed", "unknown", "notes"],
+      "properties": {
+        "observed": {"$ref": "#/$defs/string_array"},
+        "unknown": {"$ref": "#/$defs/string_array"},
+        "notes": {"$ref": "#/$defs/string_array"}
+      }
+    },
+    "citation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id", "source_id", "source_identity", "original_source_identity",
+        "canonical_source_identity", "capture_time", "revision_time", "content_digest",
+        "revision_digest", "media_digest", "media_item_digests", "link_digest", "link_digests",
+        "completeness_state", "adapter_version", "lineage_digest"
+      ],
+      "properties": {
+        "evidence_id": {"$ref": "#/$defs/opaque"},
+        "source_id": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,127}$"},
+        "source_identity": {"$ref": "#/$defs/opaque"},
+        "original_source_identity": {"$ref": "#/$defs/opaque"},
+        "canonical_source_identity": {"$ref": "#/$defs/opaque"},
+        "capture_time": {"type": "string"},
+        "revision_time": {"type": "string"},
+        "content_digest": {"$ref": "#/$defs/digest"},
+        "revision_digest": {"$ref": "#/$defs/digest"},
+        "media_digest": {"$ref": "#/$defs/digest"},
+        "media_item_digests": {"type": "array", "items": {"$ref": "#/$defs/digest"}},
+        "link_digest": {"$ref": "#/$defs/digest"},
+        "link_digests": {"type": "array", "items": {"$ref": "#/$defs/digest"}},
+        "completeness_state": {"type": "string"},
+        "adapter_version": {"type": "string"},
+        "lineage_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_ids", "original_source_identities", "canonical_source_identities",
+        "content_digests", "media_digests", "link_digests", "policy_digest", "config_digest",
+        "code_digest", "prompt_digest", "model_digest", "sampling_digest", "parent_digest",
+        "parent_digests", "derivation_lineage", "supersedes_revisions"
+      ],
+      "properties": {
+        "evidence_ids": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "original_source_identities": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "canonical_source_identities": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+        "content_digests": {"type": "array", "items": {"$ref": "#/$defs/digest"}},
+        "media_digests": {"type": "array", "items": {"$ref": "#/$defs/digest"}},
+        "link_digests": {"type": "array", "items": {"$ref": "#/$defs/digest"}},
+        "policy_digest": {"$ref": "#/$defs/digest"},
+        "config_digest": {"$ref": "#/$defs/digest"},
+        "code_digest": {"$ref": "#/$defs/digest"},
+        "prompt_digest": {"$ref": "#/$defs/digest"},
+        "model_digest": {"$ref": "#/$defs/digest"},
+        "sampling_digest": {"$ref": "#/$defs/digest"},
+        "parent_digest": {"$ref": "#/$defs/digest"},
+        "parent_digests": {"type": "array", "items": {"$ref": "#/$defs/digest"}},
+        "derivation_lineage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["was_derived_from", "was_generated_by", "lineage_digest"],
+          "properties": {
+            "was_derived_from": {"type": "array", "items": {"$ref": "#/$defs/opaque"}},
+            "was_generated_by": {"$ref": "#/$defs/opaque"},
+            "lineage_digest": {"$ref": "#/$defs/digest"}
+          }
+        },
+        "supersedes_revisions": {"type": "array", "items": {"$ref": "#/$defs/opaque"}}
+      }
+    }
+  }
+}

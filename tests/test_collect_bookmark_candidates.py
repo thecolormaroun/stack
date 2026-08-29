@@ -133,6 +133,32 @@ class BookmarkCollectorTests(unittest.TestCase):
             self.assertEqual(con.execute("select intake_id from canonical_items").fetchone()[0], intake_id)
         finally: con.close()
 
+    def test_field_theory_sqlite_does_not_read_unrelated_secret_table(self):
+        database = self.root / "field-theory.sqlite"
+        con = sqlite3.connect(database)
+        con.execute("CREATE TABLE bookmarks (id TEXT, tweet_id TEXT, url TEXT, synced_at TEXT)")
+        con.execute("CREATE TABLE secret_unrelated (value TEXT)")
+        con.execute("INSERT INTO bookmarks VALUES ('b1', 't1', 'https://example.com/bookmark', '2026-08-21')")
+        con.execute("INSERT INTO secret_unrelated VALUES ('never-read-secret')")
+        con.commit(); con.close()
+        source = {"id": "field", "adapter": "field_theory", "paths": [str(database)], "field_theory_contract": {
+            "table": "bookmarks", "columns": ["id", "tweet_id", "url", "synced_at"], "media_roots": []
+        }}
+        reads: list[str] = []
+        real_connect = sqlite3.connect
+
+        def traced_connect(*args, **kwargs):
+            connection = real_connect(*args, **kwargs)
+            connection.set_authorizer(lambda action, arg1, _arg2, _db, _trigger: reads.append(arg1) or sqlite3.SQLITE_OK if action == sqlite3.SQLITE_READ else sqlite3.SQLITE_OK)
+            return connection
+
+        with mock.patch.object(collector.sqlite3, "connect", side_effect=traced_connect):
+            items = collector.read_path(database, "field", source)
+        self.assertEqual(len(items), 1)
+        self.assertIn("bookmarks", reads)
+        self.assertNotIn("secret_unrelated", reads)
+        self.assertNotIn("never-read-secret", json.dumps(items))
+
     def test_github_stars_flattens_slurped_pages(self):
         sources = [{"id": "github", "adapter": "github_stars"}]
         result = type("Result", (), {"returncode": 0, "stdout": '[[{"html_url":"https://github.com/a/one"}],[{"html_url":"https://github.com/b/two"}]]', "stderr": ""})()

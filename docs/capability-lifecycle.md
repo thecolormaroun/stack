@@ -53,6 +53,29 @@ outside that workspace. Each run proves those denials before returning a
 bounded receipt. The receipt still leaves activation prohibited until the
 evaluation result and publication are separately reviewed.
 
+## Evaluated design learning
+
+A design-intelligence candidate is a proposed repository change, not autonomous
+training. `scripts/materialize-capability-change.py` binds a separate approval
+to the exact evidence packet and base commit, then creates the smallest cited
+skill/reference patch in a disposable checkout while proving the active
+checkout stayed unchanged. Registry, test, and documentation edits are allowed
+only when they support that primary change.
+
+`scripts/evaluate-design-intelligence-candidate.py` compares that immutable
+candidate with a pinned baseline over frozen development fixtures, a protected
+holdout, and rotating owner-local canaries. Structural, behavioral, visual,
+accessibility, privacy, citation, mobile-width, overflow, workflow, critical
+data, or HTML regressions cannot be averaged away. Synthetic fixtures prove
+only the harness; a missing real harness is `blocked-eval`. Passing evidence
+stops at `awaiting_approval` and cannot update an active pointer, branch,
+runtime, or publication receipt.
+
+```sh
+python3 scripts/materialize-capability-change.py --help
+python3 scripts/evaluate-design-intelligence-candidate.py --help
+```
+
 ## Periodic reassessment
 
 Use [`templates/periodic-reassessment.md`](../templates/periodic-reassessment.md)

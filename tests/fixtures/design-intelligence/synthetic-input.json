@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "source_manifest": {
+    "state": "complete",
+    "sources": [
+      {"source_id": "field-theory", "status": "complete", "observed": 1}
+    ]
+  },
+  "delta": {"state": "changed"},
+  "observations": [
+    {
+      "observation": {
+        "schema_version": 1,
+        "evidence_id": "evidence:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_id": "field-theory",
+        "source_identity": "source:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "original_source_identity": "source-native:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "canonical_source_identity": "bookmark:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "capture_time": "2026-08-22T12:00:00+00:00",
+        "revision_time": "2026-08-22T12:00:00+00:00",
+        "revision_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "content_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+        "media": {
+          "state": "resolved",
+          "count": 1,
+          "byte_count": 128,
+          "digest": "3333333333333333333333333333333333333333333333333333333333333333",
+          "missing_fields": []
+        },
+        "media_item_digests": ["4444444444444444444444444444444444444444444444444444444444444444"],
+        "media_item_states": ["resolved"],
+        "link_capture": {
+          "state": "not_present",
+          "count": 0,
+          "digests": [],
+          "set_digest": "5555555555555555555555555555555555555555555555555555555555555555"
+        },
+        "folder_ids": [],
+        "completeness_state": "accepted",
+        "adapter_version": "field-theory-fixture-1",
+        "derivation": {
+          "was_derived_from": ["source:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+          "was_generated_by": "activity:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "lineage_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+        }
+      },
+      "raw": {
+        "url": "https://example.invalid/synthetic/design-card",
+        "title": "Synthetic interface reference",
+        "text": "A software interface uses clear hierarchy and responsive composition.",
+        "visible_facts": ["A primary action is visually separated from secondary actions."],
+        "media": [{"kind": "screenshot"}]
+      }
+    }
+  ]
+}

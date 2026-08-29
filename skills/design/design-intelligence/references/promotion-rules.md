@@ -64,6 +64,15 @@ Promotion rule:
 - no hard fails on mobile width, content overflow, missing primary workflow, fake critical data, or broken HTML.
 - screenshot/rubric evidence is saved with the run.
 
+Result envelopes for every split must bind `candidate_packet_digest`,
+`materialization_receipt_digest`, and `manifest_digest` to the exact evaluated
+inputs. A result from another patch or fixture manifest is not reusable.
+Every baseline and candidate score must include all configured dimensions;
+aggregate-only scores cannot demonstrate the per-dimension regression gate.
+Repetition identifiers must be distinct positive integers within each fixture.
+These structural checks do not attest that feedback came from a real task:
+the reviewed harness and saved independent feedback remain separate gates.
+
 If the candidate is useful but the eval is not run, label it `candidate - blocked on eval`, not `promoted`.
 
 ## Runtime Promotion

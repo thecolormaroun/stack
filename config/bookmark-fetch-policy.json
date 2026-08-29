@@ -11,5 +11,20 @@
     "max_response_bytes": 1048576,
     "timeout_seconds": 10,
     "private_network_targets": "deny"
+  },
+  "field_theory_contract": {
+    "adapter_version": "field-theory-allowlist-v1",
+    "table": "bookmarks",
+    "media_roots": [],
+    "network": "disabled"
+  },
+  "optional_x_api": {
+    "enabled": false,
+    "approval": "required",
+    "spend": "not-approved",
+    "scopes": ["bookmark.read"],
+    "os_secret_ref": "<os-secret:x-bookmarks-read>",
+    "rotation": {"rotation_id": "<rotation-id>", "revocation_state": "not-revoked"},
+    "network": "not_attempted"
   }
 }

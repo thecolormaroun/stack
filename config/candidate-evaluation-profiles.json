@@ -11,5 +11,35 @@
       "max_total_bytes": 4194304,
       "forbid_executable_files": true
     }
+  },
+  "design_profiles": {
+    "design-learning-v1": {
+      "harness_environment": "STACK_DESIGN_EVAL_ROOT",
+      "manifest_digest_mode": "exact-file-bytes-sha256",
+      "result_digest_mode": "exact-file-bytes-sha256",
+      "minimum_repetitions": 3,
+      "maximum_score_stddev": 0.03,
+      "minimum_development_wins": 4,
+      "minimum_effect_size": 0.05,
+      "minimum_weighted_aggregate_improvement": 0.03,
+      "maximum_dimension_regression": 0.02,
+      "maximum_holdout_regression": 0.01,
+      "maximum_rubric_disagreement": 0.10,
+      "required_task_feedback": true,
+      "synthetic_feedback_requires_human_review": true,
+      "dimension_weights": {
+        "task_usefulness": 0.30,
+        "visual_quality": 0.20,
+        "behavior": 0.15,
+        "accessibility": 0.15,
+        "privacy": 0.10,
+        "citation": 0.10
+      },
+      "hard_gates": [
+        "structure", "behavior", "visual", "accessibility", "privacy", "citation",
+        "mobile_width", "content_overflow", "primary_workflow", "critical_data", "html"
+      ],
+      "required_splits": ["development", "holdout", "rotating_canary"]
+    }
   }
 }

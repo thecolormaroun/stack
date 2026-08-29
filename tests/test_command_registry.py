@@ -14,12 +14,16 @@ class CommandRegistryTests(unittest.TestCase):
 
     def test_exact_canonical_command_tree_and_runtime_parity(self) -> None:
         expected = ["stack", "stack.explore", "stack.plan", "stack.design", "stack.build", "stack.orchestrate", "stack.review", "stack.qa", "stack.ship", "stack.learn", "stack.maintain", "stack.run"]
-        self.assertEqual([command["id"] for command in self.commands], expected)
-        self.assertEqual(len(self.commands), 12)
+        primary = [command for command in self.commands if command["visibility"] == "primary"]
+        self.assertEqual([command["id"] for command in primary], expected)
+        self.assertEqual(len(primary), 12)
+        intelligence = next(command for command in self.commands if command["id"] == "stack.design.intelligence")
+        self.assertEqual(intelligence["visibility"], "extended")
+        self.assertEqual(intelligence["subcommands"], ["collect", "digest", "retrieve", "critique", "propose"])
         for command in self.commands:
-            self.assertEqual(command["visibility"], "primary")
             self.assertTrue(command["runtimes"]["claude"])
             self.assertTrue(command["runtimes"]["codex"])
+            self.assertEqual(set(command["effect_vector"]), {"source_read", "owner_local_write", "project_write", "external_write", "costly_use", "irreversible_action"})
 
     def test_aliases_are_unique_and_package_native_aliases_warn(self) -> None:
         aliases = [alias for command in self.commands for alias in command["aliases"]]

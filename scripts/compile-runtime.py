@@ -19,6 +19,27 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 REFERENCE_LINK = re.compile(r"\[[^\]]*\]\(([^)#]+)(?:#[^)]+)?\)")
 FENCE_START = re.compile(r"^[ \t]*(`{3,}|~{3,})")
+RESOLVER_CONTRACT = {
+    "version": "stack-command-resolution-v1",
+    "fields": [
+        "logical_command",
+        "subcommand",
+        "match_reason",
+        "candidates",
+        "trust_class",
+        "effect_vector",
+        "evidence_context",
+        "approval_state",
+    ],
+    "effect_vector_fields": [
+        "source_read",
+        "owner_local_write",
+        "project_write",
+        "external_write",
+        "costly_use",
+        "irreversible_action",
+    ],
+}
 OVERLAY_SPEC = importlib.util.spec_from_file_location("validate_private_overlay", Path(__file__).with_name("validate-private-overlay.py"))
 assert OVERLAY_SPEC and OVERLAY_SPEC.loader
 OVERLAY = importlib.util.module_from_spec(OVERLAY_SPEC)
@@ -394,6 +415,9 @@ def command_adapter_text(command: dict[str, Any], runtime: str, name: str) -> st
         f"# {command_id}", "", f"Runtime invocation: `{invocation}`", f"Canonical command: `{command_id}`",
         f"Owner: `{owner['kind']}:{owner['id']}`", f"Trust class: `{trust_class}`", "",
         "Apply `registry/commands.json` and the staged routing contract. Do not duplicate upstream workflow logic.",
+        f"Resolve through the shared `{RESOLVER_CONTRACT['version']}` contract before delegation.",
+        "The resolution must expose: " + ", ".join(f"`{item}`" for item in RESOLVER_CONTRACT["fields"]) + ".",
+        "Effect vector: " + json.dumps(command.get("effect_vector", {}), sort_keys=True) + ".",
         "Invoke the declared owner and, when the route requires it, the declared delegate:", "", *delegate_lines, "",
         "Inputs: " + ", ".join(f"`{item}`" for item in inputs),
         "Outputs: " + ", ".join(f"`{item}`" for item in outputs), "",
@@ -427,7 +451,9 @@ def materialize_command_adapters(root: Path, stage: Path, runtime: str) -> tuple
             raise RuntimeError(f"runtime command adapter collides with staged skill: {name}")
         destination.mkdir(parents=True)
         (destination / "SKILL.md").write_text(command_adapter_text(command, runtime, name), encoding="utf-8")
-        adapter = {"canonical_id": command["id"], "runtime_name": command["runtimes"][runtime], "skill_name": name, "path": f"skills/{name}/SKILL.md", "owner": command["owner"], "delegates": command.get("delegates", []), "trust_class": command["trust_class"], "inputs": command["inputs"], "outputs": command["outputs"], "approval_behavior": approval_behavior(command["trust_class"])}
+        effect_vector = command.get("effect_vector", {})
+        approval_state = "pending" if isinstance(effect_vector, dict) and any(effect_vector.get(field) for field in RESOLVER_CONTRACT["effect_vector_fields"] if field != "source_read") else "not_required"
+        adapter = {"canonical_id": command["id"], "runtime_name": command["runtimes"][runtime], "skill_name": name, "path": f"skills/{name}/SKILL.md", "owner": command["owner"], "delegates": command.get("delegates", []), "trust_class": command["trust_class"], "effect_vector": effect_vector, "evidence_context": {"required": command["inputs"]}, "approval_state": approval_state, "inputs": command["inputs"], "outputs": command["outputs"], "approval_behavior": approval_behavior(command["trust_class"]), "resolver_contract": RESOLVER_CONTRACT}
         adapters.append(adapter)
         for alias in command.get("aliases", []):
             alias_name = alias["name"].removeprefix("/").replace(" ", "-")
@@ -443,6 +469,32 @@ def materialize_command_adapters(root: Path, stage: Path, runtime: str) -> tuple
             (alias_path / "SKILL.md").write_text(f"---\nname: {alias_name}\ndescription: Alias for {command['id']}.\n---\n\n# {alias_name}\n\n{warning}Apply `{name}` and its canonical `{command['id']}` registry contract.\n", encoding="utf-8")
             alias_resolutions.append({"alias": alias_name, "canonical_id": command["id"], "resolution": "generated-alias"})
     return sorted(adapters, key=lambda item: item["canonical_id"]), sorted(alias_resolutions, key=lambda item: (item["alias"], item["canonical_id"]))
+
+
+def characterize_extended_routes(root: Path, runtime: str) -> list[dict[str, Any]]:
+    """Record direct extended routes without promoting them into the root tree."""
+    commands_path = root / "registry/commands.json"
+    if not commands_path.is_file():
+        return []
+    commands = read_json(commands_path).get("commands")
+    if not isinstance(commands, list):
+        raise RuntimeError("command registry lacks commands")
+    routes: list[dict[str, Any]] = []
+    for command in commands:
+        if not isinstance(command, dict) or command.get("visibility") != "extended":
+            continue
+        routes.append({
+            "canonical_id": command.get("id"),
+            "runtime_name": command.get("runtimes", {}).get(runtime),
+            "subcommands": command.get("subcommands", []),
+            "owner": command.get("owner"),
+            "trust_class": command.get("trust_class"),
+            "effect_vector": command.get("effect_vector"),
+            "evidence_context": {"required": command.get("inputs", [])},
+            "approval_state": "pending" if isinstance(command.get("effect_vector"), dict) and any(command["effect_vector"].get(field) for field in RESOLVER_CONTRACT["effect_vector_fields"] if field != "source_read") else "not_required",
+            "resolver_contract": RESOLVER_CONTRACT,
+        })
+    return sorted(routes, key=lambda item: str(item.get("canonical_id", "")))
 
 
 def source_file_map(source: Path, destination: Path, mapping: dict[Path, Path]) -> None:
@@ -597,6 +649,7 @@ def compile_runtimes(root: Path, catalog_path: Path, targets_path: Path, staging
             source_file_map(source, destination, mapping)
             external_manifest.append({"provider": provider, "export": export})
         command_adapters, command_aliases = materialize_command_adapters(root, stage, target["runtime"])
+        extended_routes = characterize_extended_routes(root, target["runtime"])
         docs = root / "docs"
         if docs.is_dir():
             copy_shared_tree(docs, stage / "docs", mapping, label="shared docs input")
@@ -632,6 +685,8 @@ def compile_runtimes(root: Path, catalog_path: Path, targets_path: Path, staging
             "external_package_exports": external_manifest,
             "command_adapters": command_adapters,
             "command_aliases": command_aliases,
+            "extended_routes": extended_routes,
+            "resolver_contract": RESOLVER_CONTRACT,
             "compatibility_adapters": sorted(entry["canonical_name"] for entry in included_raw if entry.get("lifecycle") == "deprecated"),
             "compatibility_aliases": sorted(aliases, key=lambda item: item["alias"]),
             "excluded": sorted(excluded, key=lambda item: item["canonical_name"]),

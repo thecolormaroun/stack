@@ -50,6 +50,7 @@ class WeeklyLiveTests(unittest.TestCase):
         config = LIVE.WEEKLY.load_config()
         scheduler = config["scheduler"]
         prompt = (ROOT / scheduler["prompt_path"]).read_text(encoding="utf-8")
+        persisted_prompt = prompt.removesuffix("\n")
         if symlink_codex:
             real_codex = account_home / "real-codex"
             real_codex.mkdir(mode=0o700)
@@ -62,7 +63,7 @@ class WeeklyLiveTests(unittest.TestCase):
         path.write_text("\n".join((
             f'id = {json.dumps(scheduler["automation_id"])}',
             'kind = "cron"',
-            f'prompt = {json.dumps(prompt)}',
+            f'prompt = {json.dumps(persisted_prompt)}',
             'status = "ACTIVE"',
             f'rrule = {json.dumps(scheduler["rrule"])}',
             f'model = {json.dumps(scheduler["model"])}',

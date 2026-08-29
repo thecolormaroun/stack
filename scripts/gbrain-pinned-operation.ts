@@ -16,6 +16,7 @@ import {
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { assertSafeEnvironment } from "./gbrain-pinned-environment.mjs";
 
 type Request =
   | { schema_version: 1; source: "x-bookmarks"; operation: "version" }
@@ -135,20 +136,6 @@ function validateRequest(value: unknown): Request {
   return request as Request;
 }
 
-function rejectDangerousEnvironment(): void {
-  const allowedGbrain = new Set(["GBRAIN_SOURCE", "GBRAIN_CLI_PATH", "GBRAIN_CONFIG_SHA256"]);
-  for (const key of Object.keys(process.env)) {
-    if (
-      (key.startsWith("GBRAIN_") && !allowedGbrain.has(key)) ||
-      key === "DATABASE_URL" ||
-      key.endsWith("_API_KEY") ||
-      key.endsWith("_TOKEN") ||
-      key.endsWith("_SECRET") ||
-      ["OPENAI_", "ANTHROPIC_", "ZEROENTROPY_", "OPENROUTER_", "VOYAGE_", "AZURE_OPENAI_", "GEMINI_", "GOOGLE_"].some((prefix) => key.startsWith(prefix))
-    ) fail();
-  }
-}
-
 function localCloneAttested(status: Record<string, unknown>): boolean {
   if (status.remote_url !== null || typeof status.local_path !== "string" || typeof status.last_commit !== "string") {
     return false;
@@ -189,7 +176,7 @@ function localCloneAttested(status: Record<string, unknown>): boolean {
 
 async function main(): Promise<void> {
   if (realpathSync(process.execPath) !== realpathSync("/opt/homebrew/bin/bun")) fail();
-  rejectDangerousEnvironment();
+  assertSafeEnvironment(process.env);
   const root = moduleRoot();
   const raw = await Bun.stdin.text();
   if (raw.length === 0 || raw.length > 8192) fail();

@@ -1,4 +1,4 @@
-Run Stack's approved weekly intelligence loop from `/Users/maroun/Projects/stack`.
+Run Stack's approved weekly intelligence loop from the repository working directory configured for this automation.
 
 Use a sanitized local environment and run `python3 scripts/run-stack-weekly-live.py` once. This command reads the current local Field Theory bookmark database, reconciles an owner-local snapshot, imports only missing `x-bookmarks` through GBrain with embeddings disabled, and runs the six-stage weekly design-intelligence coordinator. It keeps generated packets and skill/reference candidates quarantined unless their existing evaluation and separate promotion gates pass.
 

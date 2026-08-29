@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import shutil
 import stat
 import subprocess
 import tempfile
@@ -29,6 +30,54 @@ def load_query():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def install_fake_pinned_runtime(module, root: Path) -> dict[str, object]:
+    """Install a private test-only copy of the exact pinned-path topology."""
+
+    original = {
+        name: getattr(module, name)
+        for name in (
+            "ACCOUNT_HOME",
+            "DEFAULT_GBRAIN_CLI",
+            "EXPECTED_GBRAIN_CLI",
+            "DEFAULT_GBRAIN_CONFIG",
+            "DEFAULT_BUN_CLI",
+            "EXPECTED_BUN_CLI",
+        )
+    }
+    account_home = root / "owner-home"
+    gbrain_home = account_home / ".gbrain"
+    gbrain_home.mkdir(parents=True)
+    account_home.chmod(0o700)
+    gbrain_home.chmod(0o700)
+
+    bun_target = root / "pinned" / "bun" / "1.3.14" / "bin" / "bun"
+    bun_target.parent.mkdir(parents=True)
+    bun_target.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    bun_target.chmod(0o700)
+    bun_launcher = root / "launcher" / "bin" / "bun"
+    bun_launcher.parent.mkdir(parents=True)
+    bun_launcher.symlink_to(bun_target)
+
+    cli_target = account_home / ".bun" / "install" / "global" / "node_modules" / "gbrain" / "src" / "cli.ts"
+    cli_target.parent.mkdir(parents=True)
+    cli_target.write_text("export {};\n", encoding="utf-8")
+    cli_target.chmod(0o700)
+    package = cli_target.parents[1] / "package.json"
+    package.write_text(json.dumps({"name": "gbrain", "version": "0.42.67.0"}), encoding="utf-8")
+    package.chmod(0o600)
+    cli_launcher = account_home / ".bun" / "bin" / "gbrain"
+    cli_launcher.parent.mkdir(parents=True)
+    cli_launcher.symlink_to(cli_target)
+
+    module.ACCOUNT_HOME = account_home
+    module.DEFAULT_GBRAIN_CLI = str(cli_launcher)
+    module.EXPECTED_GBRAIN_CLI = cli_target
+    module.DEFAULT_GBRAIN_CONFIG = gbrain_home / "config.json"
+    module.DEFAULT_BUN_CLI = bun_launcher
+    module.EXPECTED_BUN_CLI = bun_target
+    return original
 
 
 class FixtureTransport:
@@ -68,7 +117,11 @@ class DesignRetrievalTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         os.chmod(self.root, 0o700)
-        self.gbrain_config = self.root / "gbrain-config.json"
+        self.runtime_tmp = tempfile.TemporaryDirectory()
+        runtime_root = Path(self.runtime_tmp.name).resolve()
+        runtime_root.chmod(0o700)
+        self._runtime_constants = install_fake_pinned_runtime(self.query, runtime_root)
+        self.gbrain_config = self.query.DEFAULT_GBRAIN_CONFIG
         self.gbrain_config.write_text(json.dumps({
             "engine": "postgres",
             "database_url": "postgresql://fixture:fixture@127.0.0.1:5432/gbrain_mookie",
@@ -99,6 +152,9 @@ class DesignRetrievalTests(unittest.TestCase):
         os.chmod(self.grant, 0o600)
 
     def tearDown(self):
+        for name, value in self._runtime_constants.items():
+            setattr(self.query, name, value)
+        self.runtime_tmp.cleanup()
         self.tmp.cleanup()
 
     def request(self, **changes):
@@ -410,30 +466,40 @@ class DesignRetrievalTests(unittest.TestCase):
         self.assertEqual([], calls)
 
     def test_config_bound_wrapper_rejects_provider_overrides_before_any_operation(self):
+        node = shutil.which("node")
+        self.assertIsNotNone(node, "portable environment-fence test requires Node.js")
         environment = {
-            "HOME": str(self.query.ACCOUNT_HOME),
-            "PATH": f"{self.query.ACCOUNT_HOME}/.bun/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-            "TMPDIR": "/private/tmp",
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
             "GBRAIN_SOURCE": "x-bookmarks",
-            "GBRAIN_CLI_PATH": str(self.query.EXPECTED_GBRAIN_CLI.resolve(strict=True)),
-            "GBRAIN_CONFIG_SHA256": self.query.hashlib.sha256(
-                self.query.DEFAULT_GBRAIN_CONFIG.read_bytes()
-            ).hexdigest(),
             "OPENAI_API_KEY": "synthetic-provider-override",
         }
+        module_url = (ROOT / "scripts" / "gbrain-pinned-environment.mjs").resolve().as_uri()
+        program = (
+            f'import {{ assertSafeEnvironment }} from {json.dumps(module_url)};'
+            'try { assertSafeEnvironment(process.env); process.exitCode = 2; } '
+            'catch { process.stdout.write("rejected"); }'
+        )
         result = subprocess.run(
-            [str(self.query.DEFAULT_BUN_CLI.resolve(strict=True)), "--no-env-file", str(self.query.PINNED_OPERATION_HELPER)],
-            input=json.dumps({"schema_version": 1, "source": "x-bookmarks", "operation": "version"}),
+            [node, "--input-type=module", "--eval", program],
             capture_output=True,
             text=True,
             env=environment,
-            cwd=str(ROOT / "scripts"),
             timeout=30,
             check=False,
         )
-        self.assertNotEqual(0, result.returncode)
-        self.assertEqual("", result.stdout)
+        self.assertEqual(0, result.returncode)
+        self.assertEqual("rejected", result.stdout)
+        self.assertEqual("", result.stderr)
         self.assertNotIn("synthetic-provider-override", result.stderr)
+
+    def test_pinned_operation_keeps_exact_runtime_and_environment_fences(self):
+        helper = self.query.PINNED_OPERATION_HELPER.read_text(encoding="utf-8")
+        self.assertIn(
+            'if (realpathSync(process.execPath) !== realpathSync("/opt/homebrew/bin/bun")) fail();',
+            helper,
+        )
+        self.assertIn('import { assertSafeEnvironment } from "./gbrain-pinned-environment.mjs";', helper)
+        self.assertIn("assertSafeEnvironment(process.env);", helper)
 
     def test_live_transport_rejects_default_launcher_redirected_to_unexpected_script(self):
         calls = []

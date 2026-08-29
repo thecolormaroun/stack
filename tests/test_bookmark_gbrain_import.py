@@ -24,6 +24,56 @@ SPEC_MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SPEC_MODULE)
 
 
+def install_fake_pinned_runtime(module, root: Path) -> dict[str, object]:
+    """Install a private test-only copy of the exact pinned-path topology."""
+
+    original = {
+        name: getattr(module, name)
+        for name in (
+            "ACCOUNT_HOME",
+            "DEFAULT_GBRAIN_CLI",
+            "EXPECTED_GBRAIN_CLI",
+            "DEFAULT_GBRAIN_CONFIG",
+            "DEFAULT_BUN_CLI",
+            "EXPECTED_BUN_CLI",
+            "FIXED_PATH",
+        )
+    }
+    account_home = root / "owner-home"
+    gbrain_home = account_home / ".gbrain"
+    gbrain_home.mkdir(parents=True)
+    account_home.chmod(0o700)
+    gbrain_home.chmod(0o700)
+
+    bun_target = root / "pinned" / "bun" / "1.3.14" / "bin" / "bun"
+    bun_target.parent.mkdir(parents=True)
+    bun_target.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    bun_target.chmod(0o700)
+    bun_launcher = root / "launcher" / "bin" / "bun"
+    bun_launcher.parent.mkdir(parents=True)
+    bun_launcher.symlink_to(bun_target)
+
+    cli_target = account_home / ".bun" / "install" / "global" / "node_modules" / "gbrain" / "src" / "cli.ts"
+    cli_target.parent.mkdir(parents=True)
+    cli_target.write_text("export {};\n", encoding="utf-8")
+    cli_target.chmod(0o700)
+    package = cli_target.parents[1] / "package.json"
+    package.write_text(json.dumps({"name": "gbrain", "version": "0.42.67.0"}), encoding="utf-8")
+    package.chmod(0o600)
+    cli_launcher = account_home / ".bun" / "bin" / "gbrain"
+    cli_launcher.parent.mkdir(parents=True)
+    cli_launcher.symlink_to(cli_target)
+
+    module.ACCOUNT_HOME = account_home
+    module.DEFAULT_GBRAIN_CLI = str(cli_launcher)
+    module.EXPECTED_GBRAIN_CLI = cli_target
+    module.DEFAULT_GBRAIN_CONFIG = gbrain_home / "config.json"
+    module.DEFAULT_BUN_CLI = bun_launcher
+    module.EXPECTED_BUN_CLI = bun_target
+    module.FIXED_PATH = f"{cli_launcher.parent}:{bun_launcher.parent}:/usr/bin:/bin"
+    return original
+
+
 class FakeTransport:
     def __init__(self, canary: bool = False, failures: int = 0) -> None:
         self.canary = canary
@@ -45,6 +95,10 @@ class BookmarkGBrainImportTests(unittest.TestCase):
     def setUp(self) -> None:
         source = json.loads(FIXTURE.read_text(encoding="utf-8"))
         self.snapshot = RECONCILE.reconcile_sources(source, {"version": 1})
+        self.private_runtime_directory = tempfile.TemporaryDirectory()
+        runtime_root = Path(self.private_runtime_directory.name).resolve()
+        runtime_root.chmod(0o700)
+        self._runtime_constants = install_fake_pinned_runtime(SPEC_MODULE, runtime_root)
         self.private_config_directory = tempfile.TemporaryDirectory()
         config_root = Path(self.private_config_directory.name).resolve()
         config_root.chmod(0o700)
@@ -58,7 +112,14 @@ class BookmarkGBrainImportTests(unittest.TestCase):
         self.resolved_cli = str(Path(self.approved_cli).resolve(strict=True))
 
     def tearDown(self) -> None:
+        for name, value in self._runtime_constants.items():
+            setattr(SPEC_MODULE, name, value)
         self.private_config_directory.cleanup()
+        self.private_runtime_directory.cleanup()
+
+    def cli_transport(self, **kwargs):
+        kwargs.setdefault("bun_path", SPEC_MODULE.DEFAULT_BUN_CLI)
+        return SPEC_MODULE.CliGBrainTransport(**kwargs)
 
     def test_transport_contract_is_versioned_and_dry_run_creates_no_markdown_directory(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -263,7 +324,7 @@ class BookmarkGBrainImportTests(unittest.TestCase):
                 stderr="token=should-not-escape",
             )
 
-        transport = SPEC_MODULE.CliGBrainTransport(
+        transport = self.cli_transport(
             cli_path=self.approved_cli, runner=runner, config_path=self.config_path,
         )
         result = transport.import_markdown_directory(
@@ -287,7 +348,7 @@ class BookmarkGBrainImportTests(unittest.TestCase):
         self.assertNotIn("token=should-not-escape", json.dumps(result))
 
     def test_installed_cli_import_errors_are_partial_or_failed_without_output_leak(self) -> None:
-        partial = SPEC_MODULE.CliGBrainTransport(
+        partial = self.cli_transport(
             cli_path=self.approved_cli,
             config_path=self.config_path,
             runner=lambda *_args, **_kwargs: SimpleNamespace(
@@ -298,7 +359,7 @@ class BookmarkGBrainImportTests(unittest.TestCase):
         ).import_markdown_directory(
             source="x-bookmarks", documents=[{"identity": "bookmark:opaque", "_directory": "/tmp/owner-markdown"}], idempotency_key="x-bookmarks:" + "b" * 64,
         )
-        failed = SPEC_MODULE.CliGBrainTransport(
+        failed = self.cli_transport(
             cli_path=self.approved_cli,
             config_path=self.config_path,
             runner=lambda *_args, **_kwargs: SimpleNamespace(returncode=9, stdout="{}", stderr="raw provider failure"),
@@ -325,14 +386,14 @@ class BookmarkGBrainImportTests(unittest.TestCase):
                 "chunk_text": "Evidence identity: " + identity,
             }]), stderr="")
 
-        transport = SPEC_MODULE.CliGBrainTransport(
+        transport = self.cli_transport(
             cli_path=self.approved_cli, runner=runner, config_path=self.config_path,
         )
         self.assertEqual(transport.text_canary(source="x-bookmarks", identity=identity)["status"], "indexed")
         self.assertEqual(calls[0]["argv"][0:2], [str(SPEC_MODULE.DEFAULT_BUN_CLI.resolve(strict=True)), "--no-env-file"])
         self.assertTrue(calls[0]["argv"][2].endswith("gbrain-pinned-operation.ts"))
 
-        missing = SPEC_MODULE.CliGBrainTransport(
+        missing = self.cli_transport(
             cli_path=self.approved_cli,
             config_path=self.config_path,
             runner=lambda *_args, **_kwargs: SimpleNamespace(returncode=0, stdout=json.dumps([{
@@ -369,7 +430,7 @@ class BookmarkGBrainImportTests(unittest.TestCase):
                 }]
             return SimpleNamespace(returncode=0, stdout=json.dumps(payload), stderr="")
 
-        transport = SPEC_MODULE.CliGBrainTransport(
+        transport = self.cli_transport(
             cli_path=self.approved_cli, runner=runner, config_path=self.config_path,
         )
         ambient_overrides = {
@@ -420,7 +481,7 @@ class BookmarkGBrainImportTests(unittest.TestCase):
 
     def test_cli_rejects_unpinned_bun_before_any_subprocess(self) -> None:
         calls = []
-        transport = SPEC_MODULE.CliGBrainTransport(
+        transport = self.cli_transport(
             cli_path=self.approved_cli,
             bun_path="bun",
             config_path=self.config_path,
@@ -439,7 +500,7 @@ class BookmarkGBrainImportTests(unittest.TestCase):
         alternate.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
         alternate.chmod(0o700)
         calls = []
-        transport = SPEC_MODULE.CliGBrainTransport(
+        transport = self.cli_transport(
             cli_path=self.approved_cli,
             bun_path=str(alternate),
             config_path=self.config_path,
@@ -461,7 +522,7 @@ class BookmarkGBrainImportTests(unittest.TestCase):
         launcher.symlink_to(unexpected)
         calls = []
         with mock.patch.object(SPEC_MODULE, "DEFAULT_GBRAIN_CLI", str(launcher)):
-            transport = SPEC_MODULE.CliGBrainTransport(
+            transport = self.cli_transport(
                 config_path=self.config_path,
                 runner=lambda *args, **kwargs: calls.append((args, kwargs)),
             )
@@ -475,7 +536,7 @@ class BookmarkGBrainImportTests(unittest.TestCase):
 
     def test_cli_rejects_nonapproved_gbrain_script_before_any_subprocess(self) -> None:
         calls = []
-        transport = SPEC_MODULE.CliGBrainTransport(
+        transport = self.cli_transport(
             cli_path="/tmp/not-gbrain.ts",
             config_path=self.config_path,
             runner=lambda *args, **kwargs: calls.append((args, kwargs)),
@@ -546,7 +607,7 @@ class BookmarkGBrainImportTests(unittest.TestCase):
 
     def test_programmatic_live_cli_transport_requires_existing_native_inventory(self) -> None:
         calls = []
-        transport = SPEC_MODULE.CliGBrainTransport(
+        transport = self.cli_transport(
             cli_path=self.approved_cli,
             config_path=self.config_path,
             runner=lambda *args, **kwargs: calls.append((args, kwargs)),

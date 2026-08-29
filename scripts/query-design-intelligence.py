@@ -15,6 +15,7 @@ import importlib.util
 import json
 import math
 import os
+import pwd
 import re
 import stat
 import subprocess
@@ -23,6 +24,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import unquote, urlparse
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +32,10 @@ SOURCE = "x-bookmarks"
 SCHEMA_VERSION = 1
 RRF_K = 60
 REQUEST_FIELDS = {"schema_version", "request_id", "source", "target", "context", "filters", "freshness", "top_k"}
+SOURCE_GRANT_FIELDS = {
+    "schema_version", "grant_id", "owner_identity", "source", "target_identity",
+    "locator_scopes", "expires_at", "egress_contract", "allowed_cli_versions",
+}
 CONTEXT_FIELDS = {
     "project", "repository", "route", "component", "viewport", "device",
     "brief", "code", "markup", "screenshot",
@@ -40,11 +46,102 @@ TARGET_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 TARGET_ID_RE = re.compile(r"^local-target:[a-z0-9][a-z0-9-]*$")
 OWNER_ID_RE = re.compile(r"^local-owner:[a-z0-9][a-z0-9-]*$")
 LOCATOR_RE = re.compile(r"^gbrain:x-bookmarks/[A-Za-z0-9._~/-]+$")
+BOOKMARK_SLUG_RE = re.compile(r"^(?:bookmarks/[A-Za-z0-9._~/-]+|bookmark-[a-f0-9]{32})$")
 TERM_RE = re.compile(r"[a-z][a-z0-9-]{1,63}")
+DESIGN_QUERY_PRIORITY = (
+    "hierarchy", "navigation", "layout", "typography", "motion", "responsive",
+    "mobile", "dashboard", "table", "filters", "form", "modal", "sidebar",
+)
+SAFE_RECEIPT_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+CLI_VERSION_RE = re.compile(r"^(?:gbrain\s+)?([0-9][A-Za-z0-9._-]{0,63})$")
+ACCOUNT_HOME = Path(pwd.getpwuid(os.getuid()).pw_dir).resolve()
+SAFE_SUBPROCESS_ENV_KEYS = ("PATH", "HOME", "TMPDIR")
+DEFAULT_GBRAIN_CLI = str(ACCOUNT_HOME / ".bun" / "bin" / "gbrain")
+EXPECTED_GBRAIN_CLI = ACCOUNT_HOME / ".bun" / "install" / "global" / "node_modules" / "gbrain" / "src" / "cli.ts"
+DEFAULT_BUN_CLI = Path("/opt/homebrew/bin/bun")
+EXPECTED_BUN_CLI = Path("/opt/homebrew/Cellar/bun/1.3.14/bin/bun")
+DEFAULT_GBRAIN_CONFIG = ACCOUNT_HOME / ".gbrain" / "config.json"
+PINNED_OPERATION_HELPER = ROOT / "scripts" / "gbrain-pinned-operation.ts"
+LIVE_EGRESS_CONTRACT = "gbrain-keyword-fts-no-provider-v1"
+SUPPORTED_LIVE_CLI_VERSIONS = frozenset({"0.42.67.0"})
+ALLOWED_LOCATOR_SCOPES = frozenset({"bookmarks/", "bookmark-"})
+ALLOWED_LOCAL_POSTGRES_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
+ALLOWED_LOCAL_POSTGRES_PORTS = frozenset({5432})
+ALLOWED_LOCAL_POSTGRES_DATABASES = frozenset({"gbrain_mookie"})
 
 
 class RetrievalError(ValueError):
     """A fail-closed authorization, request, transport, or response error."""
+
+
+_TARGET_BINDING_TOKEN = object()
+_SOURCE_GRANT_TOKEN = object()
+
+
+def _trusted_bun_executable(path: str | Path) -> str | None:
+    lexical = Path(path)
+    if lexical != DEFAULT_BUN_CLI:
+        return None
+    try:
+        resolved = lexical.resolve(strict=True)
+        expected = EXPECTED_BUN_CLI.resolve(strict=True)
+        details = resolved.lstat()
+    except OSError:
+        return None
+    if (
+        resolved != expected
+        or not stat.S_ISREG(details.st_mode)
+        or details.st_uid != os.getuid()
+        or stat.S_IMODE(details.st_mode) & 0o022
+        or not os.access(resolved, os.X_OK)
+    ):
+        return None
+    return str(resolved)
+
+
+def _trusted_gbrain_cli(path: str | Path) -> str | None:
+    lexical = Path(path)
+    if lexical != Path(DEFAULT_GBRAIN_CLI):
+        return None
+    try:
+        resolved = lexical.resolve(strict=True)
+        expected = EXPECTED_GBRAIN_CLI.resolve(strict=True)
+        details = resolved.lstat()
+        package = json.loads((expected.parents[1] / "package.json").read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    if (
+        resolved != expected
+        or not stat.S_ISREG(details.st_mode)
+        or details.st_uid != os.getuid()
+        or stat.S_IMODE(details.st_mode) & 0o022
+        or not os.access(resolved, os.X_OK)
+        or not isinstance(package, dict)
+        or package.get("name") != "gbrain"
+        or package.get("version") != "0.42.67.0"
+    ):
+        return None
+    return str(resolved)
+
+
+class _TrustedTarget(dict[str, str]):
+    """Internal capability produced only after owner-local manifest validation."""
+
+    __slots__ = ("_binding_token",)
+
+    def __init__(self, *, name: str, identity: str, manifest_digest: str) -> None:
+        super().__init__(name=name, identity=identity, manifest_digest=manifest_digest)
+        self._binding_token = _TARGET_BINDING_TOKEN
+
+
+class _TrustedSourceGrant(dict[str, Any]):
+    """Internal capability produced only after owner-local grant validation."""
+
+    __slots__ = ("_binding_token",)
+
+    def __init__(self, **values: Any) -> None:
+        super().__init__(values)
+        self._binding_token = _SOURCE_GRANT_TOKEN
 
 
 def canonical_json(value: Any) -> str:
@@ -143,7 +240,7 @@ def _load_overlay_module() -> Any:
     return module
 
 
-def validate_target(request: dict[str, Any], manifest_path: Path) -> dict[str, str]:
+def validate_target(request: dict[str, Any], manifest_path: Path) -> _TrustedTarget:
     target = request.get("target")
     if not isinstance(target, dict) or set(target) != {"name", "identity", "owner_identity"}:
         raise RetrievalError("request target must contain name, identity, and owner_identity")
@@ -164,7 +261,74 @@ def validate_target(request: dict[str, Any], manifest_path: Path) -> dict[str, s
         manifest_digest = hashlib.sha256(manifest.read_bytes()).hexdigest()
     except OSError as exc:
         raise RetrievalError("trusted target attestation failed") from exc
-    return {"name": name, "identity": identity, "manifest_digest": manifest_digest}
+    return _TrustedTarget(name=name, identity=identity, manifest_digest=manifest_digest)
+
+
+def _load_owner_capability(path: Path, label: str) -> tuple[dict[str, Any], str]:
+    capability = owner_local_path(path, label)
+    try:
+        parent = capability.parent.stat()
+        details = capability.stat()
+        payload = capability.read_bytes()
+        value = json.loads(payload.decode("utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise RetrievalError(f"{label} is unavailable") from exc
+    if (
+        capability.is_symlink()
+        or not capability.is_file()
+        or capability.parent.is_symlink()
+        or parent.st_uid != os.getuid()
+        or details.st_uid != os.getuid()
+        or stat.S_IMODE(parent.st_mode) != 0o700
+        or stat.S_IMODE(details.st_mode) != 0o600
+        or not isinstance(value, dict)
+    ):
+        raise RetrievalError(f"{label} requires owner-only file mode 0600 in directory mode 0700")
+    return value, hashlib.sha256(payload).hexdigest()
+
+
+def validate_source_grant(
+    request: dict[str, Any], target: _TrustedTarget, grant_path: Path,
+) -> _TrustedSourceGrant:
+    value, grant_digest = _load_owner_capability(grant_path, "trusted source grant")
+    if set(value) != SOURCE_GRANT_FIELDS or value.get("schema_version") != SCHEMA_VERSION:
+        raise RetrievalError("trusted source grant fields are invalid")
+    grant_id = value.get("grant_id")
+    owner_identity = value.get("owner_identity")
+    target_identity = value.get("target_identity")
+    scopes = value.get("locator_scopes")
+    versions = value.get("allowed_cli_versions")
+    expires_at = _parse_time(value.get("expires_at"))
+    as_of = _parse_time(request.get("freshness", {}).get("as_of"))
+    if not isinstance(grant_id, str) or not OPAQUE_RE.fullmatch(grant_id):
+        raise RetrievalError("trusted source grant identity is invalid")
+    if owner_identity != request["target"]["owner_identity"] or target_identity != target["identity"]:
+        raise RetrievalError("trusted source grant target binding is invalid")
+    if value.get("source") != SOURCE or value.get("egress_contract") != LIVE_EGRESS_CONTRACT:
+        raise RetrievalError("trusted source grant source contract is invalid")
+    if (
+        not isinstance(scopes, list) or not scopes or len(scopes) != len(set(scopes))
+        or not all(isinstance(scope, str) and scope in ALLOWED_LOCATOR_SCOPES for scope in scopes)
+    ):
+        raise RetrievalError("trusted source grant locator scopes are invalid")
+    if (
+        not isinstance(versions, list) or not versions or len(versions) != len(set(versions))
+        or not all(isinstance(version, str) and version in SUPPORTED_LIVE_CLI_VERSIONS for version in versions)
+    ):
+        raise RetrievalError("trusted source grant CLI versions are invalid")
+    if expires_at is None or as_of is None or expires_at <= as_of or expires_at <= _utc_now():
+        raise RetrievalError("trusted source grant is expired")
+    return _TrustedSourceGrant(
+        grant_id=grant_id,
+        owner_identity=owner_identity,
+        source=SOURCE,
+        target_identity=target_identity,
+        locator_scopes=tuple(sorted(scopes)),
+        expires_at=expires_at.isoformat(),
+        egress_contract=LIVE_EGRESS_CONTRACT,
+        allowed_cli_versions=tuple(sorted(versions)),
+        grant_digest=grant_digest,
+    )
 
 
 def _parse_time(value: Any) -> datetime | None:
@@ -182,6 +346,12 @@ def _parse_time(value: Any) -> datetime | None:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
+
+
+def _utc_now() -> datetime:
+    """Return the authoritative execution clock for expiring live grants."""
+
+    return datetime.now(timezone.utc)
 
 
 def _terms(value: Any) -> set[str]:
@@ -206,12 +376,26 @@ def _request_query(request: dict[str, Any]) -> str:
         context.get("component"), context.get("device"), context.get("brief"),
         context.get("code"), context.get("markup"),
     ]
-    terms = sorted(_terms(values))
+    terms = _terms(values)
     filters = request.get("filters", {})
     exact_values = [str(filters[key]) for key in ("evidence_id", "author", "date", "folder", "url") if filters.get(key)]
     if not terms and not exact_values:
         raise RetrievalError("request context has no searchable terms")
-    return " ".join(exact_values + terms[:64])[:4096]
+    component_terms = TERM_RE.findall(str(context.get("component", "")).lower())
+    focused: list[str] = []
+    for term in [*(component_terms[:1]), "interface", "design"]:
+        if term not in focused:
+            focused.append(term)
+    for term in DESIGN_QUERY_PRIORITY:
+        if term in terms and term not in focused:
+            focused.append(term)
+            break
+    if not component_terms:
+        for term in sorted(terms):
+            if term not in focused:
+                focused.insert(0, term)
+                break
+    return " ".join(exact_values + focused)[:4096]
 
 
 def validate_request(request: dict[str, Any]) -> None:
@@ -289,8 +473,8 @@ def _candidate(value: Any) -> dict[str, Any] | None:
     image_terms = sorted(_terms(value.get("image_terms", [])))
     metadata = value.get("metadata") if isinstance(value.get("metadata"), dict) else {}
     targets = value.get("authorized_target_identities")
-    if targets is not None and (
-        not isinstance(targets, list)
+    if (
+        not isinstance(targets, list) or not targets
         or not all(isinstance(item, str) and TARGET_ID_RE.fullmatch(item) for item in targets)
     ):
         return None
@@ -308,7 +492,8 @@ def _candidate(value: Any) -> dict[str, Any] | None:
         "metadata": metadata,
         "indexed_at": value.get("indexed_at"),
         "media_state": media_state,
-        "authorized_target_identities": list(targets) if isinstance(targets, list) else None,
+        "authorized_target_identities": list(targets),
+        "reported_stale": value.get("reported_stale") is True,
         "transport_score": float(value.get("transport_score", 0.0)) if isinstance(value.get("transport_score", 0.0), (int, float)) else 0.0,
     }
 
@@ -328,18 +513,29 @@ def _rank_map(values: list[dict[str, Any]]) -> dict[str, int]:
     return {row["candidate_id"]: index for index, row in enumerate(values, start=1)}
 
 
-def _result_age(candidate: dict[str, Any], as_of: datetime) -> int | None:
+def _result_freshness(candidate: dict[str, Any], as_of: datetime) -> tuple[int | None, str]:
     indexed = _parse_time(candidate.get("indexed_at"))
     if indexed is None:
-        return None
-    return max(0, int((as_of - indexed).total_seconds() // 86400))
+        return None, "missing"
+    if indexed > as_of:
+        return None, "future"
+    return int((as_of - indexed).total_seconds() // 86400), "fresh"
 
 
 def retrieve(
     request: dict[str, Any], *, target_manifest: Path, transport: Any,
+    source_grant: Path | None = None,
 ) -> dict[str, Any]:
     validate_request(request)
     target = validate_target(request, target_manifest)
+    trusted_grant: _TrustedSourceGrant | None = None
+    if bool(getattr(transport, "requires_source_grant", False)):
+        if source_grant is None:
+            raise RetrievalError("live retrieval requires a trusted source grant")
+        trusted_grant = validate_source_grant(request, target, source_grant)
+    bind_target = getattr(transport, "bind_trusted_target", None)
+    if callable(bind_target):
+        bind_target(target, request["freshness"], trusted_grant)
     query = _request_query(request)
     top_k = request["top_k"]
     filters = request.get("filters", {})
@@ -359,7 +555,7 @@ def retrieve(
             if normalized is None:
                 continue
             targets = normalized["authorized_target_identities"]
-            if targets is not None and target["identity"] not in targets:
+            if target["identity"] not in targets:
                 continue
             rows.append(normalized)
         return rows
@@ -402,11 +598,21 @@ def retrieve(
     scored.sort(key=lambda row: (-row[0], row[1]["candidate_id"]))
     results: list[dict[str, Any]] = []
     stale_count = 0
+    future_count = 0
     max_age = request["freshness"]["max_age_days"]
     for rank, (score, candidate, reasons) in enumerate(scored[:top_k], start=1):
-        age = _result_age(candidate, as_of)
-        stale = age is None or age > max_age
+        age, freshness_state = _result_freshness(candidate, as_of)
+        stale = freshness_state != "fresh" or age is not None and age > max_age or candidate["reported_stale"]
         stale_count += int(stale)
+        future_count += int(freshness_state == "future")
+        if freshness_state == "missing":
+            uncertainty = "Index date is unavailable."
+        elif freshness_state == "future":
+            uncertainty = "Result date is in the future of the pinned request."
+        elif stale:
+            uncertainty = "Result exceeds the requested freshness window."
+        else:
+            uncertainty = "Ranking is deterministic for the pinned request and index response."
         results.append({
             "rank": rank,
             "candidate_id": candidate["candidate_id"],
@@ -416,12 +622,12 @@ def retrieve(
             "citation_locator": candidate["citation_locator"],
             "similarity_score": round(score, 12),
             "similarity_reasons": reasons or ["source-scoped-retrieval"],
-            "uncertainty": "Index date is unavailable." if age is None else ("Result exceeds the requested freshness window." if stale else "Ranking is deterministic for the pinned request and index response."),
+            "uncertainty": uncertainty,
             "media_state": candidate["media_state"],
             "freshness_age_days": age,
             "stale": stale,
         })
-    valid_text_states = {"complete", "partial", "unavailable", "failed"}
+    valid_text_states = {"complete", "partial", "empty", "unavailable", "failed"}
     valid_image_states = {"complete", "partial", "not_requested", "unavailable", "failed"}
     text_state = str(text_response.get("state", "failed"))
     image_state = str(image_response.get("state", "not_requested"))
@@ -431,6 +637,9 @@ def retrieve(
         image_state = "failed"
     missing_modalities: list[str] = []
     degradations: list[str] = []
+    reason_code = text_response.get("reason_code")
+    if not isinstance(reason_code, str) or not re.fullmatch(r"[a-z0-9-]{1,64}", reason_code):
+        reason_code = None
     if text_state in {"unavailable", "failed"}:
         missing_modalities.append("text")
         degradations.append("text-unavailable")
@@ -443,34 +652,53 @@ def retrieve(
         degradations.append("image-partial")
     if stale_count:
         degradations.append("stale-index")
+    if future_count:
+        degradations.append("future-index")
     if results and len(results) < 3:
         degradations.append("sparse-results")
     if text_state in {"failed", "unavailable"} and not results:
         status = "failed"
     elif not results:
-        status = "empty"
+        status = "degraded" if text_state == "partial" else "empty"
     elif degradations or text_state not in {"complete", "partial"}:
         status = "degraded"
     else:
         status = "complete"
-    index_versions = sorted({str(value) for value in (text_response.get("index_version"), image_response.get("index_version")) if value})
-    model_versions = sorted({str(value) for value in (text_response.get("model_version"), image_response.get("model_version")) if value})
+    index_versions = sorted({str(value) for value in (text_response.get("index_version"), image_response.get("index_version")) if isinstance(value, str) and SAFE_RECEIPT_RE.fullmatch(value)})
+    model_versions = sorted({str(value) for value in (text_response.get("model_version"), image_response.get("model_version")) if isinstance(value, str) and SAFE_RECEIPT_RE.fullmatch(value)})
+    source_freshness = text_response.get("source_freshness_at")
+    freshness_as_of = source_freshness if isinstance(source_freshness, str) and _parse_time(source_freshness) is not None else request["freshness"]["as_of"]
+    receipt_binding = {
+        "source": SOURCE,
+        "manifest_digest": target["manifest_digest"],
+        "source_grant_digest": trusted_grant["grant_digest"] if trusted_grant is not None else None,
+        "index_versions": index_versions or ["unknown"],
+        "model_versions": model_versions or ["unknown"],
+        "freshness_as_of": freshness_as_of,
+        "egress_contract": LIVE_EGRESS_CONTRACT if trusted_grant is not None else "fixture-programmatic-v1",
+    }
     response: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
-        "response_id": opaque("response", {"request": request, "target_manifest_digest": target["manifest_digest"], "results": [row["candidate_id"] for row in results]}),
+        "response_id": opaque("response", {"request": request, "receipt_binding": receipt_binding, "results": [row["candidate_id"] for row in results]}),
         "request_id": request["request_id"],
         "request_digest": digest(request),
         "status": status,
         "source": SOURCE,
         "target": target,
+        "authorization": {
+            "mode": "source-wide-owner-grant-v1" if trusted_grant is not None else "per-result-fixture-v1",
+            "target_manifest_digest": target["manifest_digest"],
+            "source_grant_digest": trusted_grant["grant_digest"] if trusted_grant is not None else None,
+        },
         "results": results,
         "result_count": len(results),
         "missing_modalities": missing_modalities,
         "degradations": sorted(set(degradations)),
+        "reason_code": reason_code,
         "index": {
-            "versions": index_versions or ["unknown"],
-            "model_versions": model_versions or ["unknown"],
-            "freshness_as_of": request["freshness"]["as_of"],
+            "versions": receipt_binding["index_versions"],
+            "model_versions": receipt_binding["model_versions"],
+            "freshness_as_of": freshness_as_of,
             "max_age_days": max_age,
             "stale_result_count": stale_count,
         },
@@ -482,11 +710,14 @@ def retrieve(
         },
         "safety": {
             "target_attested": True,
+            "source_grant_attested": trusted_grant is not None or not bool(getattr(transport, "requires_source_grant", False)),
             "source_scope_enforced": True,
             "configuration_changed": False,
             "reindex_attempted": False,
             "paid_fallback_attempted": False,
             "external_write_attempted": False,
+            "egress_contract": receipt_binding["egress_contract"],
+            "provider_calls": 0,
         },
     }
     response["response_digest"] = digest(response)
@@ -504,19 +735,39 @@ def evaluate_ranking(ranked_ids: list[str], qrels: dict[str, int], *, k: int = 5
 
 
 def _parse_cli_json(stdout: str) -> Any:
-    for match in re.finditer(r"(?m)^[\[{]", stdout):
-        try:
-            return json.loads(stdout[match.start():])
-        except json.JSONDecodeError:
-            continue
-    raise RetrievalError("GBrain returned no valid JSON payload")
+    if not isinstance(stdout, str) or not stdout.strip():
+        raise RetrievalError("GBrain returned no valid JSON payload")
+    try:
+        return json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        raise RetrievalError("GBrain returned invalid JSON") from exc
 
 
 def _gbrain_candidate(value: Any) -> dict[str, Any] | None:
     if not isinstance(value, dict) or value.get("source_id") != SOURCE:
         return None
+    if value.get("unverified") is True or value.get("archived") is True or value.get("corrupted") is True:
+        return None
     slug = value.get("slug")
     if not isinstance(slug, str) or not re.fullmatch(r"[A-Za-z0-9._~/-]+", slug):
+        return None
+    if (
+        not isinstance(value.get("page_id"), int)
+        or isinstance(value.get("page_id"), bool)
+        or not isinstance(value.get("chunk_id"), int)
+        or isinstance(value.get("chunk_id"), bool)
+        or not isinstance(value.get("chunk_text"), str)
+        or not value["chunk_text"]
+        or not isinstance(value.get("stale"), bool)
+        or not isinstance(value.get("score"), (int, float))
+        or isinstance(value.get("score"), bool)
+        or not math.isfinite(float(value["score"]))
+    ):
+        return None
+    if value.get("effective_date") is not None and _parse_time(value.get("effective_date")) is None:
+        return None
+    modality = str(value.get("modality", "text")).lower()
+    if modality != "text":
         return None
     text_parts = [
         value.get(key) for key in ("title", "chunk_text", "evidence")
@@ -528,57 +779,483 @@ def _gbrain_candidate(value: Any) -> dict[str, Any] | None:
     metadata: dict[str, str] = {}
     for match in re.finditer(r"(?im)^(author|date|folder|url):\s*(.+?)\s*$", text):
         metadata[match.group(1).lower()] = match.group(2)
-    modality = str(value.get("modality", "")).lower()
-    has_media = modality in {"image", "multimodal"} or bool(value.get("image_path") or value.get("image_url"))
     return {
         "candidate_id": opaque("candidate", {"source": SOURCE, "slug": slug, "chunk_id": value.get("chunk_id")}),
         "evidence_id": opaque("evidence", source_identity),
         "source": SOURCE,
         "citation_locator": f"gbrain:{SOURCE}/{slug}",
-        "media_identity": opaque("media", {"slug": slug, "chunk_id": value.get("chunk_id")}) if has_media else None,
+        "media_identity": None,
         "text_terms": sorted(_terms(text)),
-        "image_terms": sorted(_terms(value.get("ocr_text", ""))),
+        "image_terms": [],
         "metadata": metadata,
         "indexed_at": value.get("effective_date"),
-        "media_state": "resolved" if has_media else "unknown",
-        "transport_score": value.get("score", 0.0),
+        "media_state": "unavailable",
+        "reported_stale": value["stale"],
+        "transport_score": value["score"],
     }
 
 
 class CliGBrainTransport:
-    """Read-only adapter for the installed GBrain call surface."""
+    """Opt-in, text-only GBrain adapter with a target-bound read receipt."""
 
-    def __init__(self, cli_path: str | None = None, runner: Callable[..., Any] | None = None) -> None:
-        self.cli_path = cli_path or os.environ.get("GBRAIN_CLI", os.path.expanduser("~/.bun/bin/gbrain"))
+    requires_source_grant = True
+
+    def __init__(
+        self,
+        cli_path: str | None = None,
+        runner: Callable[..., Any] | None = None,
+        *,
+        live: bool = False,
+        version_provider: Callable[[], str] | None = None,
+        bun_path: str | Path | None = None,
+        keyword_runner: Callable[..., Any] | None = None,
+        gbrain_config_path: Path | None = None,
+        now_provider: Callable[[], datetime] | None = None,
+    ) -> None:
+        self.cli_path = cli_path or DEFAULT_GBRAIN_CLI
         self.runner = runner or subprocess.run
+        self.live = live
+        self.version_provider = version_provider
+        self.bun_path = bun_path or DEFAULT_BUN_CLI
+        self.keyword_runner = keyword_runner or runner or subprocess.run
+        self.gbrain_config_path = gbrain_config_path or DEFAULT_GBRAIN_CONFIG
+        self.now_provider = now_provider or _utc_now
+        self._trusted_target: _TrustedTarget | None = None
+        self._source_grant: _TrustedSourceGrant | None = None
+        self._freshness: dict[str, Any] | None = None
+        self._attestation: dict[str, str] | None = None
+        self._attestation_state = "unavailable"
+        self._attestation_reason = "trusted-target-unbound"
 
-    def _call(self, tool: str, arguments: dict[str, Any]) -> dict[str, Any]:
-        payload = json.dumps(arguments, separators=(",", ":"), sort_keys=True)
-        argv = [self.cli_path, "call", tool, payload]
-        environment = os.environ.copy()
-        environment["GBRAIN_SOURCE"] = SOURCE
+    @staticmethod
+    def _environment() -> dict[str, str]:
+        return {
+            "PATH": f"{ACCOUNT_HOME}/.bun/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "HOME": str(ACCOUNT_HOME),
+            "TMPDIR": "/private/tmp",
+            "GBRAIN_SOURCE": SOURCE,
+        }
+
+    def _grant_current(self) -> bool:
+        if self._source_grant is None:
+            return False
+        expires_at = _parse_time(self._source_grant.get("expires_at"))
         try:
-            result = self.runner(argv, capture_output=True, text=True, env=environment, timeout=30, check=False)
+            now = self.now_provider()
+            return expires_at is not None and isinstance(now, datetime) and expires_at > now
+        except Exception:
+            return False
+
+    def _local_backend_digest(self) -> str | None:
+        """Attest and bind a fixed owner-local backend without connecting."""
+
+        lexical = Path(self.gbrain_config_path)
+        try:
+            resolved = lexical.resolve(strict=True)
+            details = resolved.lstat()
+            parent = resolved.parent.lstat()
+            payload = resolved.read_bytes()
+            value = json.loads(payload.decode("utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            return None
+        if (
+            lexical.is_symlink()
+            or lexical.parent.is_symlink()
+            or resolved != lexical
+            or resolved != DEFAULT_GBRAIN_CONFIG and self.gbrain_config_path == DEFAULT_GBRAIN_CONFIG
+            or not stat.S_ISREG(details.st_mode)
+            or details.st_uid != os.getuid()
+            or parent.st_uid != os.getuid()
+            or stat.S_IMODE(details.st_mode) != 0o600
+            or stat.S_IMODE(parent.st_mode) & 0o022
+            or not isinstance(value, dict)
+        ):
+            return None
+        engine = value.get("engine")
+        if engine == "postgres":
+            url_value = value.get("database_url")
+            if not isinstance(url_value, str):
+                return None
+            try:
+                parsed = urlparse(url_value)
+                port = parsed.port
+            except ValueError:
+                return None
+            database = unquote(parsed.path.lstrip("/"))
+            allowed = (
+                parsed.scheme in {"postgres", "postgresql"}
+                and parsed.hostname in ALLOWED_LOCAL_POSTGRES_HOSTS
+                and port in ALLOWED_LOCAL_POSTGRES_PORTS
+                and database in ALLOWED_LOCAL_POSTGRES_DATABASES
+                and not parsed.params
+                and not parsed.query
+                and not parsed.fragment
+            )
+            return hashlib.sha256(payload).hexdigest() if allowed else None
+        if engine != "pglite" or value.get("database_url") is not None:
+            return None
+        database_path = value.get("database_path")
+        if not isinstance(database_path, str):
+            return None
+        lexical_database = Path(database_path).expanduser()
+        try:
+            resolved_database = lexical_database.resolve(strict=True)
+            db_details = resolved_database.lstat()
+            resolved_database.relative_to(ACCOUNT_HOME / ".gbrain")
+        except (OSError, ValueError):
+            return None
+        allowed = (
+            lexical_database.is_absolute()
+            and not lexical_database.is_symlink()
+            and resolved_database == lexical_database
+            and db_details.st_uid == os.getuid()
+            and stat.S_IMODE(db_details.st_mode) & 0o022 == 0
+        )
+        return hashlib.sha256(payload).hexdigest() if allowed else None
+
+    def _local_backend_allowed(self) -> bool:
+        return self._local_backend_digest() is not None
+
+    def bind_trusted_target(
+        self,
+        target: _TrustedTarget,
+        freshness: dict[str, Any],
+        source_grant: _TrustedSourceGrant | None,
+    ) -> None:
+        if not isinstance(target, _TrustedTarget) or target._binding_token is not _TARGET_BINDING_TOKEN:
+            raise RetrievalError("live retrieval requires a manifest-attested target")
+        if (
+            not isinstance(source_grant, _TrustedSourceGrant)
+            or source_grant._binding_token is not _SOURCE_GRANT_TOKEN
+            or source_grant.get("source") != SOURCE
+            or source_grant.get("target_identity") != target["identity"]
+        ):
+            raise RetrievalError("live retrieval requires an attested source grant")
+        as_of = _parse_time(freshness.get("as_of") if isinstance(freshness, dict) else None)
+        max_age = freshness.get("max_age_days") if isinstance(freshness, dict) else None
+        if as_of is None or not isinstance(max_age, int) or isinstance(max_age, bool) or max_age < 0:
+            raise RetrievalError("live retrieval requires validated freshness")
+        self._trusted_target = target
+        self._source_grant = source_grant
+        self._freshness = {"as_of": as_of, "max_age_days": max_age}
+        self._attestation = None
+        self._attestation_state = "unavailable"
+        self._attestation_reason = "source-attestation-not-run"
+
+    @staticmethod
+    def _command_allowed(argv: list[str]) -> bool:
+        if len(argv) == 2 and argv[1] == "--version":
+            return True
+        if len(argv) != 4 or argv[1:3] != ["call", "sources_status"]:
+            return False
+        try:
+            payload = json.loads(argv[3])
+        except (TypeError, json.JSONDecodeError):
+            return False
+        return isinstance(payload, dict) and payload == {"id": SOURCE}
+
+    def _receipt(self, state: str, reason_code: str, *, attestation: dict[str, str] | None = None) -> dict[str, Any]:
+        bound = attestation or self._attestation
+        response = {
+            "state": state,
+            "results": [],
+            "index_version": bound["index_version"] if bound else "unknown",
+            "model_version": bound["model_version"] if bound else "unknown",
+            "reason_code": reason_code,
+            "egress_contract": LIVE_EGRESS_CONTRACT,
+            "provider_calls": 0,
+        }
+        if bound:
+            response["source"] = bound["source"]
+            response["manifest_digest"] = bound["manifest_digest"]
+            response["source_grant_digest"] = bound["source_grant_digest"]
+            response["source_freshness_at"] = bound["source_freshness_at"]
+        return response
+
+    def _run(self, argv: list[str]) -> tuple[str | None, str]:
+        if not self._command_allowed(argv):
+            return None, "failed"
+        if not self._grant_current():
+            return None, "grant-expired"
+        bun_executable = _trusted_bun_executable(self.bun_path)
+        gbrain_cli = _trusted_gbrain_cli(self.cli_path)
+        config_digest = self._local_backend_digest()
+        if bun_executable is None or gbrain_cli is None or config_digest is None or not argv or argv[0] != self.cli_path:
+            return None, "failed"
+        operation = "version" if len(argv) == 2 and argv[1] == "--version" else "sources_status"
+        try:
+            helper = PINNED_OPERATION_HELPER.resolve(strict=True)
+            if helper != PINNED_OPERATION_HELPER or helper.is_symlink() or helper.stat().st_uid != os.getuid():
+                return None, "failed"
+            environment = self._environment()
+            environment["GBRAIN_CLI_PATH"] = gbrain_cli
+            environment["GBRAIN_CONFIG_SHA256"] = config_digest
+            result = self.runner(
+                [bun_executable, "--no-env-file", str(helper)],
+                input=canonical_json({"schema_version": 1, "source": SOURCE, "operation": operation}),
+                capture_output=True,
+                text=True,
+                env=environment,
+                cwd=str(PINNED_OPERATION_HELPER.parent),
+                timeout=30,
+                check=False,
+            )
         except (OSError, subprocess.TimeoutExpired):
-            return {"state": "unavailable", "results": [], "index_version": "gbrain-cli", "model_version": "unknown"}
-        if result.returncode != 0:
-            return {"state": "failed", "results": [], "index_version": "gbrain-cli", "model_version": "unknown"}
+            return None, "unavailable"
+        if getattr(result, "returncode", 1) != 0:
+            return None, "failed"
+        stdout = getattr(result, "stdout", None)
+        return (stdout, "complete") if isinstance(stdout, str) else (None, "failed")
+
+    def _run_keyword(self, query: str, limit: int) -> tuple[str | None, str]:
+        """Run the pinned direct FTS adapter without configuring an AI gateway."""
+
+        if (
+            not isinstance(query, str)
+            or not query
+            or len(query) > 4096
+            or not isinstance(limit, int)
+            or isinstance(limit, bool)
+            or not 1 <= limit <= 140
+        ):
+            return None, "failed"
+        if not self._grant_current():
+            return None, "grant-expired"
+        bun_executable = _trusted_bun_executable(self.bun_path)
+        gbrain_cli = _trusted_gbrain_cli(self.cli_path)
+        if bun_executable is None or gbrain_cli is None:
+            return None, "failed"
+        config_digest = self._local_backend_digest()
+        if config_digest is None:
+            return None, "backend-rejected"
         try:
-            raw = _parse_cli_json(result.stdout if isinstance(result.stdout, str) else "")
+            helper = PINNED_OPERATION_HELPER.resolve(strict=True)
+            if helper != PINNED_OPERATION_HELPER or helper.is_symlink() or helper.stat().st_uid != os.getuid():
+                return None, "failed"
+            payload = json.dumps(
+                {"schema_version": 1, "source": SOURCE, "operation": "keyword", "query": query, "limit": limit},
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            environment = self._environment()
+            environment["GBRAIN_CLI_PATH"] = gbrain_cli
+            environment["GBRAIN_CONFIG_SHA256"] = config_digest
+            result = self.keyword_runner(
+                [bun_executable, "--no-env-file", str(helper)],
+                input=payload,
+                capture_output=True,
+                text=True,
+                env=environment,
+                cwd=str(PINNED_OPERATION_HELPER.parent),
+                timeout=30,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None, "unavailable"
+        if getattr(result, "returncode", 1) != 0:
+            return None, "failed"
+        stdout = getattr(result, "stdout", None)
+        return (stdout, "complete") if isinstance(stdout, str) else (None, "failed")
+
+    def _version(self) -> tuple[str | None, str]:
+        if self.version_provider is not None:
+            try:
+                output = self.version_provider()
+            except Exception:
+                return None, "failed"
+        else:
+            output, state = self._run([self.cli_path, "--version"])
+            if output is None:
+                return None, state
+        match = CLI_VERSION_RE.fullmatch(output.strip()) if isinstance(output, str) else None
+        return (match.group(1), "complete") if match else (None, "failed")
+
+    def _attest_source(self) -> tuple[dict[str, str] | None, str, str]:
+        if not self.live:
+            return None, "unavailable", "live-not-opted-in"
+        if self._trusted_target is None or self._source_grant is None or self._freshness is None:
+            return None, "unavailable", "trusted-target-unbound"
+        if not self._grant_current():
+            return None, "failed", "source-grant-expired"
+        if not self._local_backend_allowed():
+            return None, "failed", "local-backend-rejected"
+        if self._attestation is not None:
+            return self._attestation, self._attestation_state, self._attestation_reason
+        version, version_state = self._version()
+        if version is None:
+            if version_state == "grant-expired":
+                return None, "failed", "source-grant-expired"
+            return None, version_state, "cli-version-unavailable" if version_state == "unavailable" else "cli-version-invalid"
+        if version not in SUPPORTED_LIVE_CLI_VERSIONS or version not in self._source_grant["allowed_cli_versions"]:
+            return None, "failed", "cli-version-unsupported"
+        payload = json.dumps({"id": SOURCE}, separators=(",", ":"), sort_keys=True)
+        stdout, state = self._run([self.cli_path, "call", "sources_status", payload])
+        if stdout is None:
+            if state == "grant-expired":
+                return None, "failed", "source-grant-expired"
+            return None, state, "source-attestation-unavailable" if state == "unavailable" else "source-attestation-failed"
+        try:
+            status = _parse_cli_json(stdout)
         except RetrievalError:
-            return {"state": "failed", "results": [], "index_version": "gbrain-cli", "model_version": "unknown"}
-        values = raw if isinstance(raw, list) else raw.get("results", []) if isinstance(raw, dict) else []
-        candidates = [candidate for value in values if (candidate := _gbrain_candidate(value)) is not None]
-        return {"state": "complete", "results": candidates, "index_version": "gbrain-cli", "model_version": "gbrain-search"}
+            return None, "failed", "source-attestation-invalid"
+        if not isinstance(status, dict) or status.get("error") or status.get("isError"):
+            return None, "failed", "source-attestation-invalid"
+        if status.get("id") != SOURCE:
+            return None, "failed", "source-mismatch"
+        last_commit = status.get("last_commit")
+        fresh_at = status.get("last_sync_at")
+        page_count = status.get("page_count")
+        clone_state = status.get("clone_state")
+        if (
+            not isinstance(last_commit, str)
+            or not SAFE_RECEIPT_RE.fullmatch(last_commit)
+            or not isinstance(fresh_at, str)
+            or _parse_time(fresh_at) is None
+            or not isinstance(page_count, int)
+            or isinstance(page_count, bool)
+            or page_count < 0
+            or not isinstance(status.get("archived"), bool)
+            or not isinstance(clone_state, str)
+        ):
+            return None, "failed", "source-attestation-invalid"
+        if status.get("archived") is True:
+            return None, "failed", "source-archived"
+        if clone_state == "corrupted":
+            return None, "failed", "source-corrupted"
+        if clone_state not in {"healthy", "not-applicable", "local-attested"}:
+            return None, "failed", "source-attestation-invalid"
+        parsed_fresh_at = _parse_time(fresh_at)
+        assert parsed_fresh_at is not None
+        try:
+            helper_digest = hashlib.sha256(PINNED_OPERATION_HELPER.read_bytes()).hexdigest()
+        except OSError:
+            return None, "failed", "keyword-adapter-unavailable"
+        attestation = {
+            "source": SOURCE,
+            "target_identity": self._source_grant["target_identity"],
+            "manifest_digest": self._trusted_target["manifest_digest"],
+            "source_grant_digest": self._source_grant["grant_digest"],
+            "index_version": f"gbrain:{SOURCE}:{last_commit}:pages-{page_count}",
+            "model_version": f"gbrain-cli:{version}:stack-keyword:{helper_digest[:16]}",
+            "source_freshness_at": parsed_fresh_at.isoformat(),
+            "egress_contract": LIVE_EGRESS_CONTRACT,
+        }
+        as_of = self._freshness["as_of"]
+        if parsed_fresh_at > as_of:
+            return attestation, "failed", "source-freshness-future"
+        if (as_of - parsed_fresh_at).total_seconds() > self._freshness["max_age_days"] * 86400:
+            self._attestation = attestation
+            self._attestation_state = "partial"
+            self._attestation_reason = "source-freshness-stale"
+            return attestation, "partial", "source-freshness-stale"
+        self._attestation = attestation
+        self._attestation_state = "complete"
+        self._attestation_reason = ""
+        return attestation, "complete", ""
+
+    def campaign_attestation(
+        self,
+        request: dict[str, Any],
+        *,
+        target_manifest: Path,
+        source_grant: Path,
+    ) -> dict[str, Any]:
+        """Return a safe source receipt for semantic campaign invalidation."""
+
+        validate_request(request)
+        target = validate_target(request, target_manifest)
+        grant = validate_source_grant(request, target, source_grant)
+        self.bind_trusted_target(target, request["freshness"], grant)
+        attestation, state, reason = self._attest_source()
+        material = {
+            "state": state,
+            "reason_code": reason or None,
+            "source": SOURCE,
+            "target_manifest_digest": target["manifest_digest"],
+            "source_grant_digest": grant["grant_digest"],
+            "index_version": attestation.get("index_version") if attestation else None,
+            "model_version": attestation.get("model_version") if attestation else None,
+            "source_freshness_at": attestation.get("source_freshness_at") if attestation else None,
+            "egress_contract": LIVE_EGRESS_CONTRACT,
+            "provider_calls": 0,
+        }
+        return {**material, "attestation_digest": digest(material)}
 
     def text_search(self, query: str, limit: int) -> dict[str, Any]:
-        return self._call("search", {"query": query, "limit": limit})
+        attestation, attestation_state, reason_code = self._attest_source()
+        if attestation is None:
+            return self._receipt(attestation_state, reason_code)
+        if attestation_state == "failed":
+            return self._receipt("failed", reason_code, attestation=attestation)
+        candidate_runs: list[dict[str, dict[str, Any]]] = []
+        for _attempt in range(2):
+            stdout, state = self._run_keyword(query, limit)
+            if stdout is None:
+                reason = (
+                    "source-grant-expired" if state == "grant-expired"
+                    else "local-backend-rejected" if state == "backend-rejected"
+                    else "search-unavailable" if state == "unavailable"
+                    else "search-failed"
+                )
+                return self._receipt("failed" if state in {"grant-expired", "backend-rejected"} else state, reason, attestation=attestation)
+            try:
+                raw = _parse_cli_json(stdout)
+            except RetrievalError:
+                return self._receipt("failed", "search-invalid-json", attestation=attestation)
+            if isinstance(raw, dict) and (raw.get("error") or raw.get("isError")):
+                return self._receipt("failed", "search-error-envelope", attestation=attestation)
+            values = raw if isinstance(raw, list) else raw.get("results") if isinstance(raw, dict) else None
+            if not isinstance(values, list) or not all(isinstance(value, dict) for value in values):
+                return self._receipt("failed", "search-invalid-response", attestation=attestation)
+            run_candidates: dict[str, dict[str, Any]] = {}
+            for value in values:
+                if value.get("source_id") != SOURCE:
+                    return self._receipt("failed", "search-source-mismatch", attestation=attestation)
+                slug = value.get("slug")
+                if isinstance(slug, str) and re.fullmatch(r"[A-Za-z0-9._~/-]+", slug) and not BOOKMARK_SLUG_RE.fullmatch(slug):
+                    continue
+                if value.get("archived") is True:
+                    return self._receipt("failed", "search-result-archived", attestation=attestation)
+                if value.get("corrupted") is True:
+                    return self._receipt("failed", "search-result-corrupted", attestation=attestation)
+                if value.get("unverified") is True:
+                    continue
+                candidate = _gbrain_candidate(value)
+                if candidate is None:
+                    return self._receipt("failed", "search-result-invalid", attestation=attestation)
+                if not any(str(slug).startswith(scope) for scope in self._source_grant["locator_scopes"]):
+                    continue
+                candidate["authorized_target_identities"] = [self._source_grant["target_identity"]]
+                run_candidates[candidate["candidate_id"]] = candidate
+            candidate_runs.append(run_candidates)
+        self._attestation = None
+        final_attestation, final_state, final_reason = self._attest_source()
+        if final_attestation is None or final_state == "failed":
+            return self._receipt("failed", final_reason or "source-reattestation-failed", attestation=attestation)
+        if final_attestation != attestation:
+            return self._receipt("failed", "source-changed-during-search", attestation=final_attestation)
+        stable_ids = {
+            candidate_id
+            for candidate_id in set(candidate_runs[0]).intersection(candidate_runs[1])
+            if canonical_json(candidate_runs[0][candidate_id]) == canonical_json(candidate_runs[1][candidate_id])
+        }
+        candidates = [candidate_runs[0][candidate_id] for candidate_id in sorted(stable_ids)]
+        if not candidates:
+            return self._receipt("partial" if attestation_state == "partial" else "empty", "search-empty", attestation=attestation)
+        return {
+            "state": "partial" if attestation_state == "partial" else "complete",
+            "results": candidates,
+            "index_version": attestation["index_version"],
+            "model_version": attestation["model_version"],
+            "source_freshness_at": attestation["source_freshness_at"],
+            "source_grant_digest": attestation["source_grant_digest"],
+            "egress_contract": LIVE_EGRESS_CONTRACT,
+            "provider_calls": 0,
+            **({"reason_code": reason_code} if reason_code else {}),
+        }
 
     def image_search(self, image: str, query: str, limit: int) -> dict[str, Any]:
-        path = Path(image).expanduser().resolve(strict=False)
-        if not path.is_file():
-            return {"state": "unavailable", "results": [], "index_version": "gbrain-cli", "model_version": "gbrain-image"}
-        return self._call("search_by_image", {"image_path": str(path), "limit": limit, "query": query, "source_id": SOURCE})
+        return self._receipt("unavailable", "live-image-disabled")
 
 
 class FixtureFileTransport:
@@ -610,21 +1287,30 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--request", type=Path, required=True)
     parser.add_argument("--target-manifest", type=Path, required=True)
+    parser.add_argument("--source-grant", type=Path, help="owner-local x-bookmarks retrieval grant required for live mode")
     parser.add_argument("--out", type=Path, required=True)
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--candidates", type=Path, help="synthetic or owner-local pinned candidate fixture")
     group.add_argument("--live-gbrain", action="store_true", help="use read-only source-scoped GBrain search")
-    parser.add_argument("--cli", help="explicit GBrain executable for live mode")
     args = parser.parse_args(argv)
+    if args.live_gbrain and args.source_grant is None:
+        parser.error("--live-gbrain requires --source-grant")
+    if args.source_grant is not None and not args.live_gbrain:
+        parser.error("--source-grant requires --live-gbrain")
     try:
         request = load_owner_request(args.request)
-        transport = FixtureFileTransport(load_json(args.candidates)) if args.candidates else CliGBrainTransport(args.cli)
-        response = retrieve(request, target_manifest=args.target_manifest, transport=transport)
+        transport = FixtureFileTransport(load_json(args.candidates)) if args.candidates else CliGBrainTransport(live=args.live_gbrain)
+        response = retrieve(
+            request,
+            target_manifest=args.target_manifest,
+            transport=transport,
+            source_grant=args.source_grant,
+        )
         write_response(args.out, response)
         print(json.dumps({"status": response["status"], "result_count": response["result_count"], "response_digest": response["response_digest"]}, sort_keys=True))
         return 0 if response["status"] != "failed" else 1
-    except (RetrievalError, OSError, TypeError, ValueError) as exc:
-        print(f"design retrieval failed closed: {exc}", file=sys.stderr)
+    except (RetrievalError, OSError, TypeError, ValueError):
+        print("design retrieval failed closed", file=sys.stderr)
         return 2
 
 

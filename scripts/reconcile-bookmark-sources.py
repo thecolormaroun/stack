@@ -30,6 +30,7 @@ try:
     policy_digest,
     read_json,
     reconcile_pages,
+    source_from_document,
     store_owner_records,
     validate_optional_x_api,
         write_public_json,
@@ -50,6 +51,7 @@ except ModuleNotFoundError:  # imported by a focused test through a file spec
         policy_digest,
         read_json,
         reconcile_pages,
+        source_from_document,
         store_owner_records,
         validate_optional_x_api,
         write_public_json,
@@ -64,17 +66,6 @@ def canonical_json_digest_public(value: Any) -> str:
 
 # The tests and public contract intentionally use this short name.
 canonical_json_digest = canonical_json_digest_public
-
-
-def source_from_document(document: Any) -> dict[str, Any]:
-    if isinstance(document, dict) and isinstance(document.get("sources"), list):
-        enabled = [source for source in document["sources"] if source.get("enabled", True) and source.get("adapter") == "field_theory"]
-        if not enabled:
-            raise CorpusError("no enabled field_theory source")
-        return enabled[0]
-    if not isinstance(document, dict):
-        raise CorpusError("source document must be an object")
-    return document
 
 
 def reconcile_sources(source: dict[str, Any], policy: Any, parity: dict[str, Any] | None = None, *, ledger_path: Path | None = None, apply: bool = False, previous_snapshot: dict[str, Any] | None = None) -> dict[str, Any]:

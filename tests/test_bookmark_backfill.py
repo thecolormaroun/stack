@@ -19,6 +19,34 @@ SPEC.loader.exec_module(BACKFILL)
 
 
 class BookmarkBackfillTests(unittest.TestCase):
+    def test_main_accepts_canonical_sources_document(self) -> None:
+        source = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        source["adapter"] = "field_theory"
+        source["enabled"] = True
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            input_path = root / "bookmark-sources.json"
+            output_path = root / "receipt.json"
+            input_path.write_text(
+                json.dumps({"version": 1, "sources": [source]}),
+                encoding="utf-8",
+            )
+
+            exit_code = BACKFILL.main([
+                "--input", str(input_path),
+                "--state", str(root / "checkpoint.json"),
+                "--ledger", str(root / "ledger.sqlite"),
+                "--out", str(output_path),
+            ])
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(
+                json.loads(output_path.read_text(encoding="utf-8"))["status"],
+                "prepared",
+            )
+            self.assertFalse((root / "checkpoint.json").exists())
+            self.assertFalse((root / "ledger.sqlite").exists())
+
     def test_approved_backfill_reaches_terminal_cursor_and_second_run_is_zero_delta(self) -> None:
         source = json.loads(FIXTURE.read_text(encoding="utf-8"))
         with tempfile.TemporaryDirectory() as directory:

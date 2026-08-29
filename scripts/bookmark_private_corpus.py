@@ -103,11 +103,38 @@ def read_json(path: Path) -> Any:
         raise CorpusError(f"invalid source document: {path.name}") from exc
 
 
+def source_from_document(document: Any) -> dict[str, Any]:
+    """Select the enabled Field Theory source from the canonical config shape."""
+
+    if isinstance(document, dict) and isinstance(document.get("sources"), list):
+        enabled = [
+            source
+            for source in document["sources"]
+            if isinstance(source, dict)
+            and source.get("enabled", True)
+            and source.get("adapter") == "field_theory"
+        ]
+        if not enabled:
+            raise CorpusError("no enabled field_theory source")
+        return enabled[0]
+    if not isinstance(document, dict):
+        raise CorpusError("source document must be an object")
+    return document
+
+
 def write_public_json(path: Path, payload: Any) -> None:
     """Write a public projection only; callers must have sanitized payload."""
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
+    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
+    try:
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
 def _json_list(value: Any) -> list[Any]:

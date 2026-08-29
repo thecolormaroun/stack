@@ -7,8 +7,8 @@
   "additionalProperties": false,
   "required": [
     "schema_version", "response_id", "response_digest", "request_id", "request_digest",
-    "status", "source", "target", "results", "result_count", "missing_modalities",
-    "degradations", "index", "ranking", "safety"
+    "status", "source", "target", "authorization", "results", "result_count", "missing_modalities",
+    "degradations", "reason_code", "index", "ranking", "safety"
   ],
   "properties": {
     "schema_version": {"const": 1},
@@ -19,6 +19,7 @@
     "status": {"enum": ["complete", "degraded", "empty", "failed"]},
     "source": {"const": "x-bookmarks"},
     "target": {"$ref": "#/$defs/target"},
+    "authorization": {"$ref": "#/$defs/authorization"},
     "results": {
       "type": "array",
       "maxItems": 7,
@@ -36,9 +37,15 @@
       "items": {
         "enum": [
           "text-unavailable", "text-partial", "image-unavailable", "image-partial",
-          "stale-index", "sparse-results"
+          "stale-index", "future-index", "sparse-results"
         ]
       }
+    },
+    "reason_code": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "string", "pattern": "^[a-z0-9-]{1,64}$"}
+      ]
     },
     "index": {"$ref": "#/$defs/index"},
     "ranking": {"$ref": "#/$defs/ranking"},
@@ -70,6 +77,21 @@
         "name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
         "identity": {"type": "string", "pattern": "^local-target:[a-z0-9][a-z0-9-]*$"},
         "manifest_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "target_manifest_digest", "source_grant_digest"],
+      "properties": {
+        "mode": {"enum": ["source-wide-owner-grant-v1", "per-result-fixture-v1"]},
+        "target_manifest_digest": {"$ref": "#/$defs/digest"},
+        "source_grant_digest": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/digest"}
+          ]
+        }
       }
     },
     "result": {
@@ -154,16 +176,20 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "target_attested", "source_scope_enforced", "configuration_changed",
-        "reindex_attempted", "paid_fallback_attempted", "external_write_attempted"
+        "target_attested", "source_grant_attested", "source_scope_enforced", "configuration_changed",
+        "reindex_attempted", "paid_fallback_attempted", "external_write_attempted",
+        "egress_contract", "provider_calls"
       ],
       "properties": {
         "target_attested": {"const": true},
+        "source_grant_attested": {"const": true},
         "source_scope_enforced": {"const": true},
         "configuration_changed": {"const": false},
         "reindex_attempted": {"const": false},
         "paid_fallback_attempted": {"const": false},
-        "external_write_attempted": {"const": false}
+        "external_write_attempted": {"const": false},
+        "egress_contract": {"enum": ["gbrain-keyword-fts-no-provider-v1", "fixture-programmatic-v1"]},
+        "provider_calls": {"const": 0}
       }
     }
   }

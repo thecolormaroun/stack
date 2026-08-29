@@ -48,12 +48,20 @@
   },
   "scheduler": {
     "contract_id": "stack-weekly-intelligence-saturday-0900-local-v1",
+    "automation_id": "weekly-design-intelligence-loop",
+    "project_id": "3cafa0b4-8b90-4699-a0f4-062dff1b59da",
     "day": "Saturday",
     "local_time": "09:00",
-    "timezone": "America/New_York",
-    "enabled": false,
+    "timezone": "America/Los_Angeles",
+    "rrule": "FREQ=WEEKLY;BYDAY=SA;BYHOUR=9;BYMINUTE=0",
+    "model": "gpt-5.6-luna",
+    "reasoning_effort": "medium",
+    "execution_environment": "local",
+    "prompt_path": "config/weekly-intelligence-automation-prompt.md",
+    "prompt_digest": "13c216ba4245210676882f7c6830f5d85b23f666a51ba6a19ed480861de04c17",
+    "enabled": true,
     "approval_required": true,
-    "state": "blocked_until_proof_and_approval"
+    "state": "active"
   },
   "state": {
     "directory_mode": "0700",

@@ -26,6 +26,7 @@ try:
         owner_local_path,
         policy_digest,
         read_json,
+        source_from_document,
         store_owner_records,
         write_public_json,
     )
@@ -42,6 +43,7 @@ except ModuleNotFoundError:  # imported by a focused test through a file spec
         owner_local_path,
         policy_digest,
         read_json,
+        source_from_document,
         store_owner_records,
         write_public_json,
     )
@@ -219,9 +221,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-pages", type=int)
     args = parser.parse_args(argv)
     try:
-        source = read_json(Path(args.input))
-        if not isinstance(source, dict):
-            raise BackfillError("source document must be an object")
+        source = source_from_document(read_json(Path(args.input)))
         result = backfill_source(
             source,
             state_path=Path(args.state),

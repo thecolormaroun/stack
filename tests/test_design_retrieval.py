@@ -6,10 +6,12 @@ import importlib.util
 import json
 import os
 import stat
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,6 +19,7 @@ SCRIPT = ROOT / "scripts/query-design-intelligence.py"
 FIXTURES = ROOT / "tests/fixtures/design-retrieval"
 REQUEST_SCHEMA = ROOT / "registry/design-retrieval-request.schema.json"
 RESPONSE_SCHEMA = ROOT / "registry/design-retrieval-response.schema.json"
+SOURCE_GRANT_SCHEMA = ROOT / "registry/design-retrieval-source-grant.schema.json"
 
 
 def load_query():
@@ -65,6 +68,15 @@ class DesignRetrievalTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         os.chmod(self.root, 0o700)
+        self.gbrain_config = self.root / "gbrain-config.json"
+        self.gbrain_config.write_text(json.dumps({
+            "engine": "postgres",
+            "database_url": "postgresql://fixture:fixture@127.0.0.1:5432/gbrain_mookie",
+        }), encoding="utf-8")
+        os.chmod(self.gbrain_config, 0o600)
+        self.gbrain_config = self.gbrain_config.resolve()
+        self.query.DEFAULT_GBRAIN_CONFIG = self.gbrain_config
+        self.approved_cli = self.query.DEFAULT_GBRAIN_CLI
         self.manifest = self.root / "target-authorizations.json"
         self.manifest.write_text(json.dumps({
             "schema_version": 1,
@@ -72,6 +84,19 @@ class DesignRetrievalTests(unittest.TestCase):
             "targets": {"codex-local": "local-target:codex-main"},
         }), encoding="utf-8")
         os.chmod(self.manifest, 0o600)
+        self.grant = self.root / "x-bookmarks-source-grant.json"
+        self.grant.write_text(json.dumps({
+            "schema_version": 1,
+            "grant_id": "source-grant:" + "f" * 64,
+            "owner_identity": "local-owner:primary",
+            "source": "x-bookmarks",
+            "target_identity": "local-target:codex-main",
+            "locator_scopes": ["bookmarks/", "bookmark-"],
+            "expires_at": "2027-08-23T12:00:00+00:00",
+            "egress_contract": "gbrain-keyword-fts-no-provider-v1",
+            "allowed_cli_versions": ["0.42.67.0"],
+        }), encoding="utf-8")
+        os.chmod(self.grant, 0o600)
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -95,6 +120,15 @@ class DesignRetrievalTests(unittest.TestCase):
         for key, value in changes.items():
             request[key] = value
         return request
+
+    def assert_response_schema_contract(self, response):
+        schema = json.loads(RESPONSE_SCHEMA.read_text(encoding="utf-8"))
+        self.assertEqual(set(schema["required"]), set(response))
+        self.assertIn(response["status"], schema["properties"]["status"]["enum"])
+        allowed = set(schema["properties"]["degradations"]["items"]["enum"])
+        self.assertTrue(set(response["degradations"]).issubset(allowed))
+        reason = response["reason_code"]
+        self.assertTrue(reason is None or self.query.re.fullmatch(r"[a-z0-9-]{1,64}", reason))
 
     def test_exact_filters_rank_one_and_response_is_source_scoped(self):
         request = self.request(filters={"author": "designer-a", "date": "2026-08-20", "folder": "design-systems", "url": "https://x.com/designer-a/status/1"})
@@ -132,8 +166,7 @@ class DesignRetrievalTests(unittest.TestCase):
         result = self.query.retrieve(self.request(), target_manifest=self.manifest, transport=FixtureTransport(self.candidates))
         encoded = json.dumps(result)
         self.assertNotIn("candidate:555555", encoded)
-        self.assertNotIn("private-author", encoded)
-        self.assertNotIn("unauthorized-secret", encoded)
+        self.assertTrue(all("metadata" not in item for item in result["results"]))
 
     def test_image_unavailable_is_labeled_degradation_without_fallback(self):
         request = self.request()
@@ -187,23 +220,511 @@ class DesignRetrievalTests(unittest.TestCase):
         self.assertGreaterEqual(recall, baseline["mean_recall_at_5"] * ratio)
         self.assertGreaterEqual(ndcg, baseline["mean_ndcg_at_5"] * ratio)
 
-    def test_cli_gbrain_contract_is_read_only_scoped_and_redacted(self):
-        calls = []
-        payload = [{
-            "slug": "design/dense-dashboard", "source_id": "x-bookmarks", "chunk_text": "Evidence identity: bookmark:" + "c" * 64,
-            "score": 0.9, "stale": False, "page_id": 1,
-        }]
+    def live_status(self, **changes):
+        status = {
+            "id": "x-bookmarks",
+            "page_count": 4,
+            "last_sync_at": "2026-08-22T12:00:00+00:00",
+            "last_commit": "index-20260822",
+            "archived": False,
+            "clone_state": "healthy",
+        }
+        status.update(changes)
+        return status
 
+    def live_result(self, **changes):
+        result = {
+            "slug": "bookmarks/design-dense-dashboard",
+            "source_id": "x-bookmarks",
+            "chunk_text": "dashboard evidence",
+            "page_id": 1,
+            "chunk_id": 1,
+            "score": 0.9,
+            "stale": False,
+            "effective_date": "2026-08-22T12:00:00+00:00",
+        }
+        result.update(changes)
+        return result
+
+    def live_runner(self, calls, *, status=None, results=None, version="gbrain 0.42.67.0"):
         def runner(argv, **kwargs):
-            calls.append((argv, kwargs))
-            return SimpleNamespace(returncode=0, stdout="diagnostic\n" + json.dumps(payload), stderr="secret provider log")
+            self.assertEqual([str(self.query.DEFAULT_BUN_CLI.resolve(strict=True)), "--no-env-file"], argv[0:2])
+            self.assertEqual(str(ROOT / "scripts"), kwargs["cwd"])
+            if argv[2].endswith("gbrain-pinned-operation.ts"):
+                operation = json.loads(kwargs["input"])["operation"]
+                if operation == "keyword":
+                    operation = "keyword_search"
+            else:
+                raise AssertionError("unexpected live helper")
+            calls.append({
+                "operation": operation,
+                "env_keys": sorted(kwargs["env"]),
+                "source": kwargs["env"].get("GBRAIN_SOURCE"),
+                "argv": argv,
+                "cwd": kwargs["cwd"],
+            })
+            if operation == "version":
+                return SimpleNamespace(returncode=0, stdout=version, stderr="")
+            if operation == "sources_status":
+                return SimpleNamespace(returncode=0, stdout=json.dumps(status or self.live_status()), stderr="")
+            if operation == "keyword_search":
+                self.assertEqual(str(ROOT / "scripts"), kwargs["cwd"])
+                self.assertRegex(kwargs["env"]["GBRAIN_CONFIG_SHA256"], r"^[a-f0-9]{64}$")
+                payload = json.loads(kwargs["input"])
+                self.assertEqual({"limit", "operation", "query", "schema_version", "source"}, set(payload))
+                return SimpleNamespace(returncode=0, stdout=json.dumps(results if results is not None else [self.live_result()]), stderr="")
+            return SimpleNamespace(returncode=1, stdout="", stderr="")
+        return runner
 
-        transport = self.query.CliGBrainTransport(cli_path="gbrain-test", runner=runner)
-        result = transport.text_search("dense dashboard", 5)
-        self.assertEqual(["gbrain-test", "call", "search", json.dumps({"query": "dense dashboard", "limit": 5}, separators=(",", ":"), sort_keys=True)], calls[0][0])
-        self.assertEqual("x-bookmarks", calls[0][1]["env"]["GBRAIN_SOURCE"])
-        self.assertEqual("complete", result["state"])
-        self.assertNotIn("secret", json.dumps(result))
+    def test_live_cli_is_opt_in_and_needs_a_verified_target_before_any_command(self):
+        calls = []
+        transport = self.query.CliGBrainTransport(cli_path=self.approved_cli, runner=self.live_runner(calls))
+        unbound = transport.text_search("dashboard", 5)
+        self.assertEqual("unavailable", unbound["state"])
+        self.assertEqual([], calls)
+
+        live = self.query.CliGBrainTransport(cli_path=self.approved_cli, runner=self.live_runner(calls), live=True)
+        with mock.patch.dict(os.environ, {"UNRELATED_FLAG": "1"}):
+            response = self.query.retrieve(
+                self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=live,
+            )
+        self.assertEqual(
+            ["version", "sources_status", "keyword_search", "keyword_search", "version", "sources_status"],
+            [call["operation"] for call in calls],
+        )
+        self.assertTrue(all(call["source"] == "x-bookmarks" for call in calls))
+        self.assertTrue(all(
+            call["env_keys"] == ["GBRAIN_CLI_PATH", "GBRAIN_CONFIG_SHA256", "GBRAIN_SOURCE", "HOME", "PATH", "TMPDIR"]
+            for call in calls
+        ))
+        self.assertEqual("x-bookmarks", response["source"])
+        self.assertEqual(self.query.validate_target(self.request(), self.manifest)["manifest_digest"], response["target"]["manifest_digest"])
+        self.assertEqual("degraded", response["status"])
+
+    def test_keyword_helper_disables_env_files_and_drops_database_overrides(self):
+        calls = []
+        transport = self.query.CliGBrainTransport(
+            cli_path=self.approved_cli,
+            runner=self.live_runner(calls),
+            live=True,
+        )
+        with mock.patch.dict(os.environ, {
+            "GBRAIN_HOME": "/attacker/home",
+            "GBRAIN_DATABASE_URL": "postgresql://attacker.invalid/db",
+            "DATABASE_URL": "postgresql://attacker.invalid/other",
+        }):
+            response = self.query.retrieve(
+                self.request(),
+                target_manifest=self.manifest,
+                source_grant=self.grant,
+                transport=transport,
+            )
+        self.assertEqual("degraded", response["status"])
+        keyword_calls = [call for call in calls if call["operation"] == "keyword_search"]
+        self.assertEqual(2, len(keyword_calls))
+        for call in keyword_calls:
+            self.assertNotIn("GBRAIN_HOME", call["env_keys"])
+            self.assertNotIn("GBRAIN_DATABASE_URL", call["env_keys"])
+            self.assertNotIn("DATABASE_URL", call["env_keys"])
+
+    def test_attestation_calls_disable_env_files_and_ignore_hostile_cwd(self):
+        calls = []
+        transport = self.query.CliGBrainTransport(
+            cli_path=self.approved_cli,
+            runner=self.live_runner(calls),
+            live=True,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            hostile_cwd = Path(directory)
+            (hostile_cwd / ".env").write_text(
+                "GBRAIN_HOME=/tmp/hostile-home\nDATABASE_URL=postgresql://remote.invalid/other\n",
+                encoding="utf-8",
+            )
+            previous_cwd = Path.cwd()
+            try:
+                os.chdir(hostile_cwd)
+                with mock.patch.dict(os.environ, {
+                    "GBRAIN_HOME": "/tmp/hostile-home",
+                    "GBRAIN_DATABASE_URL": "postgresql://remote.invalid/other",
+                    "DATABASE_URL": "postgresql://remote.invalid/other",
+                }):
+                    response = self.query.retrieve(
+                        self.request(),
+                        target_manifest=self.manifest,
+                        source_grant=self.grant,
+                        transport=transport,
+                    )
+            finally:
+                os.chdir(previous_cwd)
+
+        self.assertEqual("degraded", response["status"])
+        attestation_calls = [call for call in calls if call["operation"] in {"version", "sources_status"}]
+        self.assertEqual(4, len(attestation_calls))
+        for call in attestation_calls:
+            self.assertEqual([str(self.query.DEFAULT_BUN_CLI.resolve(strict=True)), "--no-env-file"], call["argv"][0:2])
+            self.assertEqual(str(ROOT / "scripts"), call["cwd"])
+            self.assertTrue({"GBRAIN_HOME", "GBRAIN_DATABASE_URL", "DATABASE_URL"}.isdisjoint(call["env_keys"]))
+
+    def test_live_transport_rejects_unpinned_bun_before_any_subprocess(self):
+        calls = []
+        transport = self.query.CliGBrainTransport(
+            cli_path=self.approved_cli,
+            bun_path="bun",
+            runner=self.live_runner(calls),
+            live=True,
+        )
+        response = self.query.retrieve(
+            self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=transport,
+        )
+        self.assertEqual("failed", response["status"])
+        self.assertEqual([], calls)
+
+    def test_live_transport_rejects_absolute_alternate_bun_before_any_subprocess(self):
+        alternate = self.root / "alternate-bun"
+        alternate.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        os.chmod(alternate, 0o700)
+        calls = []
+        transport = self.query.CliGBrainTransport(
+            cli_path=self.approved_cli,
+            bun_path=str(alternate),
+            runner=self.live_runner(calls),
+            live=True,
+        )
+        response = self.query.retrieve(
+            self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=transport,
+        )
+        self.assertEqual("failed", response["status"])
+        self.assertEqual([], calls)
+
+    def test_live_transport_rejects_nonapproved_gbrain_script_before_any_subprocess(self):
+        calls = []
+        transport = self.query.CliGBrainTransport(
+            cli_path="/tmp/not-gbrain.ts",
+            runner=self.live_runner(calls),
+            live=True,
+        )
+        response = self.query.retrieve(
+            self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=transport,
+        )
+        self.assertEqual("failed", response["status"])
+        self.assertEqual([], calls)
+
+    def test_config_bound_wrapper_rejects_provider_overrides_before_any_operation(self):
+        environment = {
+            "HOME": str(self.query.ACCOUNT_HOME),
+            "PATH": f"{self.query.ACCOUNT_HOME}/.bun/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "TMPDIR": "/private/tmp",
+            "GBRAIN_SOURCE": "x-bookmarks",
+            "GBRAIN_CLI_PATH": str(self.query.EXPECTED_GBRAIN_CLI.resolve(strict=True)),
+            "GBRAIN_CONFIG_SHA256": self.query.hashlib.sha256(
+                self.query.DEFAULT_GBRAIN_CONFIG.read_bytes()
+            ).hexdigest(),
+            "OPENAI_API_KEY": "synthetic-provider-override",
+        }
+        result = subprocess.run(
+            [str(self.query.DEFAULT_BUN_CLI.resolve(strict=True)), "--no-env-file", str(self.query.PINNED_OPERATION_HELPER)],
+            input=json.dumps({"schema_version": 1, "source": "x-bookmarks", "operation": "version"}),
+            capture_output=True,
+            text=True,
+            env=environment,
+            cwd=str(ROOT / "scripts"),
+            timeout=30,
+            check=False,
+        )
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual("", result.stdout)
+        self.assertNotIn("synthetic-provider-override", result.stderr)
+
+    def test_live_transport_rejects_default_launcher_redirected_to_unexpected_script(self):
+        calls = []
+        with tempfile.TemporaryDirectory() as directory:
+            unexpected = Path(directory) / "unexpected.ts"
+            unexpected.write_text("process.exit(0)\n", encoding="utf-8")
+            os.chmod(unexpected, 0o700)
+            launcher = Path(directory) / "gbrain"
+            launcher.symlink_to(unexpected)
+            with mock.patch.object(self.query, "DEFAULT_GBRAIN_CLI", str(launcher)):
+                transport = self.query.CliGBrainTransport(
+                    runner=self.live_runner(calls),
+                    live=True,
+                )
+                response = self.query.retrieve(
+                    self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=transport,
+                )
+        self.assertEqual("failed", response["status"])
+        self.assertEqual([], calls)
+
+    def test_live_source_grant_is_required_and_target_bound_before_any_command(self):
+        calls = []
+        live = self.query.CliGBrainTransport(
+            cli_path=self.approved_cli, runner=self.live_runner(calls), live=True,
+        )
+        with self.assertRaisesRegex(self.query.RetrievalError, "source grant"):
+            self.query.retrieve(self.request(), target_manifest=self.manifest, transport=live)
+        self.assertEqual([], calls)
+
+        value = json.loads(self.grant.read_text(encoding="utf-8"))
+        value["target_identity"] = "local-target:other-main"
+        self.grant.write_text(json.dumps(value), encoding="utf-8")
+        os.chmod(self.grant, 0o600)
+        with self.assertRaisesRegex(self.query.RetrievalError, "target binding"):
+            self.query.retrieve(
+                self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=live,
+            )
+        self.assertEqual([], calls)
+
+    def test_live_version_and_command_allowlists_fail_closed(self):
+        calls = []
+        live = self.query.CliGBrainTransport(
+            cli_path=self.approved_cli,
+            runner=self.live_runner(calls, version="gbrain 0.42.68.0"),
+            live=True,
+        )
+        response = self.query.retrieve(
+            self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=live,
+        )
+        self.assertEqual("failed", response["status"])
+        self.assertEqual(["version"], [call["operation"] for call in calls])
+
+        invoked = []
+        guarded = self.query.CliGBrainTransport(
+            cli_path=self.approved_cli,
+            runner=lambda *args, **kwargs: invoked.append((args, kwargs)),
+            live=True,
+        )
+        self.assertEqual((None, "failed"), guarded._run([self.approved_cli, "import", "/tmp/private"]))
+        self.assertEqual(
+            (None, "failed"),
+            guarded._run([self.approved_cli, "call", "search", '{"query":"private"}']),
+        )
+        self.assertEqual([], invoked)
+
+    def test_expired_grant_cannot_be_revived_by_backdating_request(self):
+        value = json.loads(self.grant.read_text(encoding="utf-8"))
+        value["expires_at"] = "2026-08-24T12:00:00+00:00"
+        self.grant.write_text(json.dumps(value), encoding="utf-8")
+        os.chmod(self.grant, 0o600)
+        calls = []
+        transport = self.query.CliGBrainTransport(
+            cli_path=self.approved_cli, runner=self.live_runner(calls), live=True,
+        )
+        with mock.patch.object(
+            self.query,
+            "_utc_now",
+            return_value=self.query._parse_time("2026-08-29T12:00:00+00:00"),
+        ):
+            with self.assertRaisesRegex(self.query.RetrievalError, "expired"):
+                self.query.retrieve(
+                    self.request(freshness={"as_of": "2026-08-23T12:00:00+00:00", "max_age_days": 14}),
+                    target_manifest=self.manifest,
+                    source_grant=self.grant,
+                    transport=transport,
+                )
+        self.assertEqual([], calls)
+
+    def test_grant_expiry_between_reads_stops_before_the_next_command(self):
+        value = json.loads(self.grant.read_text(encoding="utf-8"))
+        value["expires_at"] = "2026-08-24T12:00:00+00:00"
+        self.grant.write_text(json.dumps(value), encoding="utf-8")
+        os.chmod(self.grant, 0o600)
+        before = self.query._parse_time("2026-08-23T13:00:00+00:00")
+        after = self.query._parse_time("2026-08-24T13:00:00+00:00")
+        assert before is not None and after is not None
+        moments = iter((before, before, after))
+        calls = []
+        transport = self.query.CliGBrainTransport(
+            cli_path=self.approved_cli,
+            runner=self.live_runner(calls),
+            live=True,
+            now_provider=lambda: next(moments),
+        )
+        with mock.patch.object(self.query, "_utc_now", return_value=before):
+            response = self.query.retrieve(
+                self.request(),
+                target_manifest=self.manifest,
+                source_grant=self.grant,
+                transport=transport,
+            )
+        self.assertEqual("failed", response["status"])
+        self.assertEqual("source-grant-expired", response["reason_code"])
+        self.assert_response_schema_contract(response)
+        self.assertEqual(["version"], [call["operation"] for call in calls])
+
+    def test_remote_database_config_is_rejected_before_any_subprocess(self):
+        remote_config = self.root / "remote-gbrain-config.json"
+        remote_config.write_text(json.dumps({
+            "engine": "postgres",
+            "database_url": "postgresql://fixture:fixture@db.example.invalid:5432/gbrain_mookie",
+        }), encoding="utf-8")
+        os.chmod(remote_config, 0o600)
+        calls = []
+        transport = self.query.CliGBrainTransport(
+            cli_path=self.approved_cli,
+            runner=self.live_runner(calls),
+            live=True,
+            gbrain_config_path=remote_config,
+        )
+        response = self.query.retrieve(
+            self.request(),
+            target_manifest=self.manifest,
+            source_grant=self.grant,
+            transport=transport,
+        )
+        self.assertEqual("failed", response["status"])
+        self.assertEqual("local-backend-rejected", response["reason_code"])
+        self.assert_response_schema_contract(response)
+        self.assertEqual([], calls)
+
+    def test_campaign_attestation_changes_with_live_index_state(self):
+        first = self.query.CliGBrainTransport(
+            cli_path=self.approved_cli, runner=self.live_runner([]), live=True,
+        ).campaign_attestation(
+            self.request(), target_manifest=self.manifest, source_grant=self.grant,
+        )
+        second = self.query.CliGBrainTransport(
+            cli_path=self.approved_cli,
+            runner=self.live_runner([], status=self.live_status(page_count=5, last_commit="index-20260823")),
+            live=True,
+        ).campaign_attestation(
+            self.request(), target_manifest=self.manifest, source_grant=self.grant,
+        )
+        self.assertEqual("complete", first["state"])
+        self.assertNotEqual(first["attestation_digest"], second["attestation_digest"])
+        self.assertEqual("gbrain-keyword-fts-no-provider-v1", first["egress_contract"])
+        self.assertEqual(0, first["provider_calls"])
+
+    def test_live_result_order_is_canonical_for_a_pinned_index(self):
+        values = [
+            self.live_result(slug="bookmarks/design-a", page_id=1, chunk_id=1),
+            self.live_result(slug="bookmarks/design-b", page_id=2, chunk_id=2),
+            self.live_result(slug="bookmarks/design-c", page_id=3, chunk_id=3),
+        ]
+        responses = []
+        for rows in (values, list(reversed(values))):
+            transport = self.query.CliGBrainTransport(
+                cli_path=self.approved_cli, runner=self.live_runner([], results=rows), live=True,
+            )
+            responses.append(self.query.retrieve(
+                self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=transport,
+            ))
+        self.assertEqual(
+            [row["candidate_id"] for row in responses[0]["results"]],
+            [row["candidate_id"] for row in responses[1]["results"]],
+        )
+        self.assertEqual(responses[0]["response_digest"], responses[1]["response_digest"])
+
+    def test_live_text_transport_binds_verified_target_and_attestation_metadata(self):
+        calls = []
+        transport = self.query.CliGBrainTransport(cli_path=self.approved_cli, runner=self.live_runner(calls), live=True)
+        response = self.query.retrieve(
+            self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=transport,
+        )
+        self.assertEqual(1, response["result_count"])
+        self.assertEqual(["gbrain:x-bookmarks:index-20260822:pages-4"], response["index"]["versions"])
+        self.assertEqual(1, len(response["index"]["model_versions"]))
+        self.assertRegex(response["index"]["model_versions"][0], r"^gbrain-cli:0\.42\.67\.0:stack-keyword:[a-f0-9]{16}$")
+        self.assertTrue(response["safety"]["target_attested"])
+        self.assertTrue(response["safety"]["source_scope_enforced"])
+
+    def test_live_source_attestation_failures_are_visible_and_stop_search(self):
+        cases = {
+            "wrong-source": self.live_status(id="other-source"),
+            "missing-index": self.live_status(last_commit=None),
+            "missing-archived": self.live_status(archived=None),
+            "archived": self.live_status(archived=True),
+            "corrupted": self.live_status(clone_state="corrupted"),
+        }
+        for label, status in cases.items():
+            with self.subTest(label=label):
+                calls = []
+                transport = self.query.CliGBrainTransport(cli_path=self.approved_cli, runner=self.live_runner(calls, status=status), live=True)
+                response = self.query.retrieve(
+                    self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=transport,
+                )
+                self.assertEqual("failed", response["status"])
+                self.assertNotIn("search", [call["operation"] for call in calls])
+
+    def test_config_bound_wrapper_can_attest_a_local_only_clone_without_exposing_its_path(self):
+        head = "a" * 40
+        status = self.live_status(
+            clone_state="local-attested",
+            last_commit=head,
+        )
+        transport = self.query.CliGBrainTransport(
+            cli_path=self.approved_cli,
+            runner=self.live_runner([], status=status),
+            live=True,
+        )
+        response = self.query.retrieve(
+            self.request(),
+            target_manifest=self.manifest,
+            source_grant=self.grant,
+            transport=transport,
+        )
+
+        self.assertEqual(1, response["result_count"])
+        self.assertEqual("degraded", response["status"])
+
+    def test_live_result_source_mismatch_fails_closed(self):
+        calls = []
+        transport = self.query.CliGBrainTransport(
+            cli_path=self.approved_cli,
+            runner=self.live_runner(calls, results=[self.live_result(source_id="other-source")]),
+            live=True,
+        )
+        response = self.query.retrieve(
+            self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=transport,
+        )
+        self.assertEqual("failed", response["status"])
+        self.assertEqual("x-bookmarks", response["source"])
+
+    def test_live_search_excludes_aggregate_pages_from_bookmark_results(self):
+        results = [
+            self.live_result(),
+            self.live_result(slug="domains/ai", page_id=2, chunk_id=2),
+            self.live_result(slug="categories/health", page_id=3, chunk_id=3),
+        ]
+        response = self.query.retrieve(
+            self.request(),
+            target_manifest=self.manifest,
+            source_grant=self.grant,
+            transport=self.query.CliGBrainTransport(
+                cli_path=self.approved_cli,
+                runner=self.live_runner([], results=results),
+                live=True,
+            ),
+        )
+        self.assertEqual(1, response["result_count"])
+        self.assertEqual(
+            "gbrain:x-bookmarks/bookmarks/design-dense-dashboard",
+            response["results"][0]["citation_locator"],
+        )
+
+    def test_live_source_freshness_cannot_produce_a_complete_response(self):
+        cases = {
+            "stale": self.live_status(last_sync_at="2026-07-01T12:00:00+00:00"),
+            "future": self.live_status(last_sync_at="2026-09-01T12:00:00+00:00"),
+        }
+        for label, status in cases.items():
+            with self.subTest(label=label):
+                transport = self.query.CliGBrainTransport(cli_path=self.approved_cli, runner=self.live_runner([], status=status), live=True)
+                response = self.query.retrieve(
+                    self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=transport,
+                )
+                self.assertNotEqual("complete", response["status"])
+                self.assertNotEqual("empty", response["status"])
+
+    def test_live_image_search_is_unavailable_without_a_subprocess(self):
+        calls = []
+        request = self.request()
+        request["context"]["screenshot"] = {"path": str(self.root / "screen.png"), "digest": "b" * 64}
+        transport = self.query.CliGBrainTransport(cli_path=self.approved_cli, runner=self.live_runner(calls), live=True)
+        response = self.query.retrieve(
+            request, target_manifest=self.manifest, source_grant=self.grant, transport=transport,
+        )
+        self.assertEqual("degraded", response["status"])
+        self.assertIn("image", response["missing_modalities"])
+        self.assertNotIn("search_by_image", [call["operation"] for call in calls])
 
     def test_response_writer_never_weakens_an_existing_directory(self):
         unsafe = self.root / "shared"
@@ -219,8 +740,38 @@ class DesignRetrievalTests(unittest.TestCase):
         output = self.query.write_response(private / "response.json", {"status": "empty"})
         self.assertEqual(0o600, stat.S_IMODE(output.stat().st_mode))
 
+    def test_cli_error_envelopes_do_not_become_successful_empty_searches(self):
+        for payload in ({"error": "error-marker"}, {"unexpected": []}, {"results": "wrong-shape"}, {"isError": True, "results": []}):
+            with self.subTest(payload=payload):
+                calls = []
+                transport = self.query.CliGBrainTransport(cli_path=self.approved_cli, runner=self.live_runner(calls, results=payload), live=True)
+                result = self.query.retrieve(
+                    self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=transport,
+                )
+                self.assertEqual("failed", result["status"])
+                self.assertNotEqual("complete", result["status"])
+
+    def test_unverified_live_extractions_are_not_retrieval_truth(self):
+        candidate = self.query._gbrain_candidate(self.live_result(slug="bookmarks/unverified", unverified=True))
+        self.assertIsNone(candidate)
+        transport = self.query.CliGBrainTransport(
+            cli_path=self.approved_cli,
+            runner=self.live_runner([], results=[self.live_result(unverified=True)]),
+            live=True,
+        )
+        response = self.query.retrieve(
+            self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=transport,
+        )
+        self.assertEqual("empty", response["status"])
+        self.assertEqual(0, response["result_count"])
+
     def test_schema_and_contract_files_exist(self):
-        for path in (REQUEST_SCHEMA, RESPONSE_SCHEMA, ROOT / "skills/design/design-intelligence/references/retrieval-contract.md"):
+        for path in (
+            REQUEST_SCHEMA,
+            RESPONSE_SCHEMA,
+            SOURCE_GRANT_SCHEMA,
+            ROOT / "skills/design/design-intelligence/references/retrieval-contract.md",
+        ):
             self.assertTrue(path.exists(), path)
 
 

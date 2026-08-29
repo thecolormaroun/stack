@@ -15,11 +15,13 @@ import importlib.util
 import inspect
 import json
 import os
+import pwd
 import re
 import stat
 import sys
 import tempfile
 import time
+import tomllib
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -28,6 +30,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = ROOT / "config" / "weekly-intelligence.json"
 DEFAULT_TEMPLATE = ROOT / "templates" / "weekly-stack-report.md"
 DEFAULT_SCHEMA = ROOT / "registry" / "weekly-campaign-receipt.schema.json"
+ACCOUNT_HOME = Path(pwd.getpwuid(os.getuid()).pw_dir).resolve()
+DEFAULT_AUTOMATION_ROOT = ACCOUNT_HOME / ".codex" / "automations"
 TASK_ID = "stack-weekly-intelligence"
 SCHEMA_VERSION = 1
 TERMINAL_STATES = {
@@ -361,10 +365,39 @@ def load_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
     if not isinstance(maintenance.get("receipt_directory"), str) or Path(maintenance["receipt_directory"]).is_absolute() or not isinstance(maintenance.get("receipt_max_age_seconds"), int) or maintenance["receipt_max_age_seconds"] <= 0 or not isinstance(maintenance.get("safe_restart"), str):
         raise WeeklyIntelligenceError("maintenance_contract_invalid")
     scheduler = value.get("scheduler")
-    if not isinstance(scheduler, dict) or set(scheduler) != {"contract_id", "day", "local_time", "timezone", "enabled", "approval_required", "state"}:
+    scheduler_fields = {
+        "contract_id", "automation_id", "project_id", "day", "local_time",
+        "timezone", "rrule", "model", "reasoning_effort",
+        "execution_environment", "prompt_path", "prompt_digest", "enabled",
+        "approval_required", "state",
+    }
+    if not isinstance(scheduler, dict) or set(scheduler) != scheduler_fields:
         raise WeeklyIntelligenceError("scheduler_contract_invalid")
-    if scheduler.get("day") != "Saturday" or scheduler.get("local_time") != "09:00" or scheduler.get("timezone") != "America/New_York" or scheduler.get("enabled") is not False or scheduler.get("approval_required") is not True or scheduler.get("state") != "blocked_until_proof_and_approval":
+    if (
+        scheduler.get("automation_id") != "weekly-design-intelligence-loop"
+        or not ID_RE.fullmatch(str(scheduler.get("project_id", "")))
+        or scheduler.get("day") != "Saturday"
+        or scheduler.get("local_time") != "09:00"
+        or scheduler.get("timezone") != "America/Los_Angeles"
+        or scheduler.get("rrule") != "FREQ=WEEKLY;BYDAY=SA;BYHOUR=9;BYMINUTE=0"
+        or scheduler.get("model") != "gpt-5.6-luna"
+        or scheduler.get("reasoning_effort") != "medium"
+        or scheduler.get("execution_environment") != "local"
+        or scheduler.get("prompt_path") != "config/weekly-intelligence-automation-prompt.md"
+        or not isinstance(scheduler.get("prompt_digest"), str)
+        or not DIGEST_RE.fullmatch(scheduler["prompt_digest"])
+        or scheduler.get("enabled") is not True
+        or scheduler.get("approval_required") is not True
+        or scheduler.get("state") != "active"
+    ):
         raise WeeklyIntelligenceError("scheduler_contract_invalid")
+    prompt_path = ROOT / scheduler["prompt_path"]
+    try:
+        prompt_digest = hashlib.sha256(prompt_path.read_bytes()).hexdigest()
+    except OSError as exc:
+        raise WeeklyIntelligenceError("scheduler_prompt_unavailable") from exc
+    if prompt_digest != scheduler["prompt_digest"]:
+        raise WeeklyIntelligenceError("scheduler_prompt_digest_mismatch")
     state = value.get("state")
     if not isinstance(state, dict) or set(state) != {"directory_mode", "file_mode", "receipts_directory", "reports_directory", "circuit_file", "run_state_db", "lease_seconds", "circuit_threshold", "health_window_seconds"}:
         raise WeeklyIntelligenceError("state_contract_invalid")
@@ -437,6 +470,12 @@ def read_latest_maintenance_receipt(
     """Read and digest only the newest canonical maintenance receipt."""
     config = config or load_config()
     now = time.time() if now is None else float(now)
+    # Import validation only; never execute the maintenance runner here.
+    spec = importlib.util.spec_from_file_location("weekly_maintenance_contract", ROOT / "scripts" / "stack-maintenance.py")
+    if spec is None or spec.loader is None:
+        raise WeeklyIntelligenceError("maintenance_validator_unavailable")
+    maintenance_contract = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(maintenance_contract)
     if isinstance(explicit, Mapping):
         records = [(None, dict(explicit))]
     else:
@@ -455,10 +494,12 @@ def read_latest_maintenance_receipt(
                 records.append((path, data))
     canonical: list[tuple[Path | None, dict[str, Any], float]] = []
     for path, data in records:
-        if data.get("task_id") != "stack-maintenance":
+        try:
+            maintenance_contract.validate_receipt(data)
+        except maintenance_contract.MaintenanceError:
             continue
         observed = _parse_time(data.get("observed_at"))
-        if observed is None:
+        if observed is None or observed > now:
             continue
         canonical.append((path, data, observed))
     if not canonical:
@@ -563,6 +604,7 @@ def _load_receipts(state_dir: Path) -> list[dict[str, Any]]:
         try:
             _verify_file(path, required=True)
             data = _read_json(path)
+            validate_receipt(data)
         except WeeklyIntelligenceError:
             continue
         if isinstance(data, dict) and data.get("task_id") == TASK_ID:
@@ -572,6 +614,13 @@ def _load_receipts(state_dir: Path) -> list[dict[str, Any]]:
         str(item.get("run_id", "")),
     ))
     return records
+
+
+def _stage_artifact_valid(state_dir: Path, stage: Mapping[str, Any]) -> bool:
+    relative = stage.get("artifact_path")
+    if not _owner_artifact_exists(state_dir, relative):
+        return False
+    return file_digest(state_dir / relative) == stage.get("output_digest")
 
 
 def latest_receipt(state_dir: str | Path) -> dict[str, Any] | None:
@@ -585,19 +634,20 @@ def _prior_reusable_receipt(state_dir: Path, input_fp: str) -> dict[str, Any] | 
             record.get("input_fingerprint") == input_fp
             and record.get("terminal_state") in {"no_action", "prepared", "awaiting_approval"}
             and record.get("reason_code") != "duplicate_run"
+            and {stage["id"] for stage in record["stages"]} == set(STAGE_IDS)
             and all(
-                _owner_artifact_exists(state_dir, stage.get("artifact_path"))
+                stage.get("status") in {"completed", "reused"} and _stage_artifact_valid(state_dir, stage)
                 for stage in record.get("stages", [])
-                if isinstance(stage, Mapping)
-                and stage.get("status") in {"completed", "reused"}
             )
         ):
             return record
     return None
 
 
-def _previous_stage_map(state_dir: Path) -> dict[str, dict[str, Any]]:
+def _previous_stage_map(state_dir: Path, run_id: str | None = None) -> dict[str, dict[str, Any]]:
     for record in reversed(_load_receipts(state_dir)):
+        if run_id is not None and record.get("run_id") != run_id:
+            continue
         stages = record.get("stages")
         if isinstance(stages, list):
             values = {
@@ -854,28 +904,81 @@ def _render_report(
 
 def scheduler_contract_status(
     config: Mapping[str, Any],
-    evidence: Mapping[str, Any] | None = None,
 ) -> str:
-    if not evidence:
+    scheduler = config["scheduler"]
+    if scheduler.get("enabled") is not True or scheduler.get("state") != "active":
         return "blocked"
-    expected = scheduler_contract_digest(config)
+    expected_path = DEFAULT_AUTOMATION_ROOT / scheduler["automation_id"] / "automation.toml"
+    candidate = Path(os.path.abspath(str(expected_path)))
+    try:
+        account_home = ACCOUNT_HOME.resolve(strict=True)
+        relative = candidate.relative_to(account_home)
+        current = account_home
+        for component in relative.parts:
+            current = current / component
+            metadata = current.lstat()
+            if (
+                stat.S_ISLNK(metadata.st_mode)
+                or metadata.st_uid != os.getuid()
+                or stat.S_IMODE(metadata.st_mode) & 0o022
+            ):
+                return "blocked"
+        resolved = candidate.resolve(strict=True)
+        parent = resolved.parent.stat()
+        details = resolved.stat()
+        document = tomllib.loads(resolved.read_text(encoding="utf-8"))
+        prompt = (ROOT / scheduler["prompt_path"]).read_text(encoding="utf-8")
+    except (OSError, ValueError, UnicodeError, tomllib.TOMLDecodeError):
+        return "blocked"
     if (
-        evidence.get("enabled") is True
-        and evidence.get("approval") is True
-        and evidence.get("persisted_contract") is True
-        and evidence.get("contract_digest") == expected
+        resolved != candidate
+        or not resolved.is_file()
+        or details.st_uid != os.getuid()
+        or parent.st_uid != os.getuid()
+        or stat.S_IMODE(details.st_mode) & 0o022
+        or stat.S_IMODE(parent.st_mode) & 0o022
     ):
-        return "approved_and_persisted"
-    if evidence.get("contract_digest") is not None and evidence.get("contract_digest") != expected:
+        return "blocked"
+    target = document.get("target")
+    persisted = {
+        "id": document.get("id"),
+        "kind": document.get("kind"),
+        "status": document.get("status"),
+        "rrule": document.get("rrule"),
+        "model": document.get("model"),
+        "reasoning_effort": document.get("reasoning_effort"),
+        "execution_environment": document.get("execution_environment"),
+        "target": target,
+        "cwds": document.get("cwds"),
+        "prompt_digest": hashlib.sha256(str(document.get("prompt", "")).encode("utf-8")).hexdigest(),
+    }
+    expected = {
+        "id": scheduler["automation_id"],
+        "kind": "cron",
+        "status": "ACTIVE",
+        "rrule": scheduler["rrule"],
+        "model": scheduler["model"],
+        "reasoning_effort": scheduler["reasoning_effort"],
+        "execution_environment": scheduler["execution_environment"],
+        "target": {"type": "project", "project_id": scheduler["project_id"]},
+        "cwds": [str(ROOT)],
+        "prompt_digest": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+    }
+    if expected["prompt_digest"] != scheduler["prompt_digest"]:
         return "mismatch"
-    return "blocked"
+    return "approved_and_persisted" if persisted == expected else "mismatch"
 
 
 def scheduler_contract_digest(config: Mapping[str, Any]) -> str:
     scheduler = config["scheduler"]
     return digest({
         key: scheduler[key]
-        for key in ("contract_id", "day", "local_time", "timezone", "approval_required")
+        for key in (
+            "contract_id", "automation_id", "project_id", "day", "local_time",
+            "timezone", "rrule", "model", "reasoning_effort",
+            "execution_environment", "prompt_digest", "enabled",
+            "approval_required", "state",
+        )
     })
 
 
@@ -884,8 +987,6 @@ def eight_day_health_check(
     state_dir: str | Path,
     config: Mapping[str, Any] | None = None,
     now: float | None = None,
-    enabled_evidence: Mapping[str, Any] | None = None,
-    scheduler_evidence: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return health only after enabled-state and persisted scheduler proof."""
     config = config or load_config()
@@ -903,25 +1004,14 @@ def eight_day_health_check(
     last_success = latest.get("observed_at") if latest else None
     last_time = _parse_time(last_success) if latest else None
     age = max(0, int(now - last_time)) if last_time is not None else None
-    evidence = scheduler_evidence or enabled_evidence
-    scheduler_status = scheduler_contract_status(config, evidence)
-    enabled = bool(evidence and evidence.get("enabled") is True)
-    if not enabled:
-        return {
-            "status": "alert",
-            "blocking_stage": "scheduler",
-            "last_success": last_success,
-            "age_seconds": age,
-            "safe_restart": "Keep the scheduler blocked until enabled-state proof, approval, and persisted contract match exist.",
-            "scheduler_status": scheduler_status,
-        }
+    scheduler_status = scheduler_contract_status(config)
     if scheduler_status != "approved_and_persisted":
         return {
             "status": "alert",
             "blocking_stage": "scheduler",
             "last_success": last_success,
             "age_seconds": age,
-            "safe_restart": "Persist the approved Saturday 09:00 contract and retry the health check; scheduler existence alone is insufficient.",
+            "safe_restart": "Restore the exact active Codex automation contract, then retry the health check.",
             "scheduler_status": scheduler_status,
         }
     if (
@@ -1227,29 +1317,28 @@ class WeeklyIntelligenceCoordinator:
     ]:
         inputs = dict(inputs or {})
         source_manifest = _coerce_input(
-            values.get("source_manifest", inputs.get("source_manifest")),
+            values.get("source_manifest") if values.get("source_manifest") is not None else inputs.get("source_manifest"),
             {"sources": []},
         )
         source_delta = _coerce_input(
-            values.get("source_delta", inputs.get("source_delta")),
+            values.get("source_delta") if values.get("source_delta") is not None else inputs.get("source_delta"),
             {"changes": []},
         )
         model_config = _coerce_input(
-            values.get("model_config", inputs.get("model_config")),
+            values.get("model_config") if values.get("model_config") is not None else inputs.get("model_config"),
             {},
         )
         prompt_config = _coerce_input(
-            values.get("prompt_config", inputs.get("prompt_config")),
+            values.get("prompt_config") if values.get("prompt_config") is not None else inputs.get("prompt_config"),
             {},
         )
         eval_config = _coerce_input(
-            values.get("eval_config", inputs.get("eval_config")),
+            values.get("eval_config") if values.get("eval_config") is not None else inputs.get("eval_config"),
             {},
         )
-        maintenance_explicit = values.get(
-            "maintenance_receipt",
-            inputs.get("maintenance_receipt"),
-        )
+        maintenance_explicit = values.get("maintenance_receipt")
+        if maintenance_explicit is None:
+            maintenance_explicit = inputs.get("maintenance_receipt")
         maintenance = read_latest_maintenance_receipt(
             maintenance_explicit,
             config=self.config,
@@ -1390,11 +1479,11 @@ class WeeklyIntelligenceCoordinator:
         run_id: str | None = None,
         resume: bool = False,
         manual_clear: bool = False,
-        scheduler_evidence: Mapping[str, Any] | None = None,
-        enabled_evidence: Mapping[str, Any] | None = None,
         now: float | None = None,
         **values: Any,
     ) -> dict[str, Any]:
+        if "scheduler_evidence" in values or "enabled_evidence" in values:
+            raise WeeklyIntelligenceError("self_issued_scheduler_evidence_rejected")
         if now is not None:
             self.now = float(now)
         self._prepare_state()
@@ -1429,8 +1518,6 @@ class WeeklyIntelligenceCoordinator:
                 reason_code="circuit_open",
                 report_path=None,
                 circuit=_circuit_summary(circuit),
-                scheduler_evidence=scheduler_evidence,
-                enabled_evidence=enabled_evidence,
                 safe_restart=_safe_restart_for("blocked", "circuit_open", maintenance),
                 health_stage="circuit",
             )
@@ -1469,8 +1556,6 @@ class WeeklyIntelligenceCoordinator:
                 reason_code="no_action",
                 report_path=None,
                 circuit=_circuit_summary(circuit),
-                scheduler_evidence=scheduler_evidence,
-                enabled_evidence=enabled_evidence,
                 safe_restart="No action required; semantic inputs are unchanged.",
                 health_stage=None,
             )
@@ -1511,11 +1596,10 @@ class WeeklyIntelligenceCoordinator:
                 reason_code=code,
                 report_path=None,
                 circuit=_circuit_summary(circuit),
-                scheduler_evidence=scheduler_evidence,
-                enabled_evidence=enabled_evidence,
                 safe_restart=_safe_restart_for("failed", code, maintenance),
                 health_stage=code,
             )
+        checkpoint_stages = _previous_stage_map(self.state_dir, actual_run_id)
         previous_stages = _previous_stage_map(self.state_dir)
         stage_records: list[dict[str, Any]] = []
         failure_code: str | None = None
@@ -1543,13 +1627,13 @@ class WeeklyIntelligenceCoordinator:
                     )
                     continue
                 if current["status"] == "completed":
-                    prior = previous_stages.get(stage_id, {})
+                    prior = checkpoint_stages.get(stage_id, {})
                     artifact = prior.get(
                         "artifact_path",
                         f"artifacts/{actual_run_id}/{stage_id}.json",
                     )
-                    if not _owner_artifact_exists(self.state_dir, artifact):
-                        failure_code = "checkpoint_artifact_missing"
+                    if prior.get("input_fingerprint") != stage_fps[stage_id] or not _stage_artifact_valid(self.state_dir, prior):
+                        failure_code = "checkpoint_evidence_invalid"
                         failure_retry = "non_transient"
                         stage_records.append(
                             _build_stage_record(
@@ -1607,16 +1691,14 @@ class WeeklyIntelligenceCoordinator:
                     )
                     break
                 prior = previous_stages.get(stage_id)
+                result = None
                 try:
                     if (
                         prior
                         and prior.get("status") in {"completed", "reused"}
                         and prior.get("input_fingerprint") == stage_fps[stage_id]
                         and stage.get("model_heavy")
-                        and _owner_artifact_exists(
-                            self.state_dir,
-                            prior.get("artifact_path"),
-                        )
+                        and _stage_artifact_valid(self.state_dir, prior)
                     ):
                         output_digest = prior.get("output_digest") or digest({
                             "stage": stage_id,
@@ -1707,6 +1789,11 @@ class WeeklyIntelligenceCoordinator:
                                 else None
                             ) if stage_status == "completed" else artifact_path,
                         )
+                    # Receipts bind persisted bytes, including real domain artifacts.
+                    persisted_digest = file_digest(self.state_dir / artifact_path)
+                    if stage_status == "completed" and isinstance(result, Mapping) and result.get("artifact_path") is not None and persisted_digest != output_digest:
+                        raise WeeklyIntelligenceError("stage_artifact_digest_mismatch")
+                    output_digest = persisted_digest
                     store.checkpoint(
                         actual_run_id,
                         stage_id,
@@ -1726,6 +1813,8 @@ class WeeklyIntelligenceCoordinator:
                 except StageFailure as exc:
                     failure_code = exc.code
                     failure_retry = exc.retry_class
+                    failed_artifact = result if isinstance(result, Mapping) else {}
+                    artifact_verified = _stage_artifact_valid(self.state_dir, failed_artifact)
                     try:
                         store.finish_child(
                             actual_run_id,
@@ -1741,6 +1830,8 @@ class WeeklyIntelligenceCoordinator:
                             stage,
                             stage_fps[stage_id],
                             status="failed",
+                            artifact_path=failed_artifact.get("artifact_path") if artifact_verified else None,
+                            output_digest=failed_artifact.get("output_digest") if artifact_verified else None,
                             failure_code=failure_code,
                             retry_class=failure_retry,
                         )
@@ -1893,7 +1984,6 @@ class WeeklyIntelligenceCoordinator:
             scheduler = {
                 "status": scheduler_contract_status(
                     self.config,
-                    scheduler_evidence or enabled_evidence,
                 ),
                 "contract_id": self.config["scheduler"]["contract_id"],
                 "approval_required": True,
@@ -1968,8 +2058,6 @@ class WeeklyIntelligenceCoordinator:
         reason_code: str,
         report_path: str | None,
         circuit: Mapping[str, Any],
-        scheduler_evidence: Mapping[str, Any] | None,
-        enabled_evidence: Mapping[str, Any] | None,
         safe_restart: str,
         health_stage: str | None,
     ) -> dict[str, Any]:
@@ -2001,7 +2089,6 @@ class WeeklyIntelligenceCoordinator:
             "scheduler": {
                 "status": scheduler_contract_status(
                     self.config,
-                    scheduler_evidence or enabled_evidence,
                 ),
                 "contract_id": self.config["scheduler"]["contract_id"],
                 "approval_required": True,
@@ -2030,6 +2117,7 @@ def run_campaign(
     state_dir = kwargs.pop("state_dir", None)
     owner_id = kwargs.pop("owner_id", None)
     adapters = kwargs.pop("adapters", None)
+    local_adapter_config = kwargs.pop("local_adapter_config", None)
     now = kwargs.pop("now", None)
     coordinator = WeeklyIntelligenceCoordinator(
         config_path=config_path,
@@ -2038,6 +2126,28 @@ def run_campaign(
         adapters=adapters,
         now=now,
     )
+    if local_adapter_config is not None:
+        if adapters is not None:
+            raise WeeklyIntelligenceError("local_adapter_override_forbidden")
+        supplied = dict(inputs or {})
+        semantic_keys = {"source_manifest", "source_delta", "model_config", "prompt_config", "eval_config"}
+        if semantic_keys.intersection(supplied) or any(kwargs.get(key) is not None for key in semantic_keys):
+            raise WeeklyIntelligenceError("local_adapter_input_override_forbidden")
+        spec = importlib.util.spec_from_file_location("weekly_local_adapters", ROOT / "scripts" / "weekly_local_adapters.py")
+        if spec is None or spec.loader is None:
+            raise WeeklyIntelligenceError("local_adapters_unavailable")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        try:
+            coordinator.adapters = module.LocalPreparationAdapters(
+                Path(local_adapter_config),
+                coordinator.state_dir,
+                as_of=_now_iso(coordinator.now),
+            )
+            supplied.update(coordinator.adapters.campaign_inputs())
+        except module.LocalAdapterError as exc:
+            raise WeeklyIntelligenceError(exc.code) from exc
+        inputs = supplied
     return coordinator.run(inputs, **kwargs)
 
 
@@ -2059,6 +2169,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--prompt-config", default=None)
     parser.add_argument("--eval-config", default=None)
     parser.add_argument("--maintenance-receipt", default=None)
+    parser.add_argument("--local-adapter-config", type=Path, help="Owner-local exported inputs; no live provider or source operations")
     parser.add_argument(
         "--input-json",
         default=None,
@@ -2084,6 +2195,7 @@ def main(argv: list[str] | None = None) -> int:
             prompt_config=args.prompt_config,
             eval_config=args.eval_config,
             maintenance_receipt=args.maintenance_receipt,
+            local_adapter_config=args.local_adapter_config,
             now=args.now,
         )
         print(canonical_json(receipt))

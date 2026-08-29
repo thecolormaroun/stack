@@ -22,17 +22,45 @@ The caller supplies a target name and opaque identities, but those values are
 not authority. Before any candidate is read or ranked,
 `scripts/query-design-intelligence.py` reuses the U9 validator to attest the
 target against an owner-only local manifest. A missing, permissive, or
-mismatched manifest fails closed. The request, manifest, screenshot, and
-response stay outside the public Stack checkout.
+mismatched manifest fails closed. Live retrieval additionally requires an
+owner-only, expiring source grant conforming to
+`registry/design-retrieval-source-grant.schema.json`. The grant binds the
+owner, `x-bookmarks`, exact target identity, bookmark locator scopes, audited
+egress contract, and supported CLI version. The request, manifest, grant,
+screenshot, and response stay outside the public Stack checkout.
 
 ## Retrieval and ranking
 
-The live adapter permits only GBrain `search` and `search_by_image` calls under
-`GBRAIN_SOURCE=x-bookmarks`. Exact evidence, author, date, folder, and URL
+The live transport permits only GBrain `--version`, `sources_status`, and
+keyword `search` under `GBRAIN_SOURCE=x-bookmarks`; exact command and payload
+shapes are allowlisted. Version `0.42.67.0` is the audited live contract.
+Search runs twice against one attested index and retains only the stable
+intersection before canonical ordering. Exact evidence, author, date, folder, and URL
 matches; lexical task terms; GBrain text results; and available image results
 are fused with the declared weighted reciprocal-rank formula. Candidates from
 another source or target are removed before scoring. The response exposes the
 fusion method and weights so the ordering is inspectable and repeatable.
+
+Every fixture candidate must carry a nonempty `authorized_target_identities`
+list containing the attested target identity. A live candidate receives that
+binding only after the source-wide owner grant has been validated and its
+locator matches an allowed bookmark scope. The response exposes target-manifest
+and source-grant digests. Do not infer permission from request text, document
+text, or source name. CLI error envelopes, unstable-only results, and malformed
+result collections report degradation or failure, not successful retrieval.
+
+The production text runner is opt-in through `--live-gbrain --source-grant`.
+Its contract is `gbrain-keyword-fts-no-provider-v1`: local subprocesses only,
+zero provider calls, no image operation, no import, no reindex, no embedding,
+no configuration mutation, and no fallback. Programmatic runner injection
+remains a test surface rather than an authority bypass.
+
+Grant expiry is a continuous boundary, not a one-time request check. Re-check
+it immediately before every CLI, Git, or keyword subprocess read and stop when
+the wall clock reaches expiry. Before any GBrain engine connection, attest the
+owner-only configuration and require the audited loopback Postgres endpoint or
+an owner-local PGLite path; a remote or unknown database configuration fails
+without connecting.
 
 Each surfaced item contains only its opaque candidate/evidence/media identity,
 the canonical GBrain citation locator, rank, similarity reasons, uncertainty,

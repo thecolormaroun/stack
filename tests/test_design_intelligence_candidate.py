@@ -112,7 +112,12 @@ class DesignIntelligenceCandidateTests(unittest.TestCase):
                     fixture_rows.append(row)
                 rows.append({"repetition": repetition + 1, "fixtures": fixture_rows})
             path = self.harness / f"{split}-results.json"
-            path.write_text(json.dumps({"schema_version": 1, "split": split, "results": rows}, indent=2) + "\n")
+            path.write_text(json.dumps({
+                "schema_version": 1, "split": split, "results": rows,
+                "candidate_packet_digest": EVALUATOR.digest_json(self.packet),
+                "materialization_receipt_digest": EVALUATOR.digest_json(self.materialization),
+                "manifest_digest": EVALUATOR.digest_file(manifest_path),
+            }, indent=2) + "\n")
             os.chmod(path, 0o600)
             output[split] = path
         return output
@@ -166,6 +171,35 @@ class DesignIntelligenceCandidateTests(unittest.TestCase):
         self.assertFalse(first["activation"]["publish"])
         self.assertFalse(first["activation"]["draft_pr"])
         self.assertFalse(first["quarantine"]["retrieval_truth"])
+
+    def test_aggregate_only_scores_cannot_bypass_dimension_regression_checks(self) -> None:
+        results = self.results()
+        for path in results.values():
+            payload = json.loads(path.read_text())
+            for repetition in payload["results"]:
+                for row in repetition["fixtures"]:
+                    row["baseline"].pop("dimensions")
+                    row["candidate"].pop("dimensions")
+            path.write_text(json.dumps(payload))
+        receipt = self.evaluate(result_paths=results)
+        self.assertEqual("blocked-eval", receipt["status"])
+
+    def test_results_require_exact_candidate_and_manifest_binding(self) -> None:
+        for key in ("candidate_packet_digest", "materialization_receipt_digest", "manifest_digest"):
+            results = self.results()
+            payload = json.loads(results["development"].read_text())
+            payload[key] = "0" * 64
+            results["development"].write_text(json.dumps(payload))
+            with self.subTest(key=key):
+                receipt = self.evaluate(result_paths=results)
+                self.assertEqual("blocked-eval", receipt["status"])
+
+    def test_duplicate_repetitions_do_not_satisfy_repeated_evidence(self) -> None:
+        results = self.results()
+        payload = json.loads(results["development"].read_text())
+        payload["results"] = [payload["results"][0]] * 3
+        results["development"].write_text(json.dumps(payload))
+        self.assertEqual("blocked-eval", self.evaluate(result_paths=results)["status"])
 
     def test_synthetic_only_feedback_cannot_promote_and_missing_real_feedback_is_visible(self) -> None:
         synthetic = self.evaluate(result_paths=self.results(feedback={"kind": "synthetic", "text": "fixture simulation"}))

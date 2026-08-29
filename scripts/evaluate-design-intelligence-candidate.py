@@ -98,7 +98,7 @@ def _profile(document: Mapping[str, Any], profile_name: str) -> dict[str, Any]:
         "maximum_holdout_regression", "maximum_rubric_disagreement", "required_task_feedback",
         "dimension_weights", "hard_gates", "required_splits",
     }
-    if set(profile) < required:
+    if not required.issubset(profile):
         raise DesignEvaluationError("design evaluation profile is incomplete")
     weights = profile.get("dimension_weights")
     if not isinstance(weights, Mapping) or not weights or any(not isinstance(value, (int, float)) or value <= 0 for value in weights.values()):
@@ -335,6 +335,8 @@ def _score_block(value: Any, weights: Mapping[str, float]) -> dict[str, Any]:
             raise DesignEvaluationError("evaluation aggregate is invalid")
     else:
         raise DesignEvaluationError("evaluation score block is invalid")
+    if set(dimensions) != set(weights):
+        raise DesignEvaluationError("evaluation dimensions are incomplete")
     return {"overall": overall, "dimensions": dimensions}
 
 
@@ -547,8 +549,15 @@ def evaluate_design_candidate(
             if result is None:
                 raise DesignEvaluationError(f"missing_{split}_results")
             decoded, exact_result_digest, _ = _load_value(result, f"{split} results")
-            if not isinstance(decoded, (Mapping, list)):
+            if not isinstance(decoded, Mapping):
                 raise DesignEvaluationError(f"invalid_{split}_results")
+            binding = {
+                "candidate_packet_digest": packet_digest,
+                "materialization_receipt_digest": digest_json(materialization_receipt),
+                "manifest_digest": exact_digest,
+            }
+            if any(decoded.get(key) != value for key, value in binding.items()):
+                raise DesignEvaluationError(f"unbound_{split}_results")
             result_values[split] = decoded
             result_digests[split] = exact_result_digest
     except DesignEvaluationError as error:
@@ -592,6 +601,11 @@ def evaluate_design_candidate(
             return _blocked_receipt(packet_digest, str(error), expected=manifest_receipts)
         by_fixture: dict[str, list[dict[str, Any]]] = {fixture_id: [] for fixture_id in expected_ids}
         for row in normalized_rows:
+            repetition = row["repetition"]
+            if not isinstance(repetition, int) or isinstance(repetition, bool) or repetition < 1:
+                return _blocked_receipt(packet_digest, f"invalid_{split}_repetition", expected=manifest_receipts)
+            if any(previous["repetition"] == repetition for previous in by_fixture[row["fixture_id"]]):
+                return _blocked_receipt(packet_digest, f"duplicate_{split}_repetition", expected=manifest_receipts)
             by_fixture[row["fixture_id"]].append(row)
         minimum_repetitions = int(profile_doc["minimum_repetitions"])
         if any(len(rows_for_fixture) < minimum_repetitions for rows_for_fixture in by_fixture.values()):

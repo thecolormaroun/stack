@@ -38,8 +38,11 @@ python3 scripts/import-bookmark-deltas.py --help
 ```
 
 An apply run requires the exact owner-local approval contract. Import targets
-only the private GBrain source through its approved transport; it does not write
-Stack skills, trigger a reindex, or choose a paid fallback.
+only the private GBrain source through its approved transport and requires an
+owner-local inventory of the existing native source so apply is always
+missing-only. The post-import canary parses a source-scoped structured search
+result and requires the exact bookmark identity and slug. It does not write
+Stack skills, trigger a reindex, embed, or choose a paid fallback.
 
 ## Card and digest production
 
@@ -67,9 +70,15 @@ exact/text/image retrieval against `x-bookmarks`, reranks deterministically, and
 returns three to seven cited results with similarity reasons, freshness,
 uncertainty, and model/index versions.
 
-The live adapter exposes only read-only GBrain `search` and `search_by_image`.
-Missing image retrieval or a stale index produces a labeled degraded response;
-it never starts an import, reindex, configuration change, or paid fallback.
+The production text runner is explicitly enabled only with `--live-gbrain`, a
+target manifest, and an expiring owner-local source grant. It pins the audited
+GBrain CLI version, source/index/freshness receipt, bookmark locator scopes,
+and `gbrain-keyword-fts-no-provider-v1` contract. Only version, source status,
+and conservative keyword search commands are permitted; provider calls,
+embedding, image search, import, reindex, configuration changes, and paid
+fallbacks are denied. Two reads against the same index are intersected and
+canonically ordered so unstable backend-only results do not become retrieval
+truth. Missing image retrieval or a stale/sparse index is labeled degraded.
 
 ```sh
 python3 scripts/query-design-intelligence.py --help
@@ -119,14 +128,22 @@ artifacts survive partial failure, resume retries only the failed tail, and
 three identical non-transient blockers open a circuit until manual review and
 clear. Every owner-local stage receipt contains only digests and safe state.
 
-The coordinator has no built-in provider or source adapter. Running it without
-explicit trusted stage adapters fails closed as `adapter_not_configured`; test
-adapters prove orchestration without pretending to be live evidence.
+The coordinator defaults to unconfigured stages. Its explicit
+`--local-adapter-config` path can bind a sealed source snapshot/ledger, target
+manifest, retrieval request, and source grant. Live text retrieval re-attests
+the current source before campaign no-action reuse, and index version,
+freshness date, grant digest, egress contract, and CLI version participate in
+the campaign fingerprint. A week with no selected material skill/reference
+candidate records `no_candidate_selected` and keeps promotion prohibited; the
+full evaluator remains mandatory once a candidate is selected. See the
+[readiness reconciliation](weekly-intelligence-readiness.md).
 
-The future Codex scheduler contract is Saturday at 09:00 local time. It remains
-disabled until separate approval, a persisted contract match, and run-now
-proof. Existing Hermes collection/curation stays intake-only, and upstream
-maintenance remains separate. After enablement, every eight-day window must
+The Codex scheduler contract is Saturday at 09:00 local time. The live
+entrypoint refuses to reconcile or import until that exact active contract is
+persisted and a current canonical maintenance receipt is linked. Existing
+Hermes collection/curation stays intake-only, and upstream maintenance remains
+separate. Skill promotion and runtime publication still require a separate approval.
+After enablement, every eight-day window must
 contain a terminal non-duplicate campaign receipt or a visible alert with the
 blocking stage, last success, age, and safe restart.
 

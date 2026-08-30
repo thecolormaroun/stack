@@ -298,6 +298,25 @@ class WeeklyLiveTests(unittest.TestCase):
             LIVE._validate_execution_checkout()
         commands.assert_not_called()
 
+    def test_execution_checkout_rejects_alternate_common_dir_before_first_git_process(self) -> None:
+        checkout = self.execution_checkout()
+        common_dir = checkout / ".git" / "commondir"
+        common_dir.write_text("../alternate-git-dir\n", encoding="utf-8")
+        common_dir.chmod(0o600)
+        commands = mock.Mock()
+        with (
+            mock.patch.multiple(
+                LIVE,
+                ROOT=checkout.resolve(),
+                ACCOUNT_HOME=self.root,
+                AUTOMATION_CHECKOUT=checkout,
+            ),
+            mock.patch.object(LIVE.subprocess, "run", commands),
+            self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_common_dir_invalid"),
+        ):
+            LIVE._validate_execution_checkout()
+        commands.assert_not_called()
+
     def automation_file(self, account_home: Path, *, mode: int = 0o644, symlink_codex: bool = False) -> Path:
         config = LIVE.WEEKLY.load_config()
         scheduler = config["scheduler"]

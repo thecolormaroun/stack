@@ -51,7 +51,9 @@ the automation never cleans or switches the saved project checkout. Before any
 private-source or campaign subprocess, the live entrypoint independently
 requires that exact owner-private checkout, parses and allowlists its minimal
 local Git configuration and rejects every active or symlinked repository hook
-before the first Git process, ignores global/system Git configuration,
+before the first Git process, rejects alternate common directories, pins Git's
+directory/work-tree/common-directory environment to the validated clone,
+ignores global/system Git configuration,
 refreshes the canonical remote
 tracking ref, rejects tracked paths hidden by `assume-unchanged` or
 `skip-worktree`, rejects ignored files, and proves clean detached

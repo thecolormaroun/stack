@@ -161,6 +161,9 @@ def _git(argv: list[str], *, timeout: int = 120) -> str:
     environment.update({
         "GIT_CONFIG_GLOBAL": "/dev/null",
         "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_DIR": str(ROOT / ".git"),
+        "GIT_WORK_TREE": str(ROOT),
+        "GIT_COMMON_DIR": str(ROOT / ".git"),
         "GIT_TERMINAL_PROMPT": "0",
     })
     try:
@@ -255,6 +258,8 @@ def _validate_execution_checkout() -> str:
         # live lane from the saved/dirty project cannot reach any mutation.
         raise LiveLoopError("execution_checkout_wrong_root")
     _private_path(expected / ".git", directory=True, private=False)
+    if (expected / ".git" / "commondir").exists() or (expected / ".git" / "commondir").is_symlink():
+        raise LiveLoopError("execution_checkout_common_dir_invalid")
     _validate_git_config(expected / ".git")
     _validate_git_hooks(expected / ".git")
     if Path(_git(["rev-parse", "--show-toplevel"])).resolve(strict=True) != expected:

@@ -19,6 +19,7 @@ SPEC = importlib.util.spec_from_file_location("stack_weekly_live", ROOT / "scrip
 assert SPEC and SPEC.loader
 LIVE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(LIVE)
+LIVE.WEEKLY = LIVE._load_weekly_contract()
 
 
 class WeeklyLiveTests(unittest.TestCase):
@@ -62,18 +63,35 @@ class WeeklyLiveTests(unittest.TestCase):
         checkout = self.root / ".local" / "share" / "stack" / "weekly-intelligence-source"
         checkout.mkdir(parents=True, mode=0o700)
         commands = mock.Mock()
+        loader = mock.Mock()
         with (
             mock.patch.multiple(
                 LIVE,
                 ROOT=primary,
                 ACCOUNT_HOME=self.root,
                 AUTOMATION_CHECKOUT=checkout,
+                _load_weekly_contract=loader,
             ),
             mock.patch.object(LIVE.subprocess, "run", commands),
             self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_wrong_root"),
         ):
             LIVE.run()
         commands.assert_not_called()
+        loader.assert_not_called()
+
+    def test_checkout_validation_precedes_local_coordinator_import(self) -> None:
+        loader = mock.Mock()
+        with (
+            mock.patch.object(
+                LIVE,
+                "_validate_execution_checkout",
+                side_effect=LIVE.LiveLoopError("execution_checkout_dirty"),
+            ),
+            mock.patch.object(LIVE, "_load_weekly_contract", loader),
+            self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_dirty"),
+        ):
+            LIVE.run()
+        loader.assert_not_called()
 
     def test_execution_checkout_requires_clean_detached_fetched_origin_main(self) -> None:
         checkout = self.root / ".local" / "share" / "stack" / "weekly-intelligence-source"
@@ -296,6 +314,7 @@ class WeeklyLiveTests(unittest.TestCase):
                 FIXED_PATH=f"{self.root}/.bun/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
                 _run=command,
                 _validate_execution_checkout=mock.Mock(return_value="a" * 40),
+                _load_weekly_contract=mock.Mock(return_value=LIVE.WEEKLY),
                 _preflight=mock.Mock(return_value=self.live_root / "maintenance.json"),
             ),
         ):
@@ -371,6 +390,7 @@ class WeeklyLiveTests(unittest.TestCase):
                     mock.patch.object(LIVE, "_latest_maintenance_receipt", return_value=self.live_root / "maintenance.json"),
                     mock.patch.object(LIVE.WEEKLY, "read_latest_maintenance_receipt", return_value={"status": maintenance_status}),
                     mock.patch.object(LIVE, "_validate_execution_checkout", return_value="a" * 40),
+                    mock.patch.object(LIVE, "_load_weekly_contract", return_value=LIVE.WEEKLY),
                     mock.patch.object(LIVE, "_run", side_effect=lambda argv, **kwargs: commands.append(argv)),
                 ):
                     with self.assertRaisesRegex(LIVE.LiveLoopError, reason):
@@ -387,6 +407,7 @@ class WeeklyLiveTests(unittest.TestCase):
                 LIVE_ROOT=alias,
                 ACCOUNT_HOME=self.root,
                 _validate_execution_checkout=mock.Mock(return_value="a" * 40),
+                _load_weekly_contract=mock.Mock(return_value=LIVE.WEEKLY),
                 _preflight=mock.Mock(return_value=self.live_root / "maintenance.json"),
                 _run=mock.Mock(side_effect=lambda argv, **kwargs: commands.append(argv)),
             ),
@@ -420,6 +441,7 @@ class WeeklyLiveTests(unittest.TestCase):
                     mock.patch.object(LIVE.WEEKLY, "ACCOUNT_HOME", account),
                     mock.patch.object(LIVE.WEEKLY, "DEFAULT_AUTOMATION_ROOT", automation_root),
                     mock.patch.object(LIVE, "_validate_execution_checkout", return_value="a" * 40),
+                    mock.patch.object(LIVE, "_load_weekly_contract", return_value=LIVE.WEEKLY),
                     mock.patch.object(LIVE, "_run", side_effect=lambda argv, **kwargs: commands.append(argv)),
                     self.assertRaisesRegex(LIVE.LiveLoopError, "scheduler_contract_not_persisted"),
                 ):

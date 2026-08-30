@@ -46,19 +46,27 @@ GBRAIN_SOURCE_ROOT = ACCOUNT_HOME / ".gbrain" / "source-roots" / "x-bookmarks-na
 GBRAIN_CLI = ACCOUNT_HOME / ".bun" / "bin" / "gbrain"
 FIXED_PATH = f"{ACCOUNT_HOME}/.bun/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
-WEEKLY_SPEC = importlib.util.spec_from_file_location(
-    "stack_weekly_live_contract",
-    ROOT / "scripts" / "run-stack-weekly-intelligence.py",
-)
-if WEEKLY_SPEC is None or WEEKLY_SPEC.loader is None:
-    raise RuntimeError("weekly_contract_unavailable")
-WEEKLY = importlib.util.module_from_spec(WEEKLY_SPEC)
-WEEKLY_SPEC.loader.exec_module(WEEKLY)
-WEEKLY.DEFAULT_AUTOMATION_ROOT = ACCOUNT_HOME / ".codex" / "automations"
+WEEKLY: Any = None
 
 
 class LiveLoopError(RuntimeError):
     pass
+
+
+def _load_weekly_contract() -> Any:
+    spec = importlib.util.spec_from_file_location(
+        "stack_weekly_live_contract",
+        ROOT / "scripts" / "run-stack-weekly-intelligence.py",
+    )
+    if spec is None or spec.loader is None:
+        raise LiveLoopError("weekly_contract_unavailable")
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+    except Exception as exc:
+        raise LiveLoopError("weekly_contract_unavailable") from exc
+    module.DEFAULT_AUTOMATION_ROOT = ACCOUNT_HOME / ".codex" / "automations"
+    return module
 
 
 def _allowed_system_alias(path: Path) -> bool:
@@ -328,7 +336,11 @@ def _preflight() -> Path:
 
 
 def run() -> dict[str, Any]:
+    global WEEKLY
     _validate_execution_checkout()
+    # No checkout-local module is loaded until the repository itself passes
+    # provenance, cleanliness, ignored-file, index-flag, and commit checks.
+    WEEKLY = _load_weekly_contract()
     maintenance_receipt = _preflight()
     live_root = _private_path(LIVE_ROOT, directory=True)
     _private_path(FIELD_THEORY_DB)

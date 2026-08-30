@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -80,10 +81,12 @@ def source_state(root: Path) -> dict[str, Any]:
 
 
 def runtime_skill_name(command: dict[str, Any], runtime: str) -> str | None:
-    invocation = command.get("runtimes", {}).get(runtime)
+    runtimes = command.get("runtimes")
+    invocation = runtimes.get(runtime) if isinstance(runtimes, dict) else None
     if not isinstance(invocation, str) or not invocation:
         return None
-    return invocation.removeprefix("/").replace(" ", "-")
+    name = invocation.removeprefix("/").replace(" ", "-")
+    return name if re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name) else None
 
 
 def package_health(root: Path, providers: dict[str, dict[str, Any]]) -> list[str]:
@@ -206,11 +209,16 @@ def runtime_health(root: Path, deployment_root: Path | None) -> list[str]:
             errors.append(f"runtime target {name} has an unresolvable primary command adapter")
         if isinstance(adapters, list) and any(item.get("resolver_contract") != RESOLVER_CONTRACT for item in adapters if isinstance(item, dict)):
             errors.append(f"runtime target {name} command adapters do not share the resolver contract")
-        expected_extended = {
-            command["id"]: runtime_skill_name(command, name)
-            for command in extended_commands
-            if isinstance(command.get("id"), str)
-        }
+        expected_extended: dict[str, str] = {}
+        for command in extended_commands:
+            command_id = command.get("id")
+            runtimes = command.get("runtimes")
+            runtime_name = runtimes.get(name) if isinstance(runtimes, dict) else None
+            if not isinstance(command_id, str) or runtime_skill_name(command, name) is None:
+                errors.append(f"runtime target {name} cannot characterize a malformed extended command")
+                continue
+            assert isinstance(runtime_name, str)
+            expected_extended[command_id] = runtime_name
         extended_routes = manifest.get("extended_routes")
         actual_extended = {
             item.get("canonical_id"): item.get("runtime_name")

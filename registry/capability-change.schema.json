@@ -9,6 +9,39 @@
     "schema_version", "change_id", "state", "approval_state", "base_commit",
     "source_lineage", "target", "rationale", "rollback", "edits", "evaluation"
   ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source_lineage": {"required": ["campaign_run_id"]}
+        }
+      },
+      "then": {
+        "properties": {
+          "edits": {
+            "items": {
+              "required": ["content_file"],
+              "not": {"required": ["content"]}
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "edits": {
+            "maxItems": 5,
+            "items": {
+              "required": ["content"],
+              "not": {"required": ["content_file"]},
+              "properties": {
+                "content": {"maxLength": 65536}
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "properties": {
     "schema_version": {"const": 1},
     "change_id": {"$ref": "#/$defs/opaque"},
@@ -22,7 +55,6 @@
     "edits": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 5,
       "items": {"$ref": "#/$defs/edit"}
     },
     "evaluation": {"$ref": "#/$defs/evaluation"}
@@ -68,7 +100,24 @@
         "card_ids": {"$ref": "#/$defs/opaque_list"},
         "revision_ids": {"$ref": "#/$defs/opaque_list"},
         "evidence_ids": {"$ref": "#/$defs/opaque_list"},
-        "parent_digests": {"$ref": "#/$defs/digest_list"}
+        "parent_digests": {"$ref": "#/$defs/digest_list"},
+        "campaign_run_id": {"type": "string", "minLength": 1, "maxLength": 96},
+        "campaign_receipt_digest": {"$ref": "#/$defs/digest"},
+        "design_packet_artifact_digest": {"$ref": "#/$defs/digest"},
+        "retrieval_artifact_digest": {"$ref": "#/$defs/digest"},
+        "candidate_evaluation_artifact_digest": {"$ref": "#/$defs/digest"}
+      },
+      "dependentRequired": {
+        "campaign_run_id": [
+          "campaign_receipt_digest",
+          "design_packet_artifact_digest",
+          "retrieval_artifact_digest",
+          "candidate_evaluation_artifact_digest"
+        ],
+        "campaign_receipt_digest": ["campaign_run_id"],
+        "design_packet_artifact_digest": ["campaign_run_id"],
+        "retrieval_artifact_digest": ["campaign_run_id"],
+        "candidate_evaluation_artifact_digest": ["campaign_run_id"]
       }
     },
     "target": {
@@ -138,7 +187,11 @@
     "edit": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path", "role", "operation", "before_digest", "after_digest", "content"],
+      "required": ["path", "role", "operation", "before_digest", "after_digest"],
+      "oneOf": [
+        {"required": ["content"], "not": {"required": ["content_file"]}},
+        {"required": ["content_file"], "not": {"required": ["content"]}}
+      ],
       "properties": {
         "path": {"$ref": "#/$defs/repo_path"},
         "role": {"enum": ["skill", "reference", "registry", "test", "documentation"]},
@@ -150,7 +203,11 @@
           ]
         },
         "after_digest": {"$ref": "#/$defs/digest"},
-        "content": {"type": "string", "minLength": 1, "maxLength": 65536}
+        "content": {"type": "string", "minLength": 1},
+        "content_file": {
+          "type": "string",
+          "pattern": "^candidate-content/[a-f0-9]{64}\\.utf8$"
+        }
       }
     },
     "evaluation": {

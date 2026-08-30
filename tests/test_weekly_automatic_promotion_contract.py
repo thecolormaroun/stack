@@ -58,12 +58,13 @@ class WeeklyAutomaticPromotionContractTests(unittest.TestCase):
         self.assertFalse(policy["materialization"]["runtime_publication_authority"])
         self.assertFalse(policy["publication"]["candidate_may_publish"])
 
-    def test_strong_model_and_bounded_automatic_promotion_are_active(self) -> None:
+    def test_strong_model_and_uncapped_automatic_promotion_are_active(self) -> None:
         config = WEEKLY.load_config()
 
         self.assertEqual("gpt-5.6-sol", config["scheduler"]["model"])
         self.assertEqual("high", config["scheduler"]["reasoning_effort"])
         self.assertTrue(config["analysis_budget"]["authorized"])
+        self.assertEqual("concurrent_model_contexts", config["analysis_budget"]["unit"])
         self.assertEqual(3, config["analysis_budget"]["maximum"])
 
         promotion = config["automatic_promotion"]
@@ -72,9 +73,9 @@ class WeeklyAutomaticPromotionContractTests(unittest.TestCase):
             "weekly-design-auto-promotion-approved-v1",
             promotion["authorization_contract"],
         )
-        self.assertEqual(1, promotion["maximum_candidates_per_run"])
-        self.assertEqual(3, promotion["maximum_changed_files"])
-        self.assertEqual(32768, promotion["maximum_total_bytes"])
+        self.assertNotIn("maximum_candidates_per_run", promotion)
+        self.assertNotIn("maximum_changed_files", promotion)
+        self.assertNotIn("maximum_total_bytes", promotion)
         self.assertEqual(
             ["skills/**/SKILL.md", "skills/**/references/**/*.md"],
             promotion["allowed_path_patterns"],
@@ -113,7 +114,8 @@ class WeeklyAutomaticPromotionContractTests(unittest.TestCase):
 
         required_phrases = (
             "Do not stop at `awaiting_approval`",
-            "at most one candidate",
+            "every independently material candidate",
+            "Process candidates sequentially",
             "material-evidence",
             "frozen-design-eval",
             "fresh independent review",
@@ -128,6 +130,46 @@ class WeeklyAutomaticPromotionContractTests(unittest.TestCase):
         for phrase in required_phrases:
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, prompt)
+        self.assertLess(
+            prompt.index("scripts/list-pending-weekly-design-promotions.py"),
+            prompt.index("scripts/run-stack-weekly-live.py"),
+        )
+        self.assertIn(
+            "persist its terminal receipt, then refresh and verify `origin/main`, before starting the next candidate",
+            prompt,
+        )
+        self.assertIn("candidate-content/<after-digest>.utf8", prompt)
+        self.assertIn("Candidate receipts are append-only", prompt)
+
+    def test_candidate_schema_has_no_automatic_file_or_content_ceiling(self) -> None:
+        schema = json.loads(
+            (ROOT / "registry" / "capability-change.schema.json").read_text()
+        )
+        edits = schema["properties"]["edits"]
+        edit = schema["$defs"]["edit"]
+
+        self.assertNotIn("maxItems", edits)
+        self.assertNotIn("maxLength", edit["properties"]["content"])
+        self.assertIn("content_file", edit["properties"])
+        self.assertIn("oneOf", edit)
+        manual_contract = schema["allOf"][0]["else"]["properties"]["edits"]
+        automatic_contract = schema["allOf"][0]["then"]["properties"]["edits"]
+        self.assertEqual(5, manual_contract["maxItems"])
+        self.assertEqual(65536, manual_contract["items"]["properties"]["content"]["maxLength"])
+        self.assertIn("content_file", automatic_contract["items"]["required"])
+        lineage = schema["$defs"]["source_lineage"]
+        campaign_fields = {
+            "campaign_run_id",
+            "campaign_receipt_digest",
+            "design_packet_artifact_digest",
+            "retrieval_artifact_digest",
+            "candidate_evaluation_artifact_digest",
+        }
+        self.assertTrue(campaign_fields <= set(lineage["properties"]))
+        self.assertEqual(
+            campaign_fields - {"campaign_run_id"},
+            set(lineage["dependentRequired"]["campaign_run_id"]),
+        )
 
     def test_coordinator_prepares_the_automatic_tail_without_manual_queue(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -187,7 +229,7 @@ class WeeklyAutomaticPromotionContractTests(unittest.TestCase):
         config = json.loads((ROOT / "config" / "weekly-intelligence.json").read_text())
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "weekly.json"
-            config["automatic_promotion"]["maximum_changed_files"] = 99
+            config["automatic_promotion"]["maximum_changed_files"] = 3
             path.write_text(json.dumps(config), encoding="utf-8")
             with self.assertRaisesRegex(
                 WEEKLY.WeeklyIntelligenceError,

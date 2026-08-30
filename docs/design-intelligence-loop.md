@@ -150,8 +150,8 @@ persisted and a current canonical maintenance receipt is linked. Existing
 Hermes collection/curation stays intake-only, and upstream maintenance remains
 separate. Authorization contract
 `weekly-design-auto-promotion-approved-v1` permits the scheduled Sol/high tail
-to advance at most one existing Stack-owned skill/reference change without a
-recurring human review. Weak evidence becomes `no_action`, failed gates become
+to advance every independently material existing Stack-owned skill/reference
+change sequentially without recurring human review. Weak evidence becomes `no_action`, failed gates become
 `rejected_no_queue`, and operational outages become `retry_with_alert`.
 After enablement, every eight-day window must
 contain a terminal non-duplicate campaign receipt or a visible alert with the

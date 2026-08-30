@@ -155,11 +155,24 @@ def _validate_packet(packet: Mapping[str, Any]) -> tuple[str, dict[str, Any]]:
         raise DesignEvaluationError("candidate packet rationale shape is unsupported")
     if packet["target"].get("provider") != "stack" or packet["target"].get("package") != "stack" or packet["target"].get("upstream_pin") is not None:
         raise DesignEvaluationError("candidate packet target is not Stack-owned")
-    if not isinstance(packet["edits"], list) or not 1 <= len(packet["edits"]) <= 5:
+    automatic_weekly = campaign_fields <= set(lineage)
+    if not isinstance(packet["edits"], list) or not packet["edits"]:
         raise DesignEvaluationError("candidate packet edits are unsupported")
+    if not automatic_weekly and len(packet["edits"]) > 5:
+        raise DesignEvaluationError("manual candidate packet exceeds the file limit")
+    manual_total = 0
     for edit in packet["edits"]:
-        if not isinstance(edit, Mapping) or set(edit) != {"path", "role", "operation", "before_digest", "after_digest", "content"}:
+        common = {"path", "role", "operation", "before_digest", "after_digest"}
+        expected_edit = common | ({"content_file"} if automatic_weekly else {"content"})
+        if not isinstance(edit, Mapping) or set(edit) != expected_edit:
             raise DesignEvaluationError("candidate packet edit shape is unsupported")
+        if not automatic_weekly:
+            content = edit.get("content")
+            if not isinstance(content, str) or not content or len(content) > 65536:
+                raise DesignEvaluationError("manual candidate packet content is unsupported")
+            manual_total += len(content.encode("utf-8"))
+    if manual_total > 131072:
+        raise DesignEvaluationError("manual candidate packet exceeds the byte limit")
     evaluation = packet.get("evaluation")
     if not isinstance(evaluation, Mapping) or evaluation.get("profile") != "design-learning-v1" or evaluation.get("harness_required") is not True:
         raise DesignEvaluationError("candidate packet is not bound to design-learning-v1")
@@ -176,6 +189,17 @@ def _validate_materialization(receipt: Mapping[str, Any], packet: Mapping[str, A
         "authorization", "active_checkout", "isolation", "quarantine",
         "activation", "next_gate",
     }
+    lineage = packet.get("source_lineage")
+    campaign_fields = {
+        "campaign_run_id",
+        "campaign_receipt_digest",
+        "design_packet_artifact_digest",
+        "retrieval_artifact_digest",
+        "candidate_evaluation_artifact_digest",
+    }
+    automatic_weekly = isinstance(lineage, Mapping) and campaign_fields <= set(lineage)
+    if automatic_weekly:
+        expected.add("campaign_evidence")
     if set(receipt) != expected or receipt.get("schema_version") != 1 or receipt.get("status") != "prepared" or receipt.get("receipt_kind") != "capability-change-materialization":
         raise DesignEvaluationError("materialization receipt is incomplete or not prepared")
     bound = receipt.get("change_digest", receipt.get("candidate_packet_digest"))
@@ -203,6 +227,15 @@ def _validate_materialization(receipt: Mapping[str, Any], packet: Mapping[str, A
     activation = receipt.get("activation")
     if not isinstance(activation, Mapping) or any(activation.get(key) is not False for key in ("active_pointer", "install", "publish", "draft_pr", "network_action")):
         raise DesignEvaluationError("materialization receipt authorizes activation")
+    if automatic_weekly:
+        campaign_evidence = receipt.get("campaign_evidence")
+        if (
+            not isinstance(campaign_evidence, Mapping)
+            or set(campaign_evidence) != {"receipt_digest", "materiality_verified_before_materialization"}
+            or campaign_evidence.get("receipt_digest") != lineage.get("campaign_receipt_digest")
+            or campaign_evidence.get("materiality_verified_before_materialization") is not True
+        ):
+            raise DesignEvaluationError("automatic materialization receipt lacks campaign evidence")
 
 
 def _manifest(value: Any, expected_split: str, expected_digest: str) -> tuple[dict[str, Any], str]:

@@ -66,8 +66,13 @@ rejected before even a Git subprocess can run; a concurrent upstream advance
 fails closed as a stale checkout for the next scheduled retry.
 
 The active task uses `gpt-5.6-sol` at high reasoning. Deterministic collection
-still runs first. Model work occurs only when material evidence exists; at most
-one candidate can reach evaluation in a run.
+still runs first. Model work occurs only when material evidence exists. Every
+independently material candidate may reach evaluation and is processed
+sequentially with a fresh quota preflight for each model/reviewer wave.
+Before new collection, the automation runs
+`scripts/list-pending-weekly-design-promotions.py` and resolves every accepted
+`retry_with_alert` receipt that lacks a later published or rejected receipt for
+the same campaign and candidate digest. Missing decision evidence fails closed.
 
 ## Inputs and idempotency
 
@@ -212,8 +217,9 @@ integration and approval gates.
 
 The tail works from a clean isolated branch based on current `origin/main`,
 never the user's primary checkout. It may change only existing
-`skills/**/SKILL.md` or `skills/**/references/**/*.md`, with one candidate,
-three files, and 32,768 bytes maximum per run. Material evidence, isolated
+`skills/**/SKILL.md` or `skills/**/references/**/*.md`. There is no per-run
+candidate-count, changed-file, or byte ceiling; each candidate must remain one
+coherent independently evaluated behavior. Material evidence, isolated
 materialization, frozen design evaluation, full tests, a fresh independent
 `ship` review, green pull-request checks, and merge verification are all
 required before publication.
@@ -222,9 +228,10 @@ The materialization command must use `--automatic-weekly-design`. Its
 authorization binds the exact coordinator run ID and receipt digest to
 `weekly-design-auto-promotion-approved-v1`. The materializer independently
 enforces replacement-only edits, existing Stack-owned skill/reference paths,
-the three-file limit, the byte limit, checkout preservation, and the disposable
-no-network clone. The terminal recorder repeats the path, digest, and limit
-checks against the immutable base commit.
+checkout preservation, and the disposable no-network clone. The terminal
+recorder repeats the path and digest checks against the immutable base commit
+and writes candidate-specific receipts so multiple outcomes from one campaign
+cannot collide.
 
 Publication runs only from a fresh clean checkout of verified merged
 `origin/main` through
@@ -250,7 +257,7 @@ rejection while a pull request remains open:
   --live-receipt /owner-local/weekly-state/live/live-receipts/run-id.json \
   --live-receipt-digest returned-live-binding-sha256 \
   --campaign-receipt /owner-local/weekly-state/receipts/run-id.json \
-  --decision /owner-local/weekly-state/promotion-decisions/run-id.json \
+  --decision /owner-local/weekly-state/promotion-decisions/run-id--candidate-digest--decision-digest.json \
   --out-dir /owner-local/weekly-state/promotion-receipts
 ```
 
@@ -267,6 +274,16 @@ rollback-state shape. Runtime proof must use the installer's immutable
 files share one transaction ID and directory; mutable root-level aliases are
 operational pointers, not promotion evidence. The input files and output are mode `0600` below
 owner-only mode-`0700` directories. Terminal receipts retain only digests and
-safe states, never raw bookmark content or absolute source paths. The accepted
+safe states, never raw bookmark content or absolute source paths. Candidate
+outcomes are stored as
+`<campaign-run-id>--<candidate-digest>--<receipt-digest>.json`; a
+campaign-level `no_action` with no candidate retains `<campaign-run-id>.json`.
+Decision documents use the same append-only identity with their exact decision
+digest and use `no-candidate` for a `no_action` decision. This keeps sequential candidates independent and lets a later completion for
+the same candidate coexist with an earlier retry. Candidate bodies live in
+owner-only digest-addressed `candidate-content/*.utf8` files beside the small
+candidate packet, so large changes stream through validation without creating
+a promotion-size ceiling.
+The accepted
 dispositions are `published`, `no_action`, `rejected_no_queue`, and
 `retry_with_alert`; none creates a human approval queue.

@@ -104,9 +104,11 @@ lease, and receipts. Hermes owns a Monday intake-only collection/curation lane.
 The Stack weekly intelligence lane coordinates Saturday evidence and links the
 latest maintenance receipt but never invokes maintenance. Under
 `weekly-design-auto-promotion-approved-v1`, its separate automatic tail may
-publish one evaluated Stack-owned skill/reference candidate after verified
-merge. Collection, curation, evaluation, maintenance, and publication failures
-remain distinct.
+publish every independently material Stack-owned skill/reference candidate,
+one lineage at a time, after each candidate's verified merge. The next
+candidate starts only after the prior candidate has a terminal receipt and the
+automation has refreshed `origin/main`. Collection, curation, evaluation,
+maintenance, and publication failures remain distinct.
 
 Stack provides a reviewed wrapper and reports the Stack commit and policy
 digest. The approved Saturday 09:00 `America/Los_Angeles` contract becomes live

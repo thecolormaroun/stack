@@ -15,6 +15,7 @@ runtime, or active-evidence operation in this module.
 from __future__ import annotations
 
 import argparse
+import codecs
 import hashlib
 import importlib.util
 import json
@@ -55,6 +56,8 @@ PRIVATE_FIELD_RE = re.compile(
     re.IGNORECASE,
 )
 SHEBANG_RE = re.compile(r"^#!(?:\s*)/", re.MULTILINE)
+CONTENT_FILE_RE = re.compile(r"^candidate-content/[a-f0-9]{64}\.utf8$")
+CONTENT_SCAN_OVERLAP = 256
 
 
 class MaterializationError(ValueError):
@@ -100,6 +103,7 @@ def _validate_automatic_campaign(
     campaign_receipt: Path | None,
     campaign_receipt_digest: str | None,
     repository: Path,
+    packet_dir: Path | None,
 ) -> None:
     if campaign_receipt is None or not _is_digest(campaign_receipt_digest):
         raise MaterializationError("automatic weekly campaign receipt and digest are required")
@@ -110,7 +114,15 @@ def _validate_automatic_campaign(
         campaign, actual_digest, resolved = contract._campaign(campaign_receipt)
         if actual_digest != campaign_receipt_digest:
             raise MaterializationError("automatic weekly campaign digest does not match receipt")
-        contract._candidate_packet(packet, campaign, actual_digest, resolved, repository=repository)
+        candidate_path = packet_dir / "candidate.json" if packet_dir is not None else None
+        contract._candidate_packet(
+            packet,
+            campaign,
+            actual_digest,
+            resolved,
+            candidate_path=candidate_path,
+            repository=repository,
+        )
     except MaterializationError:
         raise
     except contract.PromotionReceiptError as error:
@@ -183,6 +195,90 @@ def privacy_scan(value: Any) -> list[str]:
 
     visit(value, "$" )
     return sorted(set(findings))
+
+
+def _content_file(edit: Mapping[str, Any], packet_dir: Path | None) -> Path:
+    relative = edit.get("content_file")
+    if packet_dir is None or not isinstance(relative, str) or CONTENT_FILE_RE.fullmatch(relative) is None:
+        raise MaterializationError("candidate content_file is invalid")
+    root = packet_dir.expanduser().resolve(strict=True)
+    expected_parent = root / "candidate-content"
+    candidate = root / relative
+    for path in (root, expected_parent, candidate):
+        if path.is_symlink():
+            raise MaterializationError("candidate content_file contains a symlink")
+    try:
+        root_details = root.stat()
+        parent = expected_parent.stat()
+        details = candidate.stat()
+    except OSError as error:
+        raise MaterializationError("candidate content_file is unavailable") from error
+    if (
+        not stat.S_ISDIR(root_details.st_mode)
+        or root_details.st_uid != os.getuid()
+        or stat.S_IMODE(root_details.st_mode) != 0o700
+        or not stat.S_ISDIR(parent.st_mode)
+        or parent.st_uid != os.getuid()
+        or stat.S_IMODE(parent.st_mode) != 0o700
+        or not stat.S_ISREG(details.st_mode)
+        or details.st_uid != os.getuid()
+        or stat.S_IMODE(details.st_mode) != 0o600
+    ):
+        raise MaterializationError("candidate content_file permissions are unsafe")
+    return candidate
+
+
+def _inspect_content(edit: Mapping[str, Any], packet_dir: Path | None) -> int:
+    """Validate candidate content in bounded memory and return its byte count."""
+
+    content = edit.get("content")
+    content_file = edit.get("content_file")
+    if (isinstance(content, str)) == (content_file is not None):
+        raise MaterializationError("candidate edit must declare exactly one content source")
+    if isinstance(content, str):
+        if not content:
+            raise MaterializationError("candidate edit content is empty")
+        encoded = content.encode("utf-8")
+        if SHEBANG_RE.search(content):
+            raise MaterializationError("executable candidate content is not allowed")
+        if privacy_scan(content):
+            raise MaterializationError("candidate privacy scan failed")
+        if digest_bytes(encoded) != edit.get("after_digest"):
+            raise MaterializationError("after_digest does not match declared content")
+        return len(encoded)
+
+    path = _content_file(edit, packet_dir)
+    expected_name = f"candidate-content/{edit.get('after_digest')}.utf8"
+    if content_file != expected_name:
+        raise MaterializationError("candidate content_file is not digest-addressed")
+    digest = hashlib.sha256()
+    decoder = codecs.getincrementaldecoder("utf-8")()
+    overlap = ""
+    size = 0
+    try:
+        with path.open("rb") as handle:
+            while chunk := handle.read(65536):
+                size += len(chunk)
+                digest.update(chunk)
+                text = decoder.decode(chunk)
+                scan = overlap + text
+                if SHEBANG_RE.search(scan):
+                    raise MaterializationError("executable candidate content is not allowed")
+                if PRIVATE_FIELD_RE.search(scan):
+                    raise MaterializationError("candidate privacy scan failed")
+                overlap = scan[-CONTENT_SCAN_OVERLAP:]
+            tail = overlap + decoder.decode(b"", final=True)
+    except UnicodeError as error:
+        raise MaterializationError("candidate content_file is not UTF-8") from error
+    except OSError as error:
+        raise MaterializationError("candidate content_file is unreadable") from error
+    if not size:
+        raise MaterializationError("candidate edit content is empty")
+    if SHEBANG_RE.search(tail) or PRIVATE_FIELD_RE.search(tail):
+        raise MaterializationError("candidate content_file safety scan failed")
+    if digest.hexdigest() != edit.get("after_digest"):
+        raise MaterializationError("after_digest does not match declared content_file")
+    return size
 
 
 def safe_relative(value: Any) -> PurePosixPath:
@@ -365,7 +461,8 @@ def _validate_packet(
     policy: Mapping[str, Any],
     *,
     automatic_weekly: bool = False,
-) -> tuple[PurePosixPath, PurePosixPath, list[dict[str, Any]]]:
+    packet_dir: Path | None = None,
+) -> None:
     expected_top_level = {
         "schema_version", "change_id", "state", "approval_state", "base_commit",
         "source_lineage", "target", "rationale", "rollback", "edits", "evaluation",
@@ -469,25 +566,29 @@ def _validate_packet(
     if automatic_weekly:
         if not isinstance(automatic, Mapping) or automatic.get("state") != "active" or automatic.get("authorization_contract") != "weekly-design-auto-promotion-approved-v1":
             raise MaterializationError("automatic weekly design policy is unavailable")
-        maximum = automatic.get("maximum_changed_files")
     else:
         maximum = materialization.get("maximum_changed_files", 5)
-    if not isinstance(maximum, int) or maximum < 1:
-        raise MaterializationError("materialization policy is invalid")
     edits = packet.get("edits")
-    if not isinstance(edits, list) or not 1 <= len(edits) <= min(5, maximum):
-        raise MaterializationError("candidate must declare between one and five edits")
+    if automatic_weekly:
+        if not isinstance(edits, list) or not edits:
+            raise MaterializationError("automatic weekly candidate must declare at least one edit")
+    else:
+        if not isinstance(maximum, int) or maximum < 1:
+            raise MaterializationError("materialization policy is invalid")
+        if not isinstance(edits, list) or not 1 <= len(edits) <= min(5, maximum):
+            raise MaterializationError("candidate must declare between one and five edits")
     allowed_roles = materialization.get("allowed_roles", list(ROLE_TO_CHANGE_KIND))
     if not isinstance(allowed_roles, list) or not set(allowed_roles) <= set(ROLE_TO_CHANGE_KIND):
         raise MaterializationError("materialization role policy is invalid")
     paths: set[str] = set()
     total_bytes = 0
-    validated: list[dict[str, Any]] = []
+    primary_found = False
     for edit in edits:
         if not isinstance(edit, Mapping):
             raise MaterializationError("candidate edit is not an object")
-        required = {"path", "role", "operation", "before_digest", "after_digest", "content"}
-        if set(edit) != required:
+        common = {"path", "role", "operation", "before_digest", "after_digest"}
+        expected_edit = common | ({"content_file"} if automatic_weekly else {"content"})
+        if set(edit) != expected_edit:
             raise MaterializationError("candidate edit has unsupported or missing fields")
         relative = safe_relative(edit.get("path"))
         path_text = relative.as_posix()
@@ -520,13 +621,9 @@ def _validate_packet(
             raise MaterializationError("candidate deletion or rename is not allowed")
         if automatic_weekly and (operation != "replace" or not _automatic_weekly_path(relative)):
             raise MaterializationError("automatic weekly edit path is outside the approved contract")
-        content = edit.get("content")
-        if not isinstance(content, str) or not content:
-            raise MaterializationError("candidate edit content is empty")
-        encoded = content.encode("utf-8")
-        total_bytes += len(encoded)
-        if SHEBANG_RE.search(content):
-            raise MaterializationError("executable candidate content is not allowed")
+        content_bytes = _inspect_content(edit, packet_dir)
+        if not automatic_weekly:
+            total_bytes += content_bytes
         current_digest = _path_digest(repository, relative)
         current_mode = _path_mode(repository, relative)
         before = edit.get("before_digest")
@@ -536,27 +633,24 @@ def _validate_packet(
         else:
             if not _is_digest(before) or current_digest != before:
                 raise MaterializationError("before_digest does not match the active base")
-        if not _is_digest(edit.get("after_digest")) or digest_bytes(encoded) != edit.get("after_digest"):
-            raise MaterializationError("after_digest does not match declared content")
+        if not _is_digest(edit.get("after_digest")):
+            raise MaterializationError("after_digest is invalid")
         if current_mode is not None and current_mode & 0o111:
             raise MaterializationError("executable candidate path is not allowed")
         rollback_digest = rollback["path_digests"].get(path_text)
         if rollback_digest != before:
             raise MaterializationError("rollback path digest does not match edit")
-        validated.append({"path": relative, "role": role, "operation": operation, "before_digest": before, "after_digest": edit["after_digest"], "content": content})
+        primary_found = primary_found or role == primary_role
     if set(rollback["path_digests"]) != paths:
         raise MaterializationError("rollback path set does not match declared edits")
-    if not any(row["role"] == next(role for role, kind in ROLE_TO_CHANGE_KIND.items() if kind == change_kind) for row in validated):
+    if not primary_found:
         raise MaterializationError("candidate is missing its primary capability edit")
-    policy_total = automatic.get("maximum_total_bytes") if automatic_weekly and isinstance(automatic, Mapping) else materialization.get("maximum_total_bytes", 131072)
-    if not isinstance(policy_total, int) or total_bytes > policy_total:
-        raise MaterializationError("candidate exceeds materialization byte limit")
-    findings = privacy_scan(packet)
-    if findings:
-        raise MaterializationError("candidate privacy scan failed")
+    if not automatic_weekly:
+        policy_total = materialization.get("maximum_total_bytes", 131072)
+        if not isinstance(policy_total, int) or total_bytes > policy_total:
+            raise MaterializationError("candidate exceeds materialization byte limit")
     if overlap.get("status") == "human_review_required":
         raise MaterializationError("candidate overlap analysis requires human review")
-    return capability_path, capability_root, validated
 
 
 def _validate_authorization(
@@ -680,7 +774,7 @@ def _clone_exact(repository: Path, base_commit: str, destination: Path) -> Path:
     return clone
 
 
-def _apply_edits(checkout: Path, edits: list[dict[str, Any]]) -> None:
+def _apply_edits(checkout: Path, edits: list[dict[str, Any]], packet_dir: Path | None) -> None:
     for edit in edits:
         relative = edit["path"]
         _assert_no_symlink_components(checkout, relative)
@@ -692,11 +786,30 @@ def _apply_edits(checkout: Path, edits: list[dict[str, Any]]) -> None:
             raise MaterializationError("isolated before_digest changed")
         if edit["operation"] == "create" and destination.exists():
             raise MaterializationError("isolated create destination already exists")
-        destination.write_bytes(edit["content"].encode("utf-8"))
+        digest = hashlib.sha256()
+        try:
+            with destination.open("wb") as output:
+                if "content" in edit:
+                    chunks = (edit["content"].encode("utf-8"),)
+                    for chunk in chunks:
+                        output.write(chunk)
+                        digest.update(chunk)
+                else:
+                    source = _content_file(edit, packet_dir)
+                    with source.open("rb") as input_file:
+                        while chunk := input_file.read(65536):
+                            output.write(chunk)
+                            digest.update(chunk)
+        except OSError as error:
+            raise MaterializationError("unable to write candidate content") from error
+        if digest.hexdigest() != edit["after_digest"]:
+            raise MaterializationError("candidate content changed during materialization")
         os.chmod(destination, 0o600)
         if destination.stat().st_mode & 0o111:
             raise MaterializationError("isolated candidate path became executable")
-    _run_git(checkout, ["add", "--", *[edit["path"].as_posix() for edit in edits]])
+    paths = [edit["path"].as_posix() for edit in edits]
+    for offset in range(0, len(paths), 128):
+        _run_git(checkout, ["add", "--", *paths[offset:offset + 128]])
 
 
 def _render_review_markdown(packet: Mapping[str, Any], receipt: Mapping[str, Any]) -> str:
@@ -736,8 +849,11 @@ def materialize_change(
 ) -> dict[str, Any]:
     """Materialize ``packet`` and return its deterministic receipt."""
 
+    packet_dir: Path | None = None
     if isinstance(packet, (Path, str)):
-        packet = load_object(Path(packet), "candidate packet")
+        packet_path = Path(packet).expanduser().resolve(strict=True)
+        packet_dir = packet_path.parent
+        packet = load_object(packet_path, "candidate packet")
     if isinstance(authorization, (Path, str)):
         authorization = load_object(Path(authorization), "materialization authorization")
     if output_dir is None:
@@ -755,7 +871,13 @@ def materialize_change(
     if privacy_scan(packet):
         raise MaterializationError("candidate privacy scan failed")
     _validate_authorization(authorization, packet, automatic_weekly=automatic_weekly)
-    _validate_packet(packet, active, policy_doc, automatic_weekly=automatic_weekly)
+    _validate_packet(
+        packet,
+        active,
+        policy_doc,
+        automatic_weekly=automatic_weekly,
+        packet_dir=packet_dir,
+    )
     if automatic_weekly:
         _validate_automatic_campaign(
             packet,
@@ -763,6 +885,7 @@ def materialize_change(
             campaign_receipt,
             campaign_receipt_digest,
             active,
+            packet_dir,
         )
     output = _owner_output_dir(Path(output_dir), active)
     before_status = _status_digest(active)
@@ -775,7 +898,7 @@ def materialize_change(
         checkout = _clone_exact(active, packet["base_commit"], temporary_root)
         _apply_edits(checkout, [
             {**row, "path": safe_relative(row["path"])} for row in edit_rows
-        ])
+        ], packet_dir)
         changed = _run_git(checkout, ["diff", "--cached", "--name-only", "--no-ext-diff"]).splitlines()
         expected_paths = sorted(row["path"] for row in edit_rows)
         if sorted(changed) != expected_paths:
@@ -886,11 +1009,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--campaign-receipt-digest", help="SHA-256 of --campaign-receipt; required with --automatic-weekly-design")
     args = parser.parse_args(argv)
     try:
-        packet = load_object(args.packet, "candidate packet")
         authorization = load_object(args.authorization, "materialization authorization")
         policy = _load_policy(args.policy)
         receipt = materialize_change(
-            packet,
+            args.packet,
             authorization,
             repository=args.repository,
             output_dir=args.out,

@@ -20,10 +20,10 @@ Source intake must not mutate:
 - critique logs.
 
 Source collection is read-only. Promotion runs separately under exact contract
-`weekly-design-auto-promotion-approved-v1`, is limited to one candidate and
-three Stack-owned skill/reference Markdown files per run, and uses an isolated
-branch plus pull request. The active checkout is never the materialization
-surface.
+`weekly-design-auto-promotion-approved-v1`, processes every independently
+material candidate sequentially, and uses an isolated branch plus pull request
+for each candidate. It has no per-run candidate-count, changed-file, or byte
+ceiling. The active checkout is never the materialization surface.
 
 ## Candidate Thresholds
 
@@ -82,8 +82,9 @@ If the candidate is useful but the eval is not run, label it `retry_with_alert`,
 ## Runtime Promotion
 
 The approved automatic tail may create or update one lineage-bound pull
-request, merge it after all required checks pass, and publish the merged Stack
-revision to Claude and Codex. It must require, in order:
+request at a time, merge it after all required checks pass, and publish every
+independently material candidate to Claude and Codex. It has no candidate,
+changed-file, or byte ceiling. Each candidate must require, in order:
 
 1. `material-evidence` and exact source citations.
 2. a live-binding receipt that fixes the exact canonical campaign path and
@@ -91,7 +92,7 @@ revision to Claude and Codex. It must require, in order:
 3. candidate lineage whose packet, card, revision, evidence, and change IDs
    are present in the bound design-packet and retrieval artifacts, plus exact
    design-packet, retrieval, and candidate-evaluation artifact digests.
-4. isolated automatic-weekly materialization with path/size limits and rollback digests.
+4. isolated automatic-weekly materialization with exact path and rollback digests.
 5. `frozen-design-eval` with the baseline, protected holdout, and rotating canary.
 6. the full Stack repository test suite.
 7. a fresh independent review with verdict `ship`.

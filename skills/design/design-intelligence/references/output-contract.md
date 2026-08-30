@@ -77,9 +77,10 @@ For each note:
 
 ## Output C - Studio Skill Update Candidate
 
-Select at most one material skill/reference update. A quiet week should select
-none. The digest never applies it; the separate approved automatic tail owns
-evaluation, pull-request merge, and publication.
+Select every independently material skill/reference update. Keep unrelated
+behaviors in separate candidates and process them sequentially. A quiet week
+should select none. The digest never applies them; the separate approved
+automatic tail owns evaluation, pull-request merge, and publication.
 
 For each update:
 - target file.
@@ -87,6 +88,11 @@ For each update:
 - evidence links.
 - duplicate/idempotency check.
 - eval required before promotion.
+
+For an automatic candidate, write each complete proposed file body to an
+owner-only digest-addressed `candidate-content/<after-digest>.utf8` file beside
+the candidate JSON and reference it with `content_file`. This streams large
+changes through validation without imposing a changed-file or byte ceiling.
 
 ## Backfill Packet
 

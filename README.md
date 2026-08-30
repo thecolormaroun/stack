@@ -74,9 +74,10 @@ the product unless they directly support a named design/build workflow.
    the promotion gates. Capturing or retrieving a link is never promotion.
 4. **Promotion gate.** Provenance, evaluation, review, activation, and
    publication require separate receipts. The approved weekly design lane may
-   automatically promote at most one small Stack-owned skill/reference change
-   after every frozen evaluation, independent review, CI, merge, publication,
-   and rollback gate passes. Other candidates remain nonpublishing by default.
+   automatically promote every independently material Stack-owned
+   skill/reference change, one lineage at a time, after every frozen
+   evaluation, independent review, CI, merge, publication, and rollback gate
+   passes. Other candidates remain nonpublishing by default.
 5. **Publication and recovery.** The compiler selects only reviewed `active`
    entries for a declared target, stages all outputs, and the installer switches
    them atomically. Receipts preserve the catalog digest, source commit, and
@@ -127,8 +128,9 @@ design packets, retrieval, candidate evaluation, and the latest maintenance
 receipt. Its approved Saturday 09:00 scheduler runs the deterministic collector
 first, then a Sol/high automatic tail only when material evidence exists. The
 coordinator itself never launches maintenance or publishes a capability; the
-separate tail may publish one bounded Stack-owned skill/reference change only
-after every checked-in gate and a terminal owner-local receipt.
+separate tail may publish every independently material Stack-owned
+skill/reference change, one lineage at a time, only after every checked-in gate
+and a terminal owner-local receipt.
 
 ## Security and privacy
 

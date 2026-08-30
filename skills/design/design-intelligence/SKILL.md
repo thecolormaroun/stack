@@ -1,6 +1,6 @@
 ---
 name: design-intelligence
-description: "Run the weekly design intelligence loop: scan curated sources, Arc bookmarks, Field Theory/X bookmarks, and GBrain deltas; synthesize a design digest; propose review-gated skill updates; and require eval evidence before promotion."
+description: "Run the weekly design intelligence loop: scan curated sources, Arc bookmarks, Field Theory/X bookmarks, and GBrain deltas; synthesize a design digest; and automatically promote one evaluated Stack-owned skill/reference improvement when every publication gate passes."
 ---
 
 # Design Intelligence Loop
@@ -9,13 +9,18 @@ Use this skill for the rebuilt weekly design digest and taste-compounding workfl
 
 The loop has two jobs:
 - Find high-signal design inspiration from curated sources and Maroun's saved links.
-- Convert repeated lessons into reviewable Studio/CDO skill updates only after evidence and eval.
+- Convert repeated lessons into evaluated Studio/CDO skill updates and publish at most one automatically when every scoped gate passes.
 
 ## Operating Rule
 
-Run as a read-only intake by default. Do not mutate Arc, Field Theory, X/Twitter, GBrain source roots, Vault, or Studio skill files during source collection.
+Run source intake read-only. Do not mutate Arc, Field Theory, X/Twitter, GBrain source roots, Vault, or Studio skill files during source collection.
 
-Promotion is a separate review step.
+Promotion is a separate automatic tail under authorization contract
+`weekly-design-auto-promotion-approved-v1`. It may touch only existing
+Stack-owned skill/reference Markdown, at most one candidate and three files per
+run. It still requires isolated materialization, frozen evaluation, full tests,
+a fresh independent `ship` review, green pull-request checks, verified merge,
+atomic runtime publication, discovery, and rollback evidence.
 
 ## Load Order
 
@@ -55,9 +60,11 @@ Chunk the backfill by week. Each chunk should produce its own source manifest an
 Every run must produce:
 - A source manifest with counts, paths used, fetch/read status, and candidate samples.
 - A weekly design digest with Output A, Output B, and Output C.
-- A promotion packet with proposed Studio/CDO changes, evidence links, and the eval gate required before promotion.
+- A promotion packet with proposed Studio/CDO changes, evidence links, gate results, and a `no_action`, `rejected_no_queue`, `retry_with_alert`, or published disposition.
 
-The digest may suggest Zettelkasten notes and skill changes, but it must not directly write them.
+The digest may suggest Zettelkasten notes but must not write them. Skill and
+reference changes advance only through the separate automatic promotion tail;
+the digest itself never edits a runtime or checkout.
 
 ## U16 Card and Packet Boundary
 
@@ -92,7 +99,8 @@ retaining source evidence. Conflicting explicit claims remain distinct and are
 surfaced as uncertainty. Prompt/model/config/sampling/code changes derive a
 new revision and never overwrite an earlier card.
 
-Model egress is default-deny. There is no live provider path. An injected fake
+Provider egress inside the deterministic packet builder is default-deny. There
+is no live provider client or paid fallback in that module. An injected fake
 analyzer is allowed only with an explicit approved provider contract that names
 the provider, exact allowed fields, redaction/minimization, retention,
 training, and log-redaction posture. The fake receives only that allowlisted
@@ -121,14 +129,26 @@ reindex, change a provider, use a paid fallback, write a source, or modify a
 skill/reference file. Read `references/retrieval-contract.md` for ranking,
 privacy, degradation, and benchmark gates.
 
-## Evaluation Gate
+## Evaluation and Publication Gate
 
 Before a proposed skill update becomes the default runtime behavior:
-- Install or refresh the candidate skill into Codex.
-- Run the design-skill eval matrix against `codex-current`.
-- Promote only when the candidate beats `codex-current` on at least 4 fixtures and has no hard fails.
+- Materialize it outside the active checkout and bind exact evidence, base
+  commit, target files, and rollback digests.
+- Require the exact live-binding receipt and prove that every packet, card,
+  revision, evidence, and change ID exists in the campaign's persisted
+  design-packet/retrieval artifacts before materialization.
+- Run the frozen design-skill eval matrix against `codex-current`.
+- Require at least four fixture wins, protected holdout and rotating-canary
+  passes, full repository tests, and no hard failures.
+- Require a fresh independent review with final verdict `ship`.
+- Merge only through a green lineage-bound pull request whose reviewed head and
+  candidate digests still match.
+- Publish only from verified merged `origin/main` through the atomic compiler,
+  installer, two-runtime discovery check, and rollback receipt.
 
-If the eval harness is unavailable, mark the promotion packet as blocked rather than approving it from taste alone.
+If any gate is unavailable, retain resumable owner-local evidence and return
+`retry_with_alert`; never guess a pass. A weak or rejected candidate creates no
+human review queue.
 
 ## Candidate Guidance From Historical Backfill
 

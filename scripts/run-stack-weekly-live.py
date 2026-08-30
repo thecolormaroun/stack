@@ -2,19 +2,23 @@
 """Run Stack's approved local weekly bookmark and design-intelligence loop.
 
 The live lane reads Field Theory, imports missing x-bookmarks without
-embeddings, and then runs the review-only weekly coordinator. It never enables
-Direct X/OAuth, provider egress, skill promotion, or runtime publication.
+embeddings, and then runs the deterministic weekly collection coordinator. This
+entrypoint itself never enables Direct X/OAuth, provider egress, skill
+promotion, or runtime publication; the approved Codex automation owns the
+separate evaluated promotion tail.
 """
 
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import pwd
 import stat
 import subprocess
 import sys
 import importlib.util
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -163,6 +167,80 @@ def _latest_maintenance_receipt() -> Path:
     return _private_path(max(candidates, key=lambda path: path.stat().st_mtime))
 
 
+def _campaign_receipt(campaign: dict[str, Any], coordinator_root: Path) -> tuple[str, str]:
+    run_id = campaign.get("run_id")
+    if (
+        not isinstance(run_id, str)
+        or WEEKLY.ID_RE.fullmatch(run_id) is None
+        or campaign.get("receipt_persisted") is not True
+    ):
+        raise LiveLoopError("campaign_receipt_identity_invalid")
+    receipts = _private_path(coordinator_root / "receipts", directory=True)
+    matches: list[tuple[Path, bytes]] = []
+    for candidate in receipts.glob(f"{run_id}*.json"):
+        if candidate.is_symlink() or not candidate.is_file():
+            continue
+        path = _private_path(candidate)
+        try:
+            raw = path.read_bytes()
+            value = json.loads(raw.decode("utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise LiveLoopError("campaign_receipt_invalid") from exc
+        if value == campaign:
+            matches.append((path, raw))
+    if not matches:
+        raise LiveLoopError("campaign_receipt_missing")
+    if len(matches) != 1:
+        raise LiveLoopError("campaign_receipt_ambiguous")
+    path, raw = matches[0]
+    try:
+        relative = path.relative_to(LIVE_ROOT.parent.resolve())
+    except ValueError as exc:
+        raise LiveLoopError("campaign_receipt_path_invalid") from exc
+    return relative.as_posix(), hashlib.sha256(raw).hexdigest()
+
+
+def _persist_live_binding(value: dict[str, Any], live_root: Path) -> tuple[str, str]:
+    receipts = _private_path(live_root / "live-receipts", directory=True)
+    run_id = value.get("campaign_run_id")
+    if not isinstance(run_id, str) or WEEKLY.ID_RE.fullmatch(run_id) is None:
+        raise LiveLoopError("live_binding_identity_invalid")
+    destination = _private_output(receipts / f"{run_id}.json")
+    raw = (json.dumps(value, ensure_ascii=True, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    if destination.exists():
+        if destination.read_bytes() != raw:
+            raise LiveLoopError("live_binding_conflict")
+    else:
+        staged: Path | None = None
+        try:
+            descriptor, name = tempfile.mkstemp(prefix=f".{run_id}.", suffix=".tmp", dir=receipts)
+            staged = Path(name)
+            os.fchmod(descriptor, 0o600)
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(raw)
+                handle.flush()
+                os.fsync(handle.fileno())
+            try:
+                os.link(staged, destination)
+            except FileExistsError:
+                if destination.read_bytes() != raw:
+                    raise LiveLoopError("live_binding_conflict")
+        except OSError as error:
+            raise LiveLoopError("live_binding_write_failed") from error
+        finally:
+            if staged is not None:
+                try:
+                    staged.unlink(missing_ok=True)
+                except OSError:
+                    pass
+    _private_path(destination)
+    try:
+        relative = destination.relative_to(live_root.parent.resolve())
+    except ValueError as error:
+        raise LiveLoopError("live_binding_path_invalid") from error
+    return relative.as_posix(), hashlib.sha256(raw).hexdigest()
+
+
 def _preflight() -> Path:
     config = WEEKLY.load_config()
     if WEEKLY.scheduler_contract_status(config) != "approved_and_persisted":
@@ -183,6 +261,7 @@ def run() -> dict[str, Any]:
     _private_path(live_root / "tmp", directory=True)
     _private_path(live_root / "gbrain-import", directory=True)
     _private_path(live_root / "coordinator", directory=True)
+    _private_path(live_root / "live-receipts", directory=True)
     ledger = _private_path(live_root / "bookmarks-ledger.sqlite3")
     adapter_config = _private_path(live_root / "local-adapter-config.json")
     snapshot = _private_output(live_root / "source-snapshot-current.json")
@@ -223,7 +302,11 @@ def run() -> dict[str, Any]:
         "--state-dir", str(live_root / "coordinator"),
         "--maintenance-receipt", str(maintenance_receipt),
     ], timeout=300)
-    return {
+    campaign_receipt_path, campaign_receipt_digest = _campaign_receipt(
+        campaign,
+        live_root / "coordinator",
+    )
+    summary = {
         "schema_version": 1,
         "task_id": "stack-weekly-live",
         "source_observation_count": len(reconcile.get("observations", [])),
@@ -233,8 +316,24 @@ def run() -> dict[str, Any]:
         "campaign_run_id": campaign.get("run_id"),
         "campaign_terminal_state": campaign.get("terminal_state"),
         "campaign_reason_code": campaign.get("reason_code"),
+        "campaign_receipt_relative_path": campaign_receipt_path,
+        "campaign_receipt_digest": campaign_receipt_digest,
         "scheduler_status": (campaign.get("scheduler") or {}).get("status"),
     }
+    binding = {
+        "schema_version": 1,
+        "task_id": "stack-weekly-live-binding",
+        "campaign_run_id": campaign.get("run_id"),
+        "campaign_receipt_relative_path": campaign_receipt_path,
+        "campaign_receipt_digest": campaign_receipt_digest,
+        "campaign_terminal_state": campaign.get("terminal_state"),
+        "campaign_reason_code": campaign.get("reason_code"),
+        "receipt_persisted": True,
+    }
+    live_receipt_path, live_receipt_digest = _persist_live_binding(binding, live_root)
+    summary["live_binding_receipt_relative_path"] = live_receipt_path
+    summary["live_binding_receipt_digest"] = live_receipt_digest
+    return summary
 
 
 def main() -> int:

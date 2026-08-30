@@ -46,6 +46,7 @@ From a clean checkout, the durable fresh-machine path is:
 
 ```sh
 python3 scripts/bootstrap-stack.py --install \
+  --expected-source-commit "$(git rev-parse --verify 'origin/main^{commit}')" \
   --deployment-root "$HOME" \
   --staging-root "$HOME/.local/share/stack/stages" \
   --receipts-dir "$HOME/.local/state/stack/runtime-receipts"
@@ -53,8 +54,15 @@ python3 scripts/stack-doctor.py --deployment-root "$HOME"
 ```
 
 The checkout and deployment root remain separate. Compilation and installation
+refresh the canonical Stack GitHub origin before compilation and again before
+pointer movement, and require clean source `HEAD` to equal that supplied `origin/main` commit and
 refuse dirty source/package checkouts, symlinked source roots, bad pins/origins,
 payload leaks, unresolved runtime links, and partial target verification.
+The compiler reads an installer-owned detached snapshot and writes a unique
+0700 staging transaction. Each configured verifier runs only against a disposable
+copy in a dedicated process group, which is terminated on success or timeout.
+The installer then makes a fresh sealed publication copy and revalidates it
+before and after linking. Failures persist receipts and restore switched pointers.
 
 ## Receipt and rollback
 
@@ -66,9 +74,19 @@ Receipts belong in an owner-only `0700` directory outside the public repository.
 The publication receipt is redacted and contains no absolute paths; owner-only
 rollback state keeps the prior pointer paths separately.
 
+Each install writes an immutable owner-only pair at
+`transactions/<transaction-id>/install.json` and `rollback.json`. The files
+share the transaction ID and exact prior-target state. Root-level `latest.json`
+and `rollback-state.json` remain mutable operational pointers and are not
+automatic-promotion proof.
+
+Automatic promotion accepts that pair only beneath the configured
+`~/.local/state/stack/runtime-receipts` root. A byte-identical owner-only pair
+in any other directory is rejected.
+
 Hermes accepts a `published` intake disposition only after resolving the named
-installation receipt beneath `STACK_RUNTIME_RECEIPTS_ROOT` (defaulting to the
-directory above), matching its source commit, catalog digest, verification
+installation receipt beneath the configured trusted root above, matching its
+source commit, catalog digest, verification
 timestamp, passed target verifiers, and rollback coverage. Well-shaped evidence
 without that owner-only receipt is not publication proof.
 
@@ -83,9 +101,12 @@ hand-edit generated runtime manifests, or publish a partial target set.
 
 The scheduler lanes remain distinct. Upstream maintenance has its own writer,
 lease, and receipts. Hermes owns a Monday intake-only collection/curation lane.
-The proposed Stack weekly intelligence lane coordinates Saturday evidence and
-links the latest maintenance receipt but never invokes maintenance. Collection,
-curation, evaluation, maintenance, and publication failures remain distinct.
+The Stack weekly intelligence lane coordinates Saturday evidence and links the
+latest maintenance receipt but never invokes maintenance. Under
+`weekly-design-auto-promotion-approved-v1`, its separate automatic tail may
+publish one evaluated Stack-owned skill/reference candidate after verified
+merge. Collection, curation, evaluation, maintenance, and publication failures
+remain distinct.
 
 Stack provides a reviewed wrapper and reports the Stack commit and policy
 digest. The approved Saturday 09:00 `America/Los_Angeles` contract becomes live

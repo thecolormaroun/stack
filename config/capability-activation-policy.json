@@ -50,5 +50,51 @@
     "candidate_may_advance_pointer": false,
     "candidate_may_install": false,
     "candidate_may_publish": false
+  },
+  "automatic_weekly_design_promotion": {
+    "state": "active",
+    "authorization_contract": "weekly-design-auto-promotion-approved-v1",
+    "allowed_path_patterns": [
+      "skills/**/SKILL.md",
+      "skills/**/references/**/*.md"
+    ],
+    "maximum_candidates_per_run": 1,
+    "maximum_changed_files": 3,
+    "maximum_total_bytes": 32768,
+    "required_gates": [
+      "material-evidence",
+      "isolated-materialization",
+      "frozen-design-eval",
+      "full-repository-tests",
+      "fresh-independent-review",
+      "pull-request-ci",
+      "merge-verification",
+      "runtime-publication",
+      "rollback-receipt"
+    ],
+    "pull_request": {
+      "direct_main_commit": false,
+      "draft": false,
+      "automatic_merge": true,
+      "head_digest_binding": true,
+      "all_required_checks": true,
+      "single_lineage_pr": true
+    },
+    "publication": {
+      "merged_origin_main_only": true,
+      "atomic_installer_only": true,
+      "claude_and_codex_discovery_required": true,
+      "rollback_receipt_required": true
+    },
+    "prohibited_effects": [
+      "direct-main-commit",
+      "vendor-or-imported-edit",
+      "route-or-command-edit",
+      "source-corpus-mutation",
+      "credential-access",
+      "paid-provider-fallback",
+      "destructive-cleanup",
+      "upstream-pin-change"
+    ]
   }
 }

@@ -75,9 +75,11 @@ For each note:
 - likely wikilinks.
 - why this is durable knowledge instead of a weekly mention.
 
-## Output C - Studio Skill Update Candidates
+## Output C - Studio Skill Update Candidate
 
-Suggest up to 3 skill updates. Do not apply them by default.
+Select at most one material skill/reference update. A quiet week should select
+none. The digest never applies it; the separate approved automatic tail owns
+evaluation, pull-request merge, and publication.
 
 For each update:
 - target file.

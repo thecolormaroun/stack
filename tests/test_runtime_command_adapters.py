@@ -108,17 +108,44 @@ class RuntimeCommandAdapterTests(unittest.TestCase):
             root = Path(temporary) / "checkout"
             root.mkdir()
             catalog, targets, package_cache = self.fixture(root)
-            stages = COMPILER.compile_runtimes(
-                root,
-                catalog,
-                targets,
-                root / "staging",
-                source_commit="fixture",
-                package_cache=package_cache,
-            )
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.email", "test@example.invalid"], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.name", "Fixture"], check=True)
+            (root / ".git/info/exclude").write_text("origins/\npackage-cache/\nstaging/\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+            subprocess.run(["git", "-C", str(root), "commit", "-qm", "fixture main"], check=True)
+            source_commit = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
+            origin = Path(temporary) / "stack-origin.git"
+            subprocess.run(["git", "init", "--bare", "-q", str(origin)], check=True)
+            subprocess.run(["git", "-C", str(root), "remote", "add", "origin", str(origin)], check=True)
+            subprocess.run(["git", "-C", str(root), "push", "-q", "origin", "HEAD:refs/heads/main"], check=True)
+            INSTALLER.CANONICAL_ORIGIN_URL = str(origin)
             deployment = Path(temporary) / "deployment"
-            receipts = Path(temporary) / "receipts"
-            receipt = INSTALLER.install_runtimes(deployment, targets, stages, receipts)
+            receipts = (Path(temporary) / "receipts").resolve()
+            INSTALLER.TRUSTED_RUNTIME_RECEIPTS_ROOT = receipts
+            source_skill = root / "skills/local-leaf/SKILL.md"
+            canonical_source_skill = source_skill.read_bytes()
+            compile_runtimes = INSTALLER.COMPILER.compile_runtimes
+
+            def mutate_original_during_compile(*args, **kwargs):
+                source_skill.write_text("# Concurrent tamper\n", encoding="utf-8")
+                try:
+                    return compile_runtimes(*args, **kwargs)
+                finally:
+                    source_skill.write_bytes(canonical_source_skill)
+
+            INSTALLER.COMPILER.compile_runtimes = mutate_original_during_compile
+            try:
+                receipt = INSTALLER.compile_and_install_runtimes(
+                    root,
+                    deployment,
+                    root / "staging",
+                    receipts,
+                    package_cache,
+                    expected_source_commit=source_commit,
+                )
+            finally:
+                INSTALLER.COMPILER.compile_runtimes = compile_runtimes
 
             self.assertEqual(receipt["status"], "published")
             commands = json.loads((root / "registry/commands.json").read_text())["commands"]
@@ -144,6 +171,7 @@ class RuntimeCommandAdapterTests(unittest.TestCase):
                     {"canonical_command": "stack.review", "shadowed_bundle_export": "stack-review"},
                     {"canonical_command": "stack.ship", "shadowed_bundle_export": "stack-ship"},
                 ])
+                self.assertEqual((installed / "skills/local-leaf/SKILL.md").read_bytes(), canonical_source_skill)
                 review = (installed / "skills/stack-review/SKILL.md").read_text()
                 ship = (installed / "skills/stack-ship/SKILL.md").read_text()
                 self.assertIn("Canonical command: `stack.review`", review)
@@ -154,7 +182,10 @@ class RuntimeCommandAdapterTests(unittest.TestCase):
                 self.assertIn("Require explicit user approval", ship)
             health = DOCTOR.runtime_health(root, deployment)
             self.assertFalse(any("command adapter" in error or "command alias" in error for error in health), health)
-            (deployment / ".codex/skills/stack/skills/stack-plan/SKILL.md").unlink()
+            missing_adapter = deployment / ".codex/skills/stack/skills/stack-plan/SKILL.md"
+            missing_adapter.parent.chmod(0o700)
+            missing_adapter.chmod(0o600)
+            missing_adapter.unlink()
             health = DOCTOR.runtime_health(root, deployment)
             self.assertTrue(any("unresolvable primary command adapter" in error for error in health), health)
 

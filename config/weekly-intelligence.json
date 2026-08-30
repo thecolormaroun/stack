@@ -5,8 +5,34 @@
   "analysis_budget": {
     "unit": "model_calls",
     "maximum": 3,
-    "authorized": false,
-    "note": "A budget is recorded for planning only; this contract never authorizes provider spend."
+    "authorized": true,
+    "note": "The approved weekly automation may use up to three Codex model contexts for critique, candidate authoring, and independent review; paid external-provider fallback remains prohibited."
+  },
+  "automatic_promotion": {
+    "state": "active",
+    "authorization_contract": "weekly-design-auto-promotion-approved-v1",
+    "maximum_candidates_per_run": 1,
+    "maximum_changed_files": 3,
+    "maximum_total_bytes": 32768,
+    "runtime_receipts_root": "~/.local/state/stack/runtime-receipts",
+    "allowed_path_patterns": [
+      "skills/**/SKILL.md",
+      "skills/**/references/**/*.md"
+    ],
+    "required_gates": [
+      "material-evidence",
+      "isolated-materialization",
+      "frozen-design-eval",
+      "full-repository-tests",
+      "fresh-independent-review",
+      "pull-request-ci",
+      "merge-verification",
+      "runtime-publication",
+      "rollback-receipt"
+    ],
+    "weak_candidate_outcome": "no_action",
+    "rejected_candidate_outcome": "rejected_no_queue",
+    "operational_failure_outcome": "retry_with_alert"
   },
   "stages": [
     {
@@ -54,11 +80,11 @@
     "local_time": "09:00",
     "timezone": "America/Los_Angeles",
     "rrule": "FREQ=WEEKLY;BYDAY=SA;BYHOUR=9;BYMINUTE=0",
-    "model": "gpt-5.6-luna",
-    "reasoning_effort": "medium",
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "high",
     "execution_environment": "local",
     "prompt_path": "config/weekly-intelligence-automation-prompt.md",
-    "prompt_digest": "1fe21e4caad3ebd2fa1d92e4e54957441d98d2e3301ffc9fdd3dd22644d0c188",
+    "prompt_digest": "46abb2641d50e8a27031cb28792bbc5e82e4f88a322630e4b3e98bd8ef8f2268",
     "enabled": true,
     "approval_required": true,
     "state": "active"
@@ -75,9 +101,9 @@
     "health_window_seconds": 691200
   },
   "approval": {
-    "evidence": "manual_review_required",
-    "promotion": "prohibited",
-    "publication": "prohibited",
+    "evidence": "bounded_model_analysis_approved",
+    "promotion": "automatic_evaluated",
+    "publication": "automatic_after_merge",
     "upstream_maintenance": "separate_approved_workflow"
   }
 }

@@ -1,9 +1,11 @@
 # Design intelligence loop
 
 Stack turns approved private bookmark evidence into cited design guidance and
-reviewable capability improvements. It does not copy raw X posts into the
-repository, create a second search index, fine-tune model weights, or rewrite
-active skills unattended.
+evaluated capability improvements. It does not copy raw X posts into the
+repository, create a second search index, or fine-tune model weights. The
+approved automatic tail may update one existing Stack-owned skill/reference
+candidate per week only after every bounded evaluation, review, merge,
+publication, discovery, and rollback gate passes.
 
 ## Ownership and data boundary
 
@@ -53,9 +55,11 @@ suitable contexts, failure modes, accessibility and motion concerns,
 implementation cues, uncertainty, clustered themes, contradictions, and a
 quarantined candidate summary or explicit no-action result.
 
-The default analyzer is deterministic and local. An injected analyzer is used
-only when an explicit provider-egress contract allowlists exact fields; a model
-budget never grants provider authority by itself.
+The packet builder remains deterministic and local. The scheduled Sol/high
+automation performs the quality critique from minimized, cited design evidence
+after collection. Its bounded three-context Codex budget authorizes critique,
+candidate authoring, and independent review; it does not authorize a provider
+client, paid fallback, or raw private payload persistence.
 
 ```sh
 python3 scripts/build-design-intelligence-packet.py --help
@@ -107,8 +111,10 @@ Per-fixture regressions cannot be averaged away.
 
 Synthetic evidence can prove code paths but cannot promote a candidate. A
 missing `STACK_DESIGN_EVAL_ROOT` is `blocked-eval`; unstable scores or rubric
-disagreement require human review. Passing evidence stops at
-`awaiting_approval`.
+disagreement reject the candidate. Passing evaluation is necessary but not
+sufficient: the automatic tail also requires the full repository tests, a
+fresh independent `ship` review, green pull-request checks, merge verification,
+and atomic runtime publication with discovery and rollback receipts.
 
 ```sh
 python3 scripts/materialize-capability-change.py --help
@@ -134,15 +140,19 @@ manifest, retrieval request, and source grant. Live text retrieval re-attests
 the current source before campaign no-action reuse, and index version,
 freshness date, grant digest, egress contract, and CLI version participate in
 the campaign fingerprint. A week with no selected material skill/reference
-candidate records `no_candidate_selected` and keeps promotion prohibited; the
-full evaluator remains mandatory once a candidate is selected. See the
+candidate records `no_candidate_selected`; the full evaluator remains mandatory
+once a candidate is selected. See the
 [readiness reconciliation](weekly-intelligence-readiness.md).
 
 The Codex scheduler contract is Saturday at 09:00 local time. The live
 entrypoint refuses to reconcile or import until that exact active contract is
 persisted and a current canonical maintenance receipt is linked. Existing
 Hermes collection/curation stays intake-only, and upstream maintenance remains
-separate. Skill promotion and runtime publication still require a separate approval.
+separate. Authorization contract
+`weekly-design-auto-promotion-approved-v1` permits the scheduled Sol/high tail
+to advance at most one existing Stack-owned skill/reference change without a
+recurring human review. Weak evidence becomes `no_action`, failed gates become
+`rejected_no_queue`, and operational outages become `retry_with_alert`.
 After enablement, every eight-day window must
 contain a terminal non-duplicate campaign receipt or a visible alert with the
 blocking stage, last success, age, and safe restart.

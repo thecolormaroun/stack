@@ -164,7 +164,7 @@ class WeeklyIntelligenceTests(unittest.TestCase):
         self.assertNotIn("RAW-SENTINEL", output.getvalue() + json.dumps(artifacts))
         self.assertFalse(receipt["publication"]["promotion_approved"])
 
-    def test_changed_campaign_persists_safe_artifacts_and_stops_at_review(self) -> None:
+    def test_changed_campaign_persists_safe_artifacts_and_prepares_automatic_tail(self) -> None:
         before = subprocess.check_output(
             ["git", "-C", str(ROOT), "status", "--porcelain=v1", "--untracked-files=all"],
             text=True,
@@ -176,7 +176,8 @@ class WeeklyIntelligenceTests(unittest.TestCase):
             text=True,
         )
 
-        self.assertEqual("awaiting_approval", receipt["terminal_state"])
+        self.assertEqual("prepared", receipt["terminal_state"])
+        self.assertEqual("automatic_promotion_pending", receipt["reason_code"])
         self.assertEqual(list(WEEKLY.STAGE_IDS), calls)
         self.assertEqual(before, after)
         self.assertFalse(receipt["publication"]["promotion_approved"])
@@ -195,7 +196,7 @@ class WeeklyIntelligenceTests(unittest.TestCase):
         second = coordinator.run(**self.inputs, now=self.now + 30)
         third = coordinator.run(**self.inputs, now=self.now + 60)
 
-        self.assertEqual("awaiting_approval", first["terminal_state"])
+        self.assertEqual("prepared", first["terminal_state"])
         self.assertEqual("no_action", second["terminal_state"])
         self.assertEqual("no_action", third["terminal_state"])
         self.assertEqual(first["input_fingerprint"], second["input_fingerprint"])
@@ -264,7 +265,7 @@ class WeeklyIntelligenceTests(unittest.TestCase):
             resume=True,
             now=self.now + 60,
         )
-        self.assertEqual("awaiting_approval", resumed["terminal_state"])
+        self.assertEqual("prepared", resumed["terminal_state"])
         self.assertEqual(
             ["retrieval", "candidate_evaluation", "maintenance_link", "report_receipt"],
             resumed_calls,
@@ -300,9 +301,9 @@ class WeeklyIntelligenceTests(unittest.TestCase):
         first = coordinator.run(**self.inputs)
         coordinator.adapters = self.successful_adapter([])
         newer = coordinator.run(**{**self.inputs, "source_delta": {"delta_digest": "9" * 64}}, now=self.now + 30)
-        self.assertEqual("awaiting_approval", newer["terminal_state"])
+        self.assertEqual("prepared", newer["terminal_state"])
         resumed = coordinator.run(**self.inputs, run_id=first["run_id"], resume=True, now=self.now + 60)
-        self.assertEqual("awaiting_approval", resumed["terminal_state"])
+        self.assertEqual("prepared", resumed["terminal_state"])
         for original, reused in zip(first["stages"][:2], resumed["stages"][:2]):
             self.assertEqual(original["artifact_path"], reused["artifact_path"])
             self.assertEqual(original["output_digest"], reused["output_digest"])
@@ -328,11 +329,43 @@ class WeeklyIntelligenceTests(unittest.TestCase):
         first = coordinator.run(**self.inputs)
         calls.clear()
         second = coordinator.run(**{**self.inputs, "eval_config": {"profile": "changed-fixture"}}, now=self.now + 30)
-        self.assertEqual("awaiting_approval", second["terminal_state"])
+        self.assertEqual("prepared", second["terminal_state"])
         for index in (1, 2):
             self.assertEqual("reused", second["stages"][index]["status"])
             self.assertEqual(first["stages"][index]["artifact_path"], second["stages"][index]["artifact_path"])
         self.assertIn("candidate_evaluation", calls)
+
+    def test_report_checkpoint_fingerprint_includes_automation_contract(self) -> None:
+        config = WEEKLY.load_config()
+        input_digests = {
+            name: character * 64
+            for name, character in zip(
+                (
+                    "source_manifest",
+                    "source_delta",
+                    "model_config",
+                    "prompt_config",
+                    "eval_config",
+                ),
+                "abcde",
+                strict=True,
+            )
+        }
+        maintenance = {"receipt_digest": "f" * 64, "status": "linked"}
+        current = WEEKLY.stage_input_fingerprints(
+            config=config,
+            input_digests=input_digests,
+            maintenance=maintenance,
+        )
+        changed = json.loads(json.dumps(config))
+        changed["automatic_promotion"]["maximum_total_bytes"] -= 1
+        drifted = WEEKLY.stage_input_fingerprints(
+            config=changed,
+            input_digests=input_digests,
+            maintenance=maintenance,
+        )
+        self.assertEqual(current["design_packet"], drifted["design_packet"])
+        self.assertNotEqual(current["report_receipt"], drifted["report_receipt"])
 
     def test_three_identical_blockers_open_circuit_until_manual_clear(self) -> None:
         calls: list[str] = []
@@ -366,7 +399,7 @@ class WeeklyIntelligenceTests(unittest.TestCase):
             manual_clear=True,
             now=self.now + 5,
         )
-        self.assertEqual("awaiting_approval", recovered["terminal_state"])
+        self.assertEqual("prepared", recovered["terminal_state"])
         self.assertEqual("not_struck", recovered["circuit"]["status"])
 
     def test_stale_maintenance_alert_never_launches_maintenance(self) -> None:
@@ -445,7 +478,7 @@ class WeeklyIntelligenceTests(unittest.TestCase):
         inputs.chmod(0o600)
         self.assertEqual({"source_manifest": {}}, WEEKLY._read_owner_json(inputs))
 
-    def test_receipt_schema_and_scheduler_config_are_strict_and_disabled(self) -> None:
+    def test_receipt_schema_and_scheduler_config_are_strict_and_active(self) -> None:
         schema = json.loads(
             (ROOT / "registry" / "weekly-campaign-receipt.schema.json").read_text()
         )
@@ -474,7 +507,7 @@ class WeeklyIntelligenceTests(unittest.TestCase):
                 WEEKLY.hashlib.sha256(WEEKLY.canonical_prompt_bytes(altered)).hexdigest(),
             )
         self.assertEqual("deny", config["provider_egress"])
-        self.assertFalse(config["analysis_budget"]["authorized"])
+        self.assertTrue(config["analysis_budget"]["authorized"])
 
 
 if __name__ == "__main__":

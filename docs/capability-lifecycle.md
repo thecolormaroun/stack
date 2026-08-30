@@ -14,7 +14,9 @@ changing what it is.
    and proof requirement.
 4. **Validated** — applicable structural, behavioral, visual, or workflow
    evaluation evidence exists.
-5. **Approved** — a human-reviewed Stack change records the catalog transition.
+5. **Approved** — a Stack change records either item-level human review or the
+   exact pre-approved automatic weekly design contract plus all of its gate
+   receipts.
 6. **Published** — compilation, target installation, and discovery verification
    have succeeded for every declared target.
 7. **Receipted** — the intake or capability links its disposition, source
@@ -36,9 +38,12 @@ and publish target.
 | Archive | `archived` | Explicit removal decision and rollback reference. |
 | Hold pending evidence | `candidate` | Named gap and next review trigger. |
 
-Automation can collect, classify, and prepare evidence. It cannot activate,
-merge, install, or publish a capability. Human review and required evaluation
-are separate gates; approval to activate does not skip publication verification.
+Automation can collect, classify, and prepare evidence. The default capability
+lane cannot activate, merge, install, or publish. The scoped weekly design lane
+may automatically promote one existing Stack-owned skill/reference candidate
+under `weekly-design-auto-promotion-approved-v1`; evaluation, independent
+review, pull-request CI, merge verification, atomic installation, discovery,
+and rollback evidence remain separate mandatory gates.
 
 ## Isolated candidate evaluation
 
@@ -68,8 +73,10 @@ holdout, and rotating owner-local canaries. Structural, behavioral, visual,
 accessibility, privacy, citation, mobile-width, overflow, workflow, critical
 data, or HTML regressions cannot be averaged away. Synthetic fixtures prove
 only the harness; a missing real harness is `blocked-eval`. Passing evidence
-stops at `awaiting_approval` and cannot update an active pointer, branch,
-runtime, or publication receipt.
+alone stops before publication. Only the scoped automatic tail may continue,
+and only after full tests plus a fresh independent `ship` verdict; it then uses
+a lineage-bound pull request and publishes the verified merged revision through
+the existing atomic runtime path.
 
 ```sh
 python3 scripts/materialize-capability-change.py --help

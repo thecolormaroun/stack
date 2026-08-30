@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -58,6 +59,62 @@ SHEBANG_RE = re.compile(r"^#!(?:\s*)/", re.MULTILINE)
 
 class MaterializationError(ValueError):
     """The capability change cannot be materialized without weakening a gate."""
+
+
+def _is_automatic_weekly_campaign(
+    packet: Mapping[str, Any],
+    authorization: Mapping[str, Any],
+) -> bool:
+    lineage = packet.get("source_lineage")
+    campaign_fields = {
+        "campaign_run_id",
+        "campaign_receipt_digest",
+        "design_packet_artifact_digest",
+        "retrieval_artifact_digest",
+        "candidate_evaluation_artifact_digest",
+    }
+    authorization_fields = {
+        "authorization_contract",
+        "campaign_run_id",
+        "campaign_receipt_digest",
+    }
+    return (
+        isinstance(lineage, Mapping)
+        and bool(campaign_fields & set(lineage))
+    ) or bool(authorization_fields & set(authorization))
+
+
+def _promotion_contract() -> Any:
+    path = Path(__file__).with_name("record-weekly-design-promotion.py")
+    spec = importlib.util.spec_from_file_location("weekly_design_promotion_preflight", path)
+    if spec is None or spec.loader is None:
+        raise MaterializationError("automatic weekly campaign validator is unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _validate_automatic_campaign(
+    packet: Mapping[str, Any],
+    authorization: Mapping[str, Any],
+    campaign_receipt: Path | None,
+    campaign_receipt_digest: str | None,
+    repository: Path,
+) -> None:
+    if campaign_receipt is None or not _is_digest(campaign_receipt_digest):
+        raise MaterializationError("automatic weekly campaign receipt and digest are required")
+    if campaign_receipt_digest != authorization.get("campaign_receipt_digest"):
+        raise MaterializationError("automatic weekly campaign digest does not match authorization")
+    contract = _promotion_contract()
+    try:
+        campaign, actual_digest, resolved = contract._campaign(campaign_receipt)
+        if actual_digest != campaign_receipt_digest:
+            raise MaterializationError("automatic weekly campaign digest does not match receipt")
+        contract._candidate_packet(packet, campaign, actual_digest, resolved, repository=repository)
+    except MaterializationError:
+        raise
+    except contract.PromotionReceiptError as error:
+        raise MaterializationError(f"automatic weekly campaign materiality validation failed: {error}") from None
 
 
 def canonical_json(value: Any) -> str:
@@ -293,7 +350,22 @@ def _validate_target(repository: Path, target: Mapping[str, Any]) -> tuple[PureP
     return capability_path, capability_root
 
 
-def _validate_packet(packet: Mapping[str, Any], repository: Path, policy: Mapping[str, Any]) -> tuple[PurePosixPath, PurePosixPath, list[dict[str, Any]]]:
+def _automatic_weekly_path(path: PurePosixPath) -> bool:
+    if len(path.parts) >= 3 and path.parts[0] == "skills" and path.name == "SKILL.md":
+        return True
+    if path.parts and path.parts[0] == "skills" and "references" in path.parts and path.suffix == ".md":
+        reference_index = path.parts.index("references")
+        return reference_index >= 2 and reference_index < len(path.parts) - 1
+    return False
+
+
+def _validate_packet(
+    packet: Mapping[str, Any],
+    repository: Path,
+    policy: Mapping[str, Any],
+    *,
+    automatic_weekly: bool = False,
+) -> tuple[PurePosixPath, PurePosixPath, list[dict[str, Any]]]:
     expected_top_level = {
         "schema_version", "change_id", "state", "approval_state", "base_commit",
         "source_lineage", "target", "rationale", "rollback", "edits", "evaluation",
@@ -309,7 +381,9 @@ def _validate_packet(packet: Mapping[str, Any], repository: Path, policy: Mappin
     if packet.get("base_commit") != _git_head(repository):
         raise MaterializationError("candidate packet base_commit does not match active checkout HEAD")
     lineage = packet.get("source_lineage")
-    if not isinstance(lineage, Mapping) or set(lineage) != {"packet_id", "packet_digest", "card_ids", "revision_ids", "evidence_ids", "parent_digests"}:
+    lineage_fields = {"packet_id", "packet_digest", "card_ids", "revision_ids", "evidence_ids", "parent_digests"}
+    campaign_fields = {"campaign_run_id", "campaign_receipt_digest", "design_packet_artifact_digest", "retrieval_artifact_digest", "candidate_evaluation_artifact_digest"}
+    if not isinstance(lineage, Mapping) or frozenset(lineage) not in {frozenset(lineage_fields), frozenset(lineage_fields | campaign_fields)}:
         raise MaterializationError("source lineage has unsupported or missing fields")
     if not isinstance(lineage, Mapping) or not _is_opaque(lineage.get("packet_id")) or not _is_digest(lineage.get("packet_digest")):
         raise MaterializationError("source lineage is incomplete")
@@ -322,12 +396,18 @@ def _validate_packet(packet: Mapping[str, Any], repository: Path, policy: Mappin
                 raise MaterializationError("source lineage digest is invalid")
         elif not all(_is_opaque(row) for row in rows):
             raise MaterializationError("source lineage identity is invalid")
+    if automatic_weekly:
+        if not campaign_fields <= set(lineage) or not isinstance(lineage.get("campaign_run_id"), str) or not lineage["campaign_run_id"]:
+            raise MaterializationError("automatic weekly campaign lineage is incomplete")
+        if any(not _is_digest(lineage.get(key)) for key in campaign_fields - {"campaign_run_id"}):
+            raise MaterializationError("automatic weekly campaign lineage digest is invalid")
     target = packet.get("target")
     if not isinstance(target, Mapping):
         raise MaterializationError("candidate target is missing")
     capability_path, capability_root = _validate_target(repository, target)
     rationale = packet.get("rationale")
-    if not isinstance(rationale, Mapping) or set(rationale) != {"change_kind", "expected_behavior", "overlap_analysis", "license_posture", "privacy_class"}:
+    rationale_fields = {"change_kind", "expected_behavior", "overlap_analysis", "license_posture", "privacy_class"}
+    if not isinstance(rationale, Mapping) or frozenset(rationale) not in {frozenset(rationale_fields), frozenset(rationale_fields | {"materiality"})}:
         raise MaterializationError("candidate rationale is missing")
     change_kind = rationale.get("change_kind")
     if change_kind not in set(ROLE_TO_CHANGE_KIND.values()):
@@ -340,6 +420,40 @@ def _validate_packet(packet: Mapping[str, Any], repository: Path, policy: Mappin
         raise MaterializationError("candidate overlap analysis is missing")
     if rationale.get("license_posture") != "stack-owned-reviewed-derivative" or rationale.get("privacy_class") != "reviewed-software-derivative":
         raise MaterializationError("candidate provenance or privacy posture is unsafe")
+    if automatic_weekly:
+        materiality = rationale.get("materiality")
+        if not isinstance(materiality, Mapping) or set(materiality) != {"basis", "source_count", "critique_failure_ids", "evaluation_failure_ids"}:
+            raise MaterializationError("automatic weekly material evidence is incomplete")
+        basis = materiality.get("basis")
+        source_count = materiality.get("source_count")
+        critique_failures = materiality.get("critique_failure_ids")
+        evaluation_failures = materiality.get("evaluation_failure_ids")
+        if (
+            not isinstance(source_count, int)
+            or isinstance(source_count, bool)
+            or source_count < 1
+            or source_count > len(lineage["evidence_ids"])
+        ):
+            raise MaterializationError("automatic weekly material evidence source count is invalid")
+        if (
+            not isinstance(critique_failures, list)
+            or len(critique_failures) != len(set(critique_failures))
+            or not all(_is_opaque(value) for value in critique_failures)
+            or not isinstance(evaluation_failures, list)
+            or len(evaluation_failures) != len(set(evaluation_failures))
+            or not all(_is_opaque(value) for value in evaluation_failures)
+        ):
+            raise MaterializationError("automatic weekly material evidence failure binding is invalid")
+        if (
+            basis == "two-independent-sources" and source_count >= 2 and not critique_failures and not evaluation_failures
+        ) or (
+            basis == "source-plus-repeated-critique-failure" and source_count >= 1 and critique_failures and not evaluation_failures
+        ) or (
+            basis == "source-fixes-hard-evaluation-failure" and source_count >= 1 and evaluation_failures and not critique_failures
+        ):
+            pass
+        else:
+            raise MaterializationError("automatic weekly material evidence does not satisfy an approved basis")
     rollback = packet.get("rollback")
     if not isinstance(rollback, Mapping) or set(rollback) != {"base_commit", "path_digests"} or rollback.get("base_commit") != packet.get("base_commit") or not isinstance(rollback.get("path_digests"), Mapping):
         raise MaterializationError("rollback binding is incomplete")
@@ -351,7 +465,13 @@ def _validate_packet(packet: Mapping[str, Any], repository: Path, policy: Mappin
             raise MaterializationError("design evaluation manifest digest is invalid")
 
     materialization = policy.get("materialization") if isinstance(policy.get("materialization"), Mapping) else {}
-    maximum = materialization.get("maximum_changed_files", 5)
+    automatic = policy.get("automatic_weekly_design_promotion") if automatic_weekly else None
+    if automatic_weekly:
+        if not isinstance(automatic, Mapping) or automatic.get("state") != "active" or automatic.get("authorization_contract") != "weekly-design-auto-promotion-approved-v1":
+            raise MaterializationError("automatic weekly design policy is unavailable")
+        maximum = automatic.get("maximum_changed_files")
+    else:
+        maximum = materialization.get("maximum_changed_files", 5)
     if not isinstance(maximum, int) or maximum < 1:
         raise MaterializationError("materialization policy is invalid")
     edits = packet.get("edits")
@@ -377,6 +497,8 @@ def _validate_packet(packet: Mapping[str, Any], repository: Path, policy: Mappin
         role = edit.get("role")
         if role not in allowed_roles:
             raise MaterializationError("edit role is not allowlisted")
+        if automatic_weekly and role not in {"skill", "reference"}:
+            raise MaterializationError("automatic weekly edit role is outside the approved contract")
         primary_role = next((candidate_role for candidate_role, candidate_kind in ROLE_TO_CHANGE_KIND.items() if candidate_kind == change_kind), None)
         # A skill/reference change may carry small, explicitly declared
         # registry/test/documentation support edits.  Other change kinds are
@@ -396,6 +518,8 @@ def _validate_packet(packet: Mapping[str, Any], repository: Path, policy: Mappin
         operation = edit.get("operation")
         if operation not in {"create", "replace"}:
             raise MaterializationError("candidate deletion or rename is not allowed")
+        if automatic_weekly and (operation != "replace" or not _automatic_weekly_path(relative)):
+            raise MaterializationError("automatic weekly edit path is outside the approved contract")
         content = edit.get("content")
         if not isinstance(content, str) or not content:
             raise MaterializationError("candidate edit content is empty")
@@ -424,7 +548,7 @@ def _validate_packet(packet: Mapping[str, Any], repository: Path, policy: Mappin
         raise MaterializationError("rollback path set does not match declared edits")
     if not any(row["role"] == next(role for role, kind in ROLE_TO_CHANGE_KIND.items() if kind == change_kind) for row in validated):
         raise MaterializationError("candidate is missing its primary capability edit")
-    policy_total = materialization.get("maximum_total_bytes", 131072)
+    policy_total = automatic.get("maximum_total_bytes") if automatic_weekly and isinstance(automatic, Mapping) else materialization.get("maximum_total_bytes", 131072)
     if not isinstance(policy_total, int) or total_bytes > policy_total:
         raise MaterializationError("candidate exceeds materialization byte limit")
     findings = privacy_scan(packet)
@@ -435,8 +559,15 @@ def _validate_packet(packet: Mapping[str, Any], repository: Path, policy: Mappin
     return capability_path, capability_root, validated
 
 
-def _validate_authorization(authorization: Mapping[str, Any], packet: Mapping[str, Any]) -> None:
+def _validate_authorization(
+    authorization: Mapping[str, Any],
+    packet: Mapping[str, Any],
+    *,
+    automatic_weekly: bool = False,
+) -> None:
     required = {"schema_version", "change_digest", "base_commit", "scope", "decision", "reviewed_by", "reviewed_at"}
+    if automatic_weekly:
+        required |= {"authorization_contract", "campaign_run_id", "campaign_receipt_digest"}
     if set(authorization) != required or authorization.get("schema_version") != 1:
         raise MaterializationError("materialization authorization has unsupported or missing fields")
     if authorization.get("change_digest") != digest_json(packet):
@@ -445,13 +576,25 @@ def _validate_authorization(authorization: Mapping[str, Any], packet: Mapping[st
         raise MaterializationError("materialization authorization does not match base_commit")
     if authorization.get("scope") != "isolated-owner-local-patch-only" or authorization.get("decision") != "approved":
         raise MaterializationError("materialization authorization scope is unsafe")
+    if automatic_weekly:
+        if authorization.get("authorization_contract") != "weekly-design-auto-promotion-approved-v1":
+            raise MaterializationError("automatic weekly authorization contract is invalid")
+        if not isinstance(authorization.get("campaign_run_id"), str) or not authorization["campaign_run_id"]:
+            raise MaterializationError("automatic weekly authorization campaign is invalid")
+        if not _is_digest(authorization.get("campaign_receipt_digest")):
+            raise MaterializationError("automatic weekly authorization campaign digest is invalid")
+        lineage = packet.get("source_lineage")
+        if not isinstance(lineage, Mapping) or lineage.get("campaign_run_id") != authorization.get("campaign_run_id") or lineage.get("campaign_receipt_digest") != authorization.get("campaign_receipt_digest"):
+            raise MaterializationError("automatic weekly authorization does not match candidate lineage")
     if not isinstance(authorization.get("reviewed_by"), str) or not authorization["reviewed_by"].strip():
         raise MaterializationError("materialization authorization requires a reviewer")
     try:
         datetime.fromisoformat(str(authorization.get("reviewed_at")).replace("Z", "+00:00"))
     except ValueError as error:
         raise MaterializationError("materialization authorization requires an ISO timestamp") from error
-    if privacy_scan(authorization):
+    privacy_subject = dict(authorization)
+    privacy_subject.pop("authorization_contract", None)
+    if privacy_scan(privacy_subject):
         raise MaterializationError("materialization authorization privacy scan failed")
 
 
@@ -587,6 +730,9 @@ def materialize_change(
     repository: Path = ROOT,
     output_dir: Path | None = None,
     policy: Mapping[str, Any] | None = None,
+    automatic_weekly: bool = False,
+    campaign_receipt: Path | None = None,
+    campaign_receipt_digest: str | None = None,
 ) -> dict[str, Any]:
     """Materialize ``packet`` and return its deterministic receipt."""
 
@@ -605,10 +751,19 @@ def materialize_change(
             raise
     else:
         policy_doc = policy
+    automatic_weekly = automatic_weekly or _is_automatic_weekly_campaign(packet, authorization)
     if privacy_scan(packet):
         raise MaterializationError("candidate privacy scan failed")
-    _validate_authorization(authorization, packet)
-    _validate_packet(packet, active, policy_doc)
+    _validate_authorization(authorization, packet, automatic_weekly=automatic_weekly)
+    _validate_packet(packet, active, policy_doc, automatic_weekly=automatic_weekly)
+    if automatic_weekly:
+        _validate_automatic_campaign(
+            packet,
+            authorization,
+            campaign_receipt,
+            campaign_receipt_digest,
+            active,
+        )
     output = _owner_output_dir(Path(output_dir), active)
     before_status = _status_digest(active)
     before_head = _git_head(active)
@@ -654,7 +809,26 @@ def materialize_change(
             "base_commit": authorization["base_commit"],
             "scope": authorization["scope"],
             "decision": authorization["decision"],
+            **(
+                {
+                    "authorization_contract": authorization["authorization_contract"],
+                    "campaign_run_id": authorization["campaign_run_id"],
+                    "campaign_receipt_digest": authorization["campaign_receipt_digest"],
+                }
+                if automatic_weekly
+                else {}
+            ),
         },
+        **(
+            {
+                "campaign_evidence": {
+                    "receipt_digest": campaign_receipt_digest,
+                    "materiality_verified_before_materialization": True,
+                }
+            }
+            if automatic_weekly
+            else {}
+        ),
         "active_checkout": {
             "head_before": before_head,
             "head_after": after_head,
@@ -707,12 +881,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repository", type=Path, default=ROOT)
     parser.add_argument("--policy", type=Path, default=ROOT / "config" / "capability-activation-policy.json")
     parser.add_argument("--out", type=Path, required=True, help="owner-only output directory")
+    parser.add_argument("--automatic-weekly-design", action="store_true", help="enforce the approved weekly skill/reference-only contract")
+    parser.add_argument("--campaign-receipt", type=Path, help="exact bound coordinator receipt; required with --automatic-weekly-design")
+    parser.add_argument("--campaign-receipt-digest", help="SHA-256 of --campaign-receipt; required with --automatic-weekly-design")
     args = parser.parse_args(argv)
     try:
         packet = load_object(args.packet, "candidate packet")
         authorization = load_object(args.authorization, "materialization authorization")
         policy = _load_policy(args.policy)
-        receipt = materialize_change(packet, authorization, repository=args.repository, output_dir=args.out, policy=policy)
+        receipt = materialize_change(
+            packet,
+            authorization,
+            repository=args.repository,
+            output_dir=args.out,
+            policy=policy,
+            automatic_weekly=args.automatic_weekly_design,
+            campaign_receipt=args.campaign_receipt,
+            campaign_receipt_digest=args.campaign_receipt_digest,
+        )
     except (MaterializationError, OSError, TypeError, KeyError) as error:
         print(f"capability change materialization failed closed: {error}", file=sys.stderr)
         return 2

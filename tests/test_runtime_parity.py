@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import hashlib
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -94,6 +95,48 @@ class RuntimeParityTests(unittest.TestCase):
                     staging_root=root / "staging",
                     receipts_dir=root.parent / "receipts",
                 )
+
+            with self.assertRaisesRegex(BOOTSTRAP.BootstrapError, "expected-source-commit"):
+                BOOTSTRAP.bootstrap(
+                    root,
+                    install=True,
+                    staging_root=root / "staging",
+                    receipts_dir=root.parent / "receipts",
+                    deployment_root=root / "deployment",
+                )
+
+    def test_bootstrap_rejects_a_clean_non_main_checkout_before_install(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "source"
+            root.mkdir()
+            fixture(root)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.name", "Fixture"], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.email", "fixture@example.invalid"], check=True)
+            subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+            subprocess.run(["git", "-C", str(root), "commit", "-qm", "fixture main"], check=True)
+            main_commit = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
+            origin = Path(temporary) / "stack-origin.git"
+            subprocess.run(["git", "init", "--bare", "-q", str(origin)], check=True)
+            subprocess.run(["git", "-C", str(root), "remote", "add", "origin", str(origin)], check=True)
+            subprocess.run(["git", "-C", str(root), "push", "-q", "origin", "HEAD:refs/heads/main"], check=True)
+            BOOTSTRAP.INSTALLER.CANONICAL_ORIGIN_URL = str(origin)
+            families = root / "registry/families.json"
+            families.write_text(families.read_text() + "\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "registry/families.json"], check=True)
+            subprocess.run(["git", "-C", str(root), "commit", "-qm", "candidate"], check=True)
+            candidate_commit = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
+            with self.assertRaisesRegex(BOOTSTRAP.INSTALLER.InstallError, "origin/main merge commit"):
+                BOOTSTRAP.bootstrap(
+                    root,
+                    install=True,
+                    staging_root=Path(temporary) / "staging",
+                    receipts_dir=Path(temporary) / "receipts",
+                    deployment_root=Path(temporary) / "deployment",
+                    expected_source_commit=candidate_commit,
+                )
+            self.assertFalse((Path(temporary) / "staging").exists())
+            self.assertFalse((Path(temporary) / "deployment").exists())
 
     def test_doctor_fails_closed_when_a_repository_bundle_drifts(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

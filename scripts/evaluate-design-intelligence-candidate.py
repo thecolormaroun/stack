@@ -137,15 +137,22 @@ def _validate_packet(packet: Mapping[str, Any]) -> tuple[str, dict[str, Any]]:
     if not isinstance(packet.get("change_id"), str) or re.fullmatch(r"[a-z][a-z0-9-]{1,32}:[a-f0-9]{16,64}", packet["change_id"]) is None:
         raise DesignEvaluationError("candidate packet change_id is invalid")
     nested_shapes = {
-        "source_lineage": {"packet_id", "packet_digest", "card_ids", "revision_ids", "evidence_ids", "parent_digests"},
         "target": {"canonical_name", "capability_path", "provider", "package", "upstream_pin"},
-        "rationale": {"change_kind", "expected_behavior", "overlap_analysis", "license_posture", "privacy_class"},
         "rollback": {"base_commit", "path_digests"},
     }
     for key, fields in nested_shapes.items():
         value = packet.get(key)
         if not isinstance(value, Mapping) or set(value) != fields:
             raise DesignEvaluationError(f"candidate packet {key} shape is unsupported")
+    lineage = packet.get("source_lineage")
+    lineage_fields = {"packet_id", "packet_digest", "card_ids", "revision_ids", "evidence_ids", "parent_digests"}
+    campaign_fields = {"campaign_run_id", "campaign_receipt_digest", "design_packet_artifact_digest", "retrieval_artifact_digest", "candidate_evaluation_artifact_digest"}
+    if not isinstance(lineage, Mapping) or frozenset(lineage) not in {frozenset(lineage_fields), frozenset(lineage_fields | campaign_fields)}:
+        raise DesignEvaluationError("candidate packet source_lineage shape is unsupported")
+    rationale = packet.get("rationale")
+    rationale_fields = {"change_kind", "expected_behavior", "overlap_analysis", "license_posture", "privacy_class"}
+    if not isinstance(rationale, Mapping) or frozenset(rationale) not in {frozenset(rationale_fields), frozenset(rationale_fields | {"materiality"})}:
+        raise DesignEvaluationError("candidate packet rationale shape is unsupported")
     if packet["target"].get("provider") != "stack" or packet["target"].get("package") != "stack" or packet["target"].get("upstream_pin") is not None:
         raise DesignEvaluationError("candidate packet target is not Stack-owned")
     if not isinstance(packet["edits"], list) or not 1 <= len(packet["edits"]) <= 5:
@@ -637,7 +644,9 @@ def evaluate_design_candidate(
                 synthetic_only = False
             for gate, passed in row["gates"].items():
                 if not passed:
-                    hard_gate_failures.append({"split": split, "fixture_id": row["fixture_id"], "gate": gate})
+                    failure = {"split": split, "fixture_id": row["fixture_id"], "gate": gate}
+                    failure["failure_id"] = "evaluation-failure:" + digest_json(failure)[:16]
+                    hard_gate_failures.append(failure)
             if row["rubric_disagreement"] is not None:
                 max_disagreement = max(max_disagreement, float(row["rubric_disagreement"]))
         fixture_metrics: dict[str, Any] = {}

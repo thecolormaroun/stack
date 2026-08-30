@@ -28,17 +28,25 @@ must remain separate from the checkout:
 
 ```sh
 python3 scripts/bootstrap-stack.py --install \
+  --expected-source-commit "$(git rev-parse --verify 'origin/main^{commit}')" \
   --deployment-root "$HOME" \
   --staging-root "$HOME/.local/share/stack/stages" \
   --receipts-dir "$HOME/.local/state/stack/runtime-receipts"
 python3 scripts/stack-doctor.py --deployment-root "$HOME"
 ```
 
-Real installation refuses a dirty checkout. Read-only bootstrap/doctor checks
-remain usable while developing in one. Runtime targets are atomically switched
+Real installation requires the canonical `https://github.com/thecolormaroun/stack.git`
+origin and refreshes its `main` before compilation and again before pointer
+movement. Clean `HEAD` and the supplied `origin/main` commit must agree exactly. Read-only bootstrap/doctor checks
+remain usable while developing elsewhere. Runtime targets are atomically switched
 under `.claude/skills/stack` and `.codex/skills/stack` within the deployment
 root; no machine-specific workspace or pre-existing global vendor directory is
 used.
+
+Compilation reads an installer-owned detached snapshot of the verified commit.
+Each verifier runs in a disposable copy and dedicated process group; only a
+fresh sealed copy can become live. It is revalidated around pointer movement,
+and failure records the immutable transaction while restoring switched pointers.
 
 ## What belongs
 
@@ -63,10 +71,12 @@ the product unless they directly support a named design/build workflow.
 3. **Design intelligence.** Safe source observations become cited design cards
    and source-scoped retrieval results. Relevant evidence can prepare a minimal
    skill or reference patch, but only a pinned evaluation can advance it to
-   `awaiting_approval`. Capturing or retrieving a link is never promotion.
-4. **Human gate.** Provenance, evaluation, activation, and publication require
-   review. Automation may collect evidence and prepare candidates, but may not
-   activate, merge, install, or publish a capability.
+   the promotion gates. Capturing or retrieving a link is never promotion.
+4. **Promotion gate.** Provenance, evaluation, review, activation, and
+   publication require separate receipts. The approved weekly design lane may
+   automatically promote at most one small Stack-owned skill/reference change
+   after every frozen evaluation, independent review, CI, merge, publication,
+   and rollback gate passes. Other candidates remain nonpublishing by default.
 5. **Publication and recovery.** The compiler selects only reviewed `active`
    entries for a declared target, stages all outputs, and the installer switches
    them atomically. Receipts preserve the catalog digest, source commit, and
@@ -114,9 +124,11 @@ skill for the full unattended-run contract.
 
 The separate weekly intelligence coordinator links private bookmark deltas,
 design packets, retrieval, candidate evaluation, and the latest maintenance
-receipt. Its future Saturday 09:00 scheduler contract is checked in but disabled;
-enabling it requires separate approval and persisted run-now proof. The
-coordinator never launches maintenance or publishes a capability.
+receipt. Its approved Saturday 09:00 scheduler runs the deterministic collector
+first, then a Sol/high automatic tail only when material evidence exists. The
+coordinator itself never launches maintenance or publishes a capability; the
+separate tail may publish one bounded Stack-owned skill/reference change only
+after every checked-in gate and a terminal owner-local receipt.
 
 ## Security and privacy
 

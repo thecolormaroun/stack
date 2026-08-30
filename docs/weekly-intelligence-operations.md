@@ -1,7 +1,8 @@
 # Weekly Stack intelligence operations
 
-The weekly campaign is a deterministic, review-only coordinator. It joins
-source/bookmark intake, design-packet preparation, source-scoped retrieval,
+The weekly campaign has a deterministic collection coordinator and an approved
+automatic promotion tail. The coordinator joins source/bookmark intake,
+design-packet preparation, source-scoped retrieval,
 candidate/evaluation, a read-only link to the latest Stack maintenance receipt,
 and an owner-local report/receipt. `scripts/run-stack-weekly-intelligence.py`
 uses `scripts/stack-run-state.py` through its `WorkflowStore`. It reuses the
@@ -10,9 +11,10 @@ instance; it does not share the maintenance workflow's lease or database.
 
 ## Boundaries
 
-- Provider/model egress is denied. The analysis budget in
-  `config/weekly-intelligence.json` records a planning limit and never grants
-  spend or a provider call. The live retrieval exception is a local-subprocess
+- The deterministic collector and GBrain adapter deny provider egress. The
+  analysis budget in `config/weekly-intelligence.json` authorizes at most three
+  Codex contexts for critique, candidate authoring, and independent review; it
+  never grants a paid external-provider call. The live retrieval exception is a local-subprocess
   keyword-read contract, not model/provider egress; it allowlists the exact
   GBrain CLI version and command shapes and reports `provider_calls: 0`.
 - Raw/private source material stays in the caller's source system. Tracked
@@ -20,8 +22,9 @@ instance; it does not share the maintenance workflow's lease or database.
   classifications, and owner-local relative paths only.
 - The coordinator imports only the maintenance receipt validator. It never
   executes maintenance, copies raw maintenance output, acquires its lease,
-  publishes, installs, merges, reindexes, or
-  launches an upstream/provider fallback.
+  publishes, installs, merges, reindexes, or launches an upstream/provider
+  fallback. The separate automatic tail owns only the exact evaluated
+  Stack-owned skill/reference contract.
 - Maintenance is a distinct daily workflow. Hermes collection/curation is a
   distinct Monday intake-only workflow. The weekly campaign is a distinct
   Saturday coordinator.
@@ -36,6 +39,10 @@ working directory, model, effort, execution environment, and canonical prompt
 digest. Caller-supplied JSON cannot assert scheduler health. An eight-day
 health pass also requires a terminal campaign receipt inside the eight-day
 window.
+
+The active task uses `gpt-5.6-sol` at high reasoning. Deterministic collection
+still runs first. Model work occurs only when material evidence exists; at most
+one candidate can reach evaluation in a run.
 
 ## Inputs and idempotency
 
@@ -65,6 +72,12 @@ contains a safe restart action and no raw stderr. Transient failures do not
 strike the campaign circuit. Three identical non-transient blockers open the
 campaign-owned circuit; later identical attempts exit cheaply until an
 explicit manual clear.
+
+`prepared` with reason `automatic_promotion_pending` transfers control to the
+approved automatic tail. Weak candidates become `no_action`; policy or quality
+failures become `rejected_no_queue`; unavailable operational dependencies
+become `retry_with_alert`. These outcomes retain owner-local evidence without
+creating a recurring human approval queue.
 
 For missing, invalid, or stale maintenance evidence, the report links an
 alert and gives the safe manual restart guidance. It never runs maintenance on
@@ -96,17 +109,21 @@ maintenance receipt. It exits before spawning any reconciliation or import
 subprocess when either preflight fails. After preflight it reconciles the
 current local Field Theory database into the owner-local ledger, imports only
 missing `x-bookmarks` with embeddings disabled, and then runs the local adapter
-route above. Direct X/OAuth, paid provider fallback, skill promotion, and
-runtime publication remain disabled.
+route above. Direct X/OAuth and paid provider fallback remain disabled. Skill
+promotion and runtime publication are available only through authorization
+contract `weekly-design-auto-promotion-approved-v1` after the checked-in
+automatic gates.
 
 The entrypoint pins the real account home, a minimal executable search path,
 and its owner-only temporary directory. Its source, state, executable, and
 output paths reject unexpected symlink ancestors, ownership drift, and unsafe
 write modes before any mutable subprocess is launched.
 
-The command prints a safe receipt summary. A nonzero exit means the receipt is
-`blocked`, `partial`, or `failed`; inspect the owner-local receipt and use its
-safe restart guidance.
+The command prints a safe receipt summary with the exact owner-local campaign
+receipt's relative path and digest. The automatic tail binds those fields and
+never chooses a receipt by newest-file ordering. A nonzero exit means the
+receipt is `blocked`, `partial`, or `failed`; inspect the owner-local receipt
+and use its safe restart guidance.
 
 Without an adapter configuration this example stops at
 `source_intake_adapter_not_configured`. The explicit local preparation route is:
@@ -163,3 +180,64 @@ Once a candidate is selected, missing or insufficient evidence blocks
 evaluation. See the
 [readiness reconciliation](weekly-intelligence-readiness.md) for live
 integration and approval gates.
+
+## Automatic promotion and publication
+
+The tail works from a clean isolated branch based on current `origin/main`,
+never the user's primary checkout. It may change only existing
+`skills/**/SKILL.md` or `skills/**/references/**/*.md`, with one candidate,
+three files, and 32,768 bytes maximum per run. Material evidence, isolated
+materialization, frozen design evaluation, full tests, a fresh independent
+`ship` review, green pull-request checks, and merge verification are all
+required before publication.
+
+The materialization command must use `--automatic-weekly-design`. Its
+authorization binds the exact coordinator run ID and receipt digest to
+`weekly-design-auto-promotion-approved-v1`. The materializer independently
+enforces replacement-only edits, existing Stack-owned skill/reference paths,
+the three-file limit, the byte limit, checkout preservation, and the disposable
+no-network clone. The terminal recorder repeats the path, digest, and limit
+checks against the immutable base commit.
+
+Publication runs only from a fresh clean checkout of verified merged
+`origin/main` through `scripts/bootstrap-stack.py --install`, followed by
+`scripts/stack-doctor.py`. Both Claude and Codex discovery and the owner-local
+rollback receipt must pass before the outcome is `published`. Direct main
+commits, vendor/imported changes, route/command edits, source mutation,
+upstream-pin updates, credentials, paid fallback, and destructive cleanup are
+outside this contract and still require separate approval.
+
+Every automatic run ends by binding its collection receipt and terminal
+decision into an owner-local promotion receipt. The recorder validates the
+canonical full coordinator receipt and the complete gate set. A selected
+candidate is eligible only when the campaign is `prepared` with reason
+`automatic_promotion_pending`; a `no_action` campaign cannot later claim a
+candidate. The recorder refuses contradictory claims such as publication
+without a merged PR, both runtimes, or rollback proof, and it refuses retry or
+rejection while a pull request remains open:
+
+```sh
+python3 scripts/record-weekly-design-promotion.py \
+  --live-receipt /owner-local/weekly-state/live/live-receipts/run-id.json \
+  --live-receipt-digest returned-live-binding-sha256 \
+  --campaign-receipt /owner-local/weekly-state/receipts/run-id.json \
+  --decision /owner-local/weekly-state/promotion-decisions/run-id.json \
+  --out-dir /owner-local/weekly-state/promotion-receipts
+```
+
+The decision contains an exact `evidence` map for `candidate_packet`,
+`materialization`, `evaluation`, `repository_tests`, `independent_review`,
+`pull_request_ci`, `merge_verification`, `runtime_publication`, and
+`rollback_receipt`. Each used entry supplies an owner-local JSON path and its
+exact SHA-256 digest; unused entries are `null`. Passed gates require the
+matching artifact. Publication additionally cross-checks candidate/base/edit
+digests, real-task evaluation evidence, the tested/reviewed head, CI and merge
+lineage, the installer's merged source commit and target verifiers, and the
+rollback-state shape. Runtime proof must use the installer's immutable
+`transactions/<transaction-id>/install.json` and `rollback.json` pair. Both
+files share one transaction ID and directory; mutable root-level aliases are
+operational pointers, not promotion evidence. The input files and output are mode `0600` below
+owner-only mode-`0700` directories. Terminal receipts retain only digests and
+safe states, never raw bookmark content or absolute source paths. The accepted
+dispositions are `published`, `no_action`, `rejected_no_queue`, and
+`retry_with_alert`; none creates a human approval queue.

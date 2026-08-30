@@ -63,10 +63,12 @@ the product unless they directly support a named design/build workflow.
 3. **Design intelligence.** Safe source observations become cited design cards
    and source-scoped retrieval results. Relevant evidence can prepare a minimal
    skill or reference patch, but only a pinned evaluation can advance it to
-   `awaiting_approval`. Capturing or retrieving a link is never promotion.
-4. **Human gate.** Provenance, evaluation, activation, and publication require
-   review. Automation may collect evidence and prepare candidates, but may not
-   activate, merge, install, or publish a capability.
+   the promotion gates. Capturing or retrieving a link is never promotion.
+4. **Promotion gate.** Provenance, evaluation, review, activation, and
+   publication require separate receipts. The approved weekly design lane may
+   automatically promote at most one small Stack-owned skill/reference change
+   after every frozen evaluation, independent review, CI, merge, publication,
+   and rollback gate passes. Other candidates remain nonpublishing by default.
 5. **Publication and recovery.** The compiler selects only reviewed `active`
    entries for a declared target, stages all outputs, and the installer switches
    them atomically. Receipts preserve the catalog digest, source commit, and
@@ -114,9 +116,11 @@ skill for the full unattended-run contract.
 
 The separate weekly intelligence coordinator links private bookmark deltas,
 design packets, retrieval, candidate evaluation, and the latest maintenance
-receipt. Its future Saturday 09:00 scheduler contract is checked in but disabled;
-enabling it requires separate approval and persisted run-now proof. The
-coordinator never launches maintenance or publishes a capability.
+receipt. Its approved Saturday 09:00 scheduler runs the deterministic collector
+first, then a Sol/high automatic tail only when material evidence exists. The
+coordinator itself never launches maintenance or publishes a capability; the
+separate tail may publish one bounded Stack-owned skill/reference change only
+after every checked-in gate and a terminal owner-local receipt.
 
 ## Security and privacy
 

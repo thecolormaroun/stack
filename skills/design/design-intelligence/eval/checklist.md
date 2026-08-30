@@ -30,4 +30,7 @@ description: Completion checklist for weekly digest and skill promotion runs.
 - [ ] Candidate changes are reviewable as a patch/PR.
 - [ ] Codex design eval was run or the packet is marked blocked on eval.
 - [ ] Candidate beats `codex-current` on at least 4 fixtures with no hard fails before default promotion.
-
+- [ ] A fresh independent reviewer returned `ship` for the exact evaluated diff.
+- [ ] Required pull-request checks passed and the reviewed head was the merged head.
+- [ ] Runtime publication used merged `origin/main` and produced Claude/Codex discovery plus rollback receipts.
+- [ ] Weak/rejected candidates ended `no_action` or `rejected_no_queue`, not in a human approval backlog.

@@ -66,6 +66,12 @@ Receipts belong in an owner-only `0700` directory outside the public repository.
 The publication receipt is redacted and contains no absolute paths; owner-only
 rollback state keeps the prior pointer paths separately.
 
+Each install writes an immutable owner-only pair at
+`transactions/<transaction-id>/install.json` and `rollback.json`. The files
+share the transaction ID and exact prior-target state. Root-level `latest.json`
+and `rollback-state.json` remain mutable operational pointers and are not
+automatic-promotion proof.
+
 Hermes accepts a `published` intake disposition only after resolving the named
 installation receipt beneath `STACK_RUNTIME_RECEIPTS_ROOT` (defaulting to the
 directory above), matching its source commit, catalog digest, verification
@@ -83,9 +89,12 @@ hand-edit generated runtime manifests, or publish a partial target set.
 
 The scheduler lanes remain distinct. Upstream maintenance has its own writer,
 lease, and receipts. Hermes owns a Monday intake-only collection/curation lane.
-The proposed Stack weekly intelligence lane coordinates Saturday evidence and
-links the latest maintenance receipt but never invokes maintenance. Collection,
-curation, evaluation, maintenance, and publication failures remain distinct.
+The Stack weekly intelligence lane coordinates Saturday evidence and links the
+latest maintenance receipt but never invokes maintenance. Under
+`weekly-design-auto-promotion-approved-v1`, its separate automatic tail may
+publish one evaluated Stack-owned skill/reference candidate after verified
+merge. Collection, curation, evaluation, maintenance, and publication failures
+remain distinct.
 
 Stack provides a reviewed wrapper and reports the Stack commit and policy
 digest. The approved Saturday 09:00 `America/Los_Angeles` contract becomes live

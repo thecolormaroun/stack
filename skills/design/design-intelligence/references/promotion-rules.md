@@ -1,25 +1,29 @@
 ---
 id: design-intelligence.promotion-rules
 name: Design Intelligence Promotion Rules
-description: Review and eval gates for turning digest findings into skill updates.
+description: Evidence, eval, review, and publication gates for automatically turning digest findings into bounded Stack skill updates.
 ---
 
 # Promotion Rules
 
-The loop compounds taste only when a finding repeats, survives review, and improves eval outcomes.
+The loop compounds taste only when a finding is material, improves eval
+outcomes, survives independent review, and completes verified publication.
 
 ## Default Safety
 
-Do not directly mutate:
+Source intake must not mutate:
 - Arc browser state.
 - Field Theory bookmark corpus.
 - X/Twitter account state.
 - GBrain source roots.
 - Vault notes.
-- Studio/CDO skills.
 - critique logs.
 
-Source collection is read-only. Promotion is review-gated.
+Source collection is read-only. Promotion runs separately under exact contract
+`weekly-design-auto-promotion-approved-v1`, is limited to one candidate and
+three Stack-owned skill/reference Markdown files per run, and uses an isolated
+branch plus pull request. The active checkout is never the materialization
+surface.
 
 ## Candidate Thresholds
 
@@ -36,7 +40,7 @@ Every candidate must include:
 - the exact target skill/reference file.
 - the smallest proposed text change.
 - an idempotency note explaining why this is not already covered.
-- a rollback path: leave the current skill untouched until PR/review approval.
+- a rollback path binding the current file digests until every automatic gate passes.
 
 ## Eval Gate
 
@@ -73,13 +77,31 @@ Repetition identifiers must be distinct positive integers within each fixture.
 These structural checks do not attest that feedback came from a real task:
 the reviewed harness and saved independent feedback remain separate gates.
 
-If the candidate is useful but the eval is not run, label it `candidate - blocked on eval`, not `promoted`.
+If the candidate is useful but the eval is not run, label it `retry_with_alert`, not `promoted`.
 
 ## Runtime Promotion
 
-The skill may generate:
-- a PR or review packet for Stack.
-- an eval bundle candidate for Codex.
-- a short summary for chat/Telegram.
+The approved automatic tail may create or update one lineage-bound pull
+request, merge it after all required checks pass, and publish the merged Stack
+revision to Claude and Codex. It must require, in order:
 
-It must not silently update the default runtime bundle, install skills globally, or enable a recurring automation without operator approval.
+1. `material-evidence` and exact source citations.
+2. a live-binding receipt that fixes the exact canonical campaign path and
+   digest returned by the collection entrypoint.
+3. candidate lineage whose packet, card, revision, evidence, and change IDs
+   are present in the bound design-packet and retrieval artifacts, plus exact
+   design-packet, retrieval, and candidate-evaluation artifact digests.
+4. isolated automatic-weekly materialization with path/size limits and rollback digests.
+5. `frozen-design-eval` with the baseline, protected holdout, and rotating canary.
+6. the full Stack repository test suite.
+7. a fresh independent review with verdict `ship`.
+8. green pull-request CI and merge verification against the reviewed head.
+9. atomic compilation/install from merged `origin/main`, both runtime discovery
+   checks, and a rollback receipt.
+
+Weak candidates are `no_action`; failed evaluation or review is
+`rejected_no_queue`; unavailable operational prerequisites are
+`retry_with_alert`. None creates a recurring human approval backlog. Direct
+main commits, vendor/imported edits, route/command changes, upstream-pin
+changes, source mutation, credentials, paid fallback, and destructive cleanup
+remain prohibited.

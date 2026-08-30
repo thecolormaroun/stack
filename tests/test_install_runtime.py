@@ -83,6 +83,18 @@ class RuntimeInstallTests(unittest.TestCase):
             self.assertEqual((root / "installed/codex").resolve(), stages["codex"].resolve())
             self.assertEqual(receipt["registry_digest"], DIGEST)
             self.assertEqual(stat.S_IMODE((receipt_dir / "latest.json").stat().st_mode), 0o600)
+            transaction = receipt_dir / "transactions" / receipt["transaction_id"]
+            immutable_install = json.loads((transaction / "install.json").read_text())
+            immutable_rollback = json.loads((transaction / "rollback.json").read_text())
+            self.assertEqual(receipt["transaction_id"], immutable_install["transaction_id"])
+            self.assertEqual(receipt["transaction_id"], immutable_rollback["transaction_id"])
+            self.assertEqual({"codex": False, "hermes": False}, immutable_install["prior_targets"])
+            self.assertEqual(
+                immutable_install["prior_targets"],
+                {target: value is not None for target, value in immutable_rollback["prior_targets"].items()},
+            )
+            self.assertEqual(0o700, stat.S_IMODE(transaction.stat().st_mode))
+            self.assertEqual(0o600, stat.S_IMODE((transaction / "install.json").stat().st_mode))
 
     def test_absolute_destination_is_rejected_even_with_a_deployment_root(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

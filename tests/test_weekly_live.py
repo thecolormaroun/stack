@@ -24,7 +24,7 @@ class WeeklyLiveTests(unittest.TestCase):
         self.root.chmod(0o700)
         self.live_root = self.root / "live"
         self.live_root.mkdir(mode=0o700)
-        for name in ("tmp", "gbrain-import", "coordinator"):
+        for name in ("tmp", "gbrain-import", "coordinator", "live-receipts"):
             (self.live_root / name).mkdir(mode=0o700)
         self.field_theory = self.root / "bookmarks.db"
         self.field_theory.write_bytes(b"fixture")
@@ -90,7 +90,13 @@ class WeeklyLiveTests(unittest.TestCase):
                     "terminal_state": "no_action",
                     "reason_code": "no_action",
                     "scheduler": {"status": "approved_and_persisted"},
+                    "receipt_persisted": True,
                 }
+                receipts = self.live_root / "coordinator" / "receipts"
+                receipts.mkdir(mode=0o700)
+                campaign_receipt = receipts / "weekly-fixture.json"
+                campaign_receipt.write_text(json.dumps(value), encoding="utf-8")
+                campaign_receipt.chmod(0o600)
             if receipt_path is not None:
                 receipt_path.write_text(json.dumps(value), encoding="utf-8")
                 receipt_path.chmod(0o600)
@@ -113,11 +119,44 @@ class WeeklyLiveTests(unittest.TestCase):
 
         self.assertEqual("no_action", result["campaign_terminal_state"])
         self.assertEqual("approved_and_persisted", result["scheduler_status"])
+        self.assertEqual(
+            "live/coordinator/receipts/weekly-fixture.json",
+            result["campaign_receipt_relative_path"],
+        )
+        self.assertRegex(result["campaign_receipt_digest"], r"^[a-f0-9]{64}$")
+        self.assertEqual(
+            "live/live-receipts/weekly-fixture.json",
+            result["live_binding_receipt_relative_path"],
+        )
+        self.assertRegex(result["live_binding_receipt_digest"], r"^[a-f0-9]{64}$")
+        binding = json.loads((self.live_root / "live-receipts" / "weekly-fixture.json").read_text())
+        self.assertEqual(result["campaign_receipt_digest"], binding["campaign_receipt_digest"])
         self.assertIn("u15-source-sync-approved-v1", calls[0])
         self.assertIn("x-bookmarks-import-approved-v1", calls[1])
         self.assertIn("--existing-source-root", calls[1])
         self.assertNotIn("--cli", calls[1])
         self.assertIn("--local-adapter-config", calls[2])
+
+    def test_campaign_receipt_binding_rejects_ambiguous_matches(self) -> None:
+        campaign = {
+            "run_id": "weekly-fixture",
+            "terminal_state": "no_action",
+            "reason_code": "no_action",
+            "scheduler": {"status": "approved_and_persisted"},
+            "receipt_persisted": True,
+        }
+        receipts = self.live_root / "coordinator" / "receipts"
+        receipts.mkdir(mode=0o700)
+        for name in ("weekly-fixture.json", "weekly-fixture-2.json"):
+            path = receipts / name
+            path.write_text(json.dumps(campaign), encoding="utf-8")
+            path.chmod(0o600)
+
+        with (
+            mock.patch.multiple(LIVE, LIVE_ROOT=self.live_root, ACCOUNT_HOME=self.root),
+            self.assertRaisesRegex(LIVE.LiveLoopError, "campaign_receipt_ambiguous"),
+        ):
+            LIVE._campaign_receipt(campaign, self.live_root / "coordinator")
 
     def test_subprocess_failure_never_returns_raw_stderr(self) -> None:
         with mock.patch.object(

@@ -84,6 +84,12 @@ class MaterializeCapabilityChangeTests(unittest.TestCase):
                 "overlap_analysis": {"status": "no_collision", "compared_capabilities": [], "explanation": "No overlap."},
                 "license_posture": "stack-owned-reviewed-derivative",
                 "privacy_class": "reviewed-software-derivative",
+                "materiality": {
+                    "basis": "source-plus-repeated-critique-failure",
+                    "source_count": 1,
+                    "critique_failure_ids": ["failure:" + "6" * 16],
+                    "evaluation_failure_ids": [],
+                },
             },
             "rollback": {"base_commit": self.base, "path_digests": {row["path"]: row["before_digest"] for row in rows}},
             "edits": rows,
@@ -107,6 +113,23 @@ class MaterializeCapabilityChangeTests(unittest.TestCase):
             "reviewed_by": "fixture-reviewer",
             "reviewed_at": "2026-08-23T00:00:00Z",
         }
+        value.update(overrides)
+        return value
+
+    def automatic_authorization(self, packet: dict, **overrides: object) -> dict:
+        packet["source_lineage"].update({
+            "campaign_run_id": "weekly-fixture",
+            "campaign_receipt_digest": "5" * 64,
+            "design_packet_artifact_digest": "6" * 64,
+            "retrieval_artifact_digest": "7" * 64,
+            "candidate_evaluation_artifact_digest": "8" * 64,
+        })
+        value = self.authorization(packet)
+        value.update({
+            "authorization_contract": "weekly-design-auto-promotion-approved-v1",
+            "campaign_run_id": "weekly-fixture",
+            "campaign_receipt_digest": "5" * 64,
+        })
         value.update(overrides)
         return value
 
@@ -183,6 +206,49 @@ class MaterializeCapabilityChangeTests(unittest.TestCase):
         loose.mkdir(mode=0o750)
         with self.assertRaisesRegex(MATERIALIZER.MaterializationError, "0700"):
             MATERIALIZER.materialize_change(packet, self.authorization(packet), repository=self.repo, output_dir=loose)
+
+    def test_automatic_weekly_mode_accepts_only_existing_skill_or_reference_replacements(self) -> None:
+        packet = self.packet()
+        receipt = MATERIALIZER.materialize_change(
+            packet,
+            self.automatic_authorization(packet),
+            repository=self.repo,
+            output_dir=self.root / "automatic",
+            policy={
+                "materialization": {"allowed_roles": ["skill", "reference", "registry", "test", "documentation"]},
+                "automatic_weekly_design_promotion": {
+                    "state": "active",
+                    "authorization_contract": "weekly-design-auto-promotion-approved-v1",
+                    "maximum_changed_files": 3,
+                    "maximum_total_bytes": 32768,
+                },
+            },
+            automatic_weekly=True,
+        )
+        self.assertEqual("weekly-design-auto-promotion-approved-v1", receipt["authorization"]["authorization_contract"])
+        self.assertEqual("weekly-fixture", receipt["authorization"]["campaign_run_id"])
+
+        support = self.packet()["edits"][0]
+        support.update({"path": "tests/fixture.md", "role": "test", "operation": "create", "before_digest": None})
+        support["after_digest"] = MATERIALIZER.digest_bytes(support["content"].encode())
+        rejected = self.packet(edits=[support])
+        with self.assertRaisesRegex(MATERIALIZER.MaterializationError, "automatic weekly"):
+            MATERIALIZER.materialize_change(
+                rejected,
+                self.automatic_authorization(rejected),
+                repository=self.repo,
+                output_dir=self.root / "rejected",
+                policy={
+                    "materialization": {"allowed_roles": ["skill", "reference", "registry", "test", "documentation"]},
+                    "automatic_weekly_design_promotion": {
+                        "state": "active",
+                        "authorization_contract": "weekly-design-auto-promotion-approved-v1",
+                        "maximum_changed_files": 3,
+                        "maximum_total_bytes": 32768,
+                    },
+                },
+                automatic_weekly=True,
+            )
 
 
 if __name__ == "__main__":

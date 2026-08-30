@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the local, review-only Stack weekly intelligence campaign.
+"""Run the local collection phase of Stack's weekly intelligence campaign.
 
 The coordinator is intentionally small and deterministic. It owns no model,
 provider, scheduler, Git, or maintenance execution path. WorkflowStore from
@@ -21,7 +21,18 @@ import stat
 import sys
 import tempfile
 import time
-import tomllib
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.9 can still expose --help and fail closed.
+    class _TomlUnavailable:
+        class TOMLDecodeError(ValueError):
+            pass
+
+        @staticmethod
+        def loads(_value: str) -> dict[str, Any]:
+            raise _TomlUnavailable.TOMLDecodeError("tomllib requires Python 3.11+")
+
+    tomllib = _TomlUnavailable()
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -348,7 +359,11 @@ def load_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
     value = _read_json(Path(path))
     if not isinstance(value, dict):
         raise WeeklyIntelligenceError("config_not_object")
-    required = {"schema_version", "campaign_id", "provider_egress", "analysis_budget", "stages", "maintenance", "scheduler", "state", "approval"}
+    required = {
+        "schema_version", "campaign_id", "provider_egress", "analysis_budget",
+        "automatic_promotion", "stages", "maintenance", "scheduler", "state",
+        "approval",
+    }
     if set(value) != required:
         raise WeeklyIntelligenceError("config_fields_invalid")
     if value.get("schema_version") != SCHEMA_VERSION or value.get("campaign_id") != TASK_ID:
@@ -356,8 +371,36 @@ def load_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
     if value.get("provider_egress") != "deny":
         raise WeeklyIntelligenceError("provider_egress_not_denied")
     budget = value.get("analysis_budget")
-    if not isinstance(budget, dict) or set(budget) != {"unit", "maximum", "authorized", "note"} or budget.get("unit") != "model_calls" or not isinstance(budget.get("maximum"), int) or isinstance(budget.get("maximum"), bool) or budget["maximum"] < 0 or budget.get("authorized") is not False or not isinstance(budget.get("note"), str):
+    if not isinstance(budget, dict) or set(budget) != {"unit", "maximum", "authorized", "note"} or budget.get("unit") != "model_calls" or budget.get("maximum") != 3 or budget.get("authorized") is not True or not isinstance(budget.get("note"), str) or not budget["note"]:
         raise WeeklyIntelligenceError("analysis_budget_invalid")
+    promotion = value.get("automatic_promotion")
+    expected_promotion = {
+        "state": "active",
+        "authorization_contract": "weekly-design-auto-promotion-approved-v1",
+        "maximum_candidates_per_run": 1,
+        "maximum_changed_files": 3,
+        "maximum_total_bytes": 32768,
+        "allowed_path_patterns": [
+            "skills/**/SKILL.md",
+            "skills/**/references/**/*.md",
+        ],
+        "required_gates": [
+            "material-evidence",
+            "isolated-materialization",
+            "frozen-design-eval",
+            "full-repository-tests",
+            "fresh-independent-review",
+            "pull-request-ci",
+            "merge-verification",
+            "runtime-publication",
+            "rollback-receipt",
+        ],
+        "weak_candidate_outcome": "no_action",
+        "rejected_candidate_outcome": "rejected_no_queue",
+        "operational_failure_outcome": "retry_with_alert",
+    }
+    if promotion != expected_promotion:
+        raise WeeklyIntelligenceError("automatic_promotion_contract_invalid")
     stages = value.get("stages")
     if not isinstance(stages, list) or [item.get("id") for item in stages if isinstance(item, dict)] != list(STAGE_IDS):
         raise WeeklyIntelligenceError("stage_graph_invalid")
@@ -385,8 +428,8 @@ def load_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
         or scheduler.get("local_time") != "09:00"
         or scheduler.get("timezone") != "America/Los_Angeles"
         or scheduler.get("rrule") != "FREQ=WEEKLY;BYDAY=SA;BYHOUR=9;BYMINUTE=0"
-        or scheduler.get("model") != "gpt-5.6-luna"
-        or scheduler.get("reasoning_effort") != "medium"
+        or scheduler.get("model") != "gpt-5.6-sol"
+        or scheduler.get("reasoning_effort") != "high"
         or scheduler.get("execution_environment") != "local"
         or scheduler.get("prompt_path") != "config/weekly-intelligence-automation-prompt.md"
         or not isinstance(scheduler.get("prompt_digest"), str)
@@ -411,7 +454,12 @@ def load_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
     if not isinstance(state["lease_seconds"], int) or state["lease_seconds"] <= 0 or not isinstance(state["circuit_threshold"], int) or state["circuit_threshold"] != 3 or not isinstance(state["health_window_seconds"], int) or state["health_window_seconds"] <= 0:
         raise WeeklyIntelligenceError("state_contract_invalid")
     approval = value.get("approval")
-    if not isinstance(approval, dict) or approval.get("promotion") != "prohibited" or approval.get("publication") != "prohibited":
+    if approval != {
+        "evidence": "bounded_model_analysis_approved",
+        "promotion": "automatic_evaluated",
+        "publication": "automatic_after_merge",
+        "upstream_maintenance": "separate_approved_workflow",
+    }:
         raise WeeklyIntelligenceError("approval_contract_invalid")
     return value
 
@@ -569,6 +617,7 @@ def _input_bundle(
 
 def stage_input_fingerprints(
     *,
+    config: Mapping[str, Any],
     input_digests: Mapping[str, str],
     maintenance: Mapping[str, Any],
 ) -> dict[str, str]:
@@ -593,6 +642,7 @@ def stage_input_fingerprints(
         "candidate_evaluation": candidate,
         "maintenance_link": digest({"maintenance_receipt": maintenance.get("receipt_digest")}),
         "report_receipt": digest({
+            "config": _without_volatile(config),
             "input": input_digests,
             "maintenance_status": maintenance.get("status"),
         }),
@@ -1238,6 +1288,8 @@ def _safe_restart_for(
         )
     if terminal_state in {"partial", "failed"}:
         return "Repair the failed child, then resume the run by its exact run ID; completed checkpoints are retained."
+    if terminal_state == "prepared" and reason_code == "automatic_promotion_pending":
+        return "Continue the approved automatic evaluation and publication tail; weak or rejected candidates create no review queue."
     if terminal_state == "awaiting_approval":
         return "Review the owner-local packet; promotion and publication remain separately approval-gated."
     return "No action required."
@@ -1359,6 +1411,7 @@ class WeeklyIntelligenceCoordinator:
             maintenance=maintenance,
         )
         stage_fps = stage_input_fingerprints(
+            config=self.config,
             input_digests=input_digests,
             maintenance=maintenance,
         )
@@ -1742,13 +1795,13 @@ class WeeklyIntelligenceCoordinator:
                     if stage_id == "report_receipt":
                         artifact_path = f"reports/{actual_run_id}.md"
                         provisional_terminal = (
-                            "awaiting_approval"
+                            "prepared"
                             if maintenance.get("status") == "linked"
                             else "blocked"
                         )
                         provisional_reason = (
-                            "awaiting_manual_review"
-                            if provisional_terminal == "awaiting_approval"
+                            "automatic_promotion_pending"
+                            if provisional_terminal == "prepared"
                             else str(maintenance.get("status") or "maintenance_alert")
                         )
                         report_file = self.state_dir / artifact_path
@@ -1938,8 +1991,8 @@ class WeeklyIntelligenceCoordinator:
                     self.config,
                 )
                 terminal_state, reason_code = (
-                    "awaiting_approval",
-                    "awaiting_manual_review",
+                    "prepared",
+                    "automatic_promotion_pending",
                 )
 
             report_stage = next(

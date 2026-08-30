@@ -12,6 +12,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -123,8 +124,55 @@ def prepare_receipts(_root: Path, receipts_dir: Path) -> None:
 
 
 def write_owner_file(path: Path, value: dict[str, Any]) -> None:
+    if path.is_symlink():
+        raise InstallError("runtime receipt pointer may not be a symlink")
     path.write_text(canonical_json(value), encoding="utf-8")
     os.chmod(path, 0o600)
+
+
+def write_immutable_owner_file(path: Path, value: dict[str, Any]) -> None:
+    data = canonical_json(value).encode("utf-8")
+    try:
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except FileExistsError as error:
+        raise InstallError("immutable runtime receipt already exists") from error
+    except OSError as error:
+        raise InstallError("unable to write immutable runtime receipt") from error
+
+
+def transaction_directory(receipts_dir: Path, transaction_id: str) -> Path:
+    transactions = receipts_dir / "transactions"
+    if transactions.is_symlink():
+        raise InstallError("runtime receipt transactions path may not be a symlink")
+    transactions.mkdir(mode=0o700, exist_ok=True)
+    details = transactions.lstat()
+    if not stat.S_ISDIR(details.st_mode) or details.st_uid != os.getuid() or stat.S_IMODE(details.st_mode) != 0o700:
+        raise InstallError("runtime receipt transactions directory must be owner-only")
+    directory = transactions / transaction_id
+    try:
+        directory.mkdir(mode=0o700)
+    except OSError as error:
+        raise InstallError("unable to create immutable runtime receipt transaction") from error
+    return directory
+
+
+def persist_transaction_receipts(
+    receipts_dir: Path,
+    receipt: dict[str, Any],
+    rollback_state: dict[str, Any],
+) -> None:
+    transaction_id = receipt["transaction_id"]
+    directory = transaction_directory(receipts_dir, transaction_id)
+    # Compatibility aliases are mutable status pointers only. Promotion proof
+    # must use the immutable pair above.
+    write_owner_file(receipts_dir / "rollback-state.json", rollback_state)
+    write_owner_file(receipts_dir / "latest.json", receipt)
+    write_immutable_owner_file(directory / "rollback.json", rollback_state)
+    write_immutable_owner_file(directory / "install.json", receipt)
 
 
 def run_verifier(target: dict[str, Any], destination: Path) -> dict[str, Any]:
@@ -180,8 +228,9 @@ def install_runtimes(root: Path, targets_path: Path, stages: dict[str, Path], re
         destination = root / raw_destination
         destinations[target["name"]] = destination
         prior[target["name"]] = str(destination.resolve()) if destination.is_symlink() else None
-    receipt: dict[str, Any] = {"schema_version": 1, "registry_digest": next(iter(digests)), "source_commits": sorted({manifest.get("source_commit") for manifest in manifests.values()}), "prior_targets": {name: value is not None for name, value in prior.items()}, "targets": [target["name"] for target in targets]}
-    rollback_state: dict[str, Any] = {"schema_version": 1, "prior_targets": prior}
+    transaction_id = f"install-{uuid.uuid4().hex}"
+    receipt: dict[str, Any] = {"schema_version": 1, "transaction_id": transaction_id, "registry_digest": next(iter(digests)), "source_commits": sorted({manifest.get("source_commit") for manifest in manifests.values()}), "prior_targets": {name: value is not None for name, value in prior.items()}, "targets": [target["name"] for target in targets]}
+    rollback_state: dict[str, Any] = {"schema_version": 1, "transaction_id": transaction_id, "prior_targets": prior}
     switched: list[str] = []
     try:
         for target in targets:
@@ -194,8 +243,7 @@ def install_runtimes(root: Path, targets_path: Path, stages: dict[str, Path], re
         receipt["verifier_results"] = verifier_results
         receipt["verified_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         receipt["status"] = "published"
-        write_owner_file(receipts_dir / "rollback-state.json", rollback_state)
-        write_owner_file(receipts_dir / "latest.json", receipt)
+        persist_transaction_receipts(receipts_dir, receipt, rollback_state)
         return receipt
     except (OSError, InstallError) as error:
         for name in reversed(switched):
@@ -208,8 +256,10 @@ def install_runtimes(root: Path, targets_path: Path, stages: dict[str, Path], re
         receipt["status"] = "failed"
         receipt["error"] = str(error)
         receipt["restored_targets"] = switched
-        write_owner_file(receipts_dir / "rollback-state.json", rollback_state)
-        write_owner_file(receipts_dir / "latest.json", receipt)
+        failed_transaction_id = f"install-{uuid.uuid4().hex}"
+        receipt["transaction_id"] = failed_transaction_id
+        rollback_state["transaction_id"] = failed_transaction_id
+        persist_transaction_receipts(receipts_dir, receipt, rollback_state)
         raise InstallError(str(error)) from error
 
 

@@ -10,13 +10,26 @@ separate evaluated promotion tail.
 
 from __future__ import annotations
 
+import sys
+
+# The executable script must enter in isolated mode so ignored files in the
+# persistent checkout cannot shadow stdlib imports before validation runs.
+# Unit tests import this module under a non-__main__ name and exercise the same
+# gate separately.
+if __name__ == "__main__" and (not sys.flags.isolated or not sys.dont_write_bytecode):
+    print(
+        '{"reason_code":"isolated_no_bytecode_python_required","status":"failed","task_id":"stack-weekly-live"}',
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
 import json
+import configparser
 import hashlib
 import os
 import pwd
 import stat
 import subprocess
-import sys
 import importlib.util
 import tempfile
 from pathlib import Path
@@ -25,25 +38,36 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 ACCOUNT_HOME = Path(pwd.getpwuid(os.getuid()).pw_dir).resolve()
+AUTOMATION_CHECKOUT = ACCOUNT_HOME / ".local" / "share" / "stack" / "weekly-intelligence-source"
+CANONICAL_ORIGIN = "https://github.com/thecolormaroun/stack.git"
+GIT = Path("/usr/bin/git")
 LIVE_ROOT = ACCOUNT_HOME / ".local" / "state" / "stack" / "weekly-intelligence" / "live"
 FIELD_THEORY_DB = ACCOUNT_HOME / ".ft-bookmarks" / "bookmarks.db"
 GBRAIN_SOURCE_ROOT = ACCOUNT_HOME / ".gbrain" / "source-roots" / "x-bookmarks-native"
 GBRAIN_CLI = ACCOUNT_HOME / ".bun" / "bin" / "gbrain"
 FIXED_PATH = f"{ACCOUNT_HOME}/.bun/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
-WEEKLY_SPEC = importlib.util.spec_from_file_location(
-    "stack_weekly_live_contract",
-    ROOT / "scripts" / "run-stack-weekly-intelligence.py",
-)
-if WEEKLY_SPEC is None or WEEKLY_SPEC.loader is None:
-    raise RuntimeError("weekly_contract_unavailable")
-WEEKLY = importlib.util.module_from_spec(WEEKLY_SPEC)
-WEEKLY_SPEC.loader.exec_module(WEEKLY)
-WEEKLY.DEFAULT_AUTOMATION_ROOT = ACCOUNT_HOME / ".codex" / "automations"
+WEEKLY: Any = None
 
 
 class LiveLoopError(RuntimeError):
     pass
+
+
+def _load_weekly_contract() -> Any:
+    spec = importlib.util.spec_from_file_location(
+        "stack_weekly_live_contract",
+        ROOT / "scripts" / "run-stack-weekly-intelligence.py",
+    )
+    if spec is None or spec.loader is None:
+        raise LiveLoopError("weekly_contract_unavailable")
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+    except Exception as exc:
+        raise LiveLoopError("weekly_contract_unavailable") from exc
+    module.DEFAULT_AUTOMATION_ROOT = ACCOUNT_HOME / ".codex" / "automations"
+    return module
 
 
 def _allowed_system_alias(path: Path) -> bool:
@@ -130,6 +154,148 @@ def _environment() -> dict[str, str]:
         "TMPDIR": str(LIVE_ROOT / "tmp"),
         "GBRAIN_SOURCE": "x-bookmarks",
     }
+
+
+def _git(argv: list[str], *, timeout: int = 120) -> str:
+    environment = _environment()
+    environment.update({
+        "GIT_CONFIG_GLOBAL": "/dev/null",
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_NO_REPLACE_OBJECTS": "1",
+        "GIT_DIR": str(ROOT / ".git"),
+        "GIT_WORK_TREE": str(ROOT),
+        "GIT_COMMON_DIR": str(ROOT / ".git"),
+        "GIT_TERMINAL_PROMPT": "0",
+    })
+    try:
+        result = subprocess.run(
+            [str(GIT), "--no-replace-objects", "-C", str(ROOT), *argv],
+            capture_output=True,
+            text=True,
+            env=environment,
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise LiveLoopError("execution_checkout_unavailable") from exc
+    if result.returncode != 0:
+        raise LiveLoopError("execution_checkout_invalid")
+    return result.stdout.strip()
+
+
+def _validate_git_config(git_dir: Path) -> None:
+    """Reject local Git features that can execute code before status/fetch."""
+    config_path = _private_path(git_dir / "config", private=False)
+    parser = configparser.RawConfigParser(interpolation=None, strict=True)
+    try:
+        parser.read_string(config_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, configparser.Error) as exc:
+        raise LiveLoopError("execution_checkout_git_config_invalid") from exc
+
+    allowed_sections = {"core", 'remote "origin"', 'branch "main"'}
+    if set(parser.sections()) != allowed_sections:
+        raise LiveLoopError("execution_checkout_git_config_invalid")
+    core = dict(parser.items("core"))
+    required_core = {
+        "repositoryformatversion": "0",
+        "bare": "false",
+        "logallrefupdates": "true",
+    }
+    if any(core.get(key) != value for key, value in required_core.items()):
+        raise LiveLoopError("execution_checkout_git_config_invalid")
+    if set(core) - {
+        "repositoryformatversion", "filemode", "bare", "logallrefupdates",
+        "ignorecase", "precomposeunicode",
+    }:
+        raise LiveLoopError("execution_checkout_git_config_invalid")
+    if core.get("filemode") not in {"true", "false"} or any(
+        core.get(key) not in {None, "true", "false"}
+        for key in ("ignorecase", "precomposeunicode")
+    ):
+        raise LiveLoopError("execution_checkout_git_config_invalid")
+
+    remote = dict(parser.items('remote "origin"'))
+    if set(remote) not in ({"url", "fetch"}, {"url", "fetch", "tagopt"}):
+        raise LiveLoopError("execution_checkout_git_config_invalid")
+    if (
+        remote.get("url") != CANONICAL_ORIGIN
+        or remote.get("fetch") != "+refs/heads/main:refs/remotes/origin/main"
+        or remote.get("tagopt") not in {None, "--no-tags"}
+    ):
+        raise LiveLoopError("execution_checkout_git_config_invalid")
+    if dict(parser.items('branch "main"')) != {
+        "remote": "origin",
+        "merge": "refs/heads/main",
+    }:
+        raise LiveLoopError("execution_checkout_git_config_invalid")
+
+
+def _validate_git_hooks(git_dir: Path) -> None:
+    """Allow only inert clone-template samples in the repository hook path."""
+    hooks = _private_path(git_dir / "hooks", directory=True, private=False)
+    try:
+        entries = list(hooks.iterdir())
+    except OSError as exc:
+        raise LiveLoopError("execution_checkout_hooks_invalid") from exc
+    for entry in entries:
+        try:
+            details = entry.lstat()
+        except OSError as exc:
+            raise LiveLoopError("execution_checkout_hooks_invalid") from exc
+        if (
+            not entry.name.endswith(".sample")
+            or stat.S_ISLNK(details.st_mode)
+            or not stat.S_ISREG(details.st_mode)
+        ):
+            raise LiveLoopError("execution_checkout_hooks_invalid")
+        _private_path(entry, private=False)
+
+
+def _validate_execution_checkout() -> str:
+    """Prove the unattended lane is the clean, freshly fetched automation clone."""
+    expected = _private_path(AUTOMATION_CHECKOUT, directory=True)
+    if ROOT != expected:
+        # This check intentionally precedes every subprocess so invoking the
+        # live lane from the saved/dirty project cannot reach any mutation.
+        raise LiveLoopError("execution_checkout_wrong_root")
+    _private_path(expected / ".git", directory=True, private=False)
+    if (expected / ".git" / "commondir").exists() or (expected / ".git" / "commondir").is_symlink():
+        raise LiveLoopError("execution_checkout_common_dir_invalid")
+    _validate_git_config(expected / ".git")
+    _validate_git_hooks(expected / ".git")
+    if Path(_git(["rev-parse", "--show-toplevel"])).resolve(strict=True) != expected:
+        raise LiveLoopError("execution_checkout_invalid")
+    if _git(["remote", "get-url", "origin"]) != CANONICAL_ORIGIN:
+        raise LiveLoopError("execution_checkout_origin_mismatch")
+    if _git(["status", "--porcelain=v1", "--untracked-files=all"]):
+        raise LiveLoopError("execution_checkout_dirty")
+    if _git(["ls-files", "--others", "--ignored", "--exclude-standard", "-z"]):
+        raise LiveLoopError("execution_checkout_ignored_files")
+    tracked = [entry for entry in _git(["ls-files", "-v", "-z"]).split("\0") if entry]
+    if not tracked or any(not entry.startswith("H ") for entry in tracked):
+        # `h` marks assume-unchanged and `S` marks skip-worktree. Requiring the
+        # ordinary cached tag for every tracked path prevents either flag from
+        # hiding working-tree changes from the status checks above and below.
+        raise LiveLoopError("execution_checkout_index_flags")
+
+    # Refresh the exact remote-tracking ref before any private-source or state
+    # operation. The automation prompt checks out this commit first; this
+    # second fetch closes the stale-ref window and fails closed if main moved.
+    _git([
+        "fetch",
+        "--no-tags",
+        "origin",
+        "+refs/heads/main:refs/remotes/origin/main",
+    ])
+    if _git(["status", "--porcelain=v1", "--untracked-files=all"]):
+        raise LiveLoopError("execution_checkout_dirty")
+    if _git(["rev-parse", "--abbrev-ref", "HEAD"]) != "HEAD":
+        raise LiveLoopError("execution_checkout_not_detached")
+    head = _git(["rev-parse", "--verify", "HEAD^{commit}"])
+    origin_main = _git(["rev-parse", "--verify", "refs/remotes/origin/main^{commit}"])
+    if head != origin_main:
+        raise LiveLoopError("execution_checkout_stale")
+    return head
 
 
 def _run(argv: list[str], *, timeout: int = 180, receipt_path: Path | None = None) -> dict[str, Any]:
@@ -253,6 +419,11 @@ def _preflight() -> Path:
 
 
 def run() -> dict[str, Any]:
+    global WEEKLY
+    _validate_execution_checkout()
+    # No checkout-local module is loaded until the repository itself passes
+    # provenance, cleanliness, ignored-file, index-flag, and commit checks.
+    WEEKLY = _load_weekly_contract()
     maintenance_receipt = _preflight()
     live_root = _private_path(LIVE_ROOT, directory=True)
     _private_path(FIELD_THEORY_DB)
@@ -269,6 +440,8 @@ def run() -> dict[str, Any]:
 
     reconcile = _run([
         sys.executable,
+        "-I",
+        "-B",
         str(ROOT / "scripts" / "reconcile-bookmark-sources.py"),
         "--sources", str(ROOT / "config" / "bookmark-sources.json"),
         "--policy", str(ROOT / "config" / "bookmark-fetch-policy.json"),
@@ -283,6 +456,8 @@ def run() -> dict[str, Any]:
     import_receipt_path = _private_output(live_root / "gbrain-import-weekly.json")
     imported = _run([
         sys.executable,
+        "-I",
+        "-B",
         str(ROOT / "scripts" / "import-bookmark-deltas.py"),
         "--snapshot", str(snapshot),
         "--markdown-dir", str(live_root / "gbrain-import"),
@@ -297,6 +472,8 @@ def run() -> dict[str, Any]:
 
     campaign = _run([
         sys.executable,
+        "-I",
+        "-B",
         str(ROOT / "scripts" / "run-stack-weekly-intelligence.py"),
         "--local-adapter-config", str(adapter_config),
         "--state-dir", str(live_root / "coordinator"),

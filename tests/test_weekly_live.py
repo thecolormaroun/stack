@@ -3,6 +3,10 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -15,6 +19,7 @@ SPEC = importlib.util.spec_from_file_location("stack_weekly_live", ROOT / "scrip
 assert SPEC and SPEC.loader
 LIVE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(LIVE)
+LIVE.WEEKLY = LIVE._load_weekly_contract()
 
 
 class WeeklyLiveTests(unittest.TestCase):
@@ -45,6 +50,282 @@ class WeeklyLiveTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
+
+    def execution_checkout(self, *, extra_core: str = "") -> Path:
+        checkout = self.root / ".local" / "share" / "stack" / "weekly-intelligence-source"
+        git_dir = checkout / ".git"
+        git_dir.mkdir(parents=True, mode=0o700)
+        (git_dir / "hooks").mkdir(mode=0o700)
+        checkout.chmod(0o700)
+        config = git_dir / "config"
+        config.write_text(
+            "\n".join((
+                "[core]",
+                "\trepositoryformatversion = 0",
+                "\tfilemode = true",
+                "\tbare = false",
+                "\tlogallrefupdates = true",
+                extra_core,
+                '[remote "origin"]',
+                f"\turl = {LIVE.CANONICAL_ORIGIN}",
+                "\ttagOpt = --no-tags",
+                "\tfetch = +refs/heads/main:refs/remotes/origin/main",
+                '[branch "main"]',
+                "\tremote = origin",
+                "\tmerge = refs/heads/main",
+            )) + "\n",
+            encoding="utf-8",
+        )
+        config.chmod(0o600)
+        return checkout
+
+    def test_live_scheduler_binding_uses_saved_project_not_execution_checkout(self) -> None:
+        self.assertEqual(
+            LIVE.ACCOUNT_HOME / "Projects" / "stack",
+            LIVE.WEEKLY.DEFAULT_AUTOMATION_WORKDIR,
+        )
+
+    def test_saved_primary_execution_is_rejected_before_any_subprocess(self) -> None:
+        primary = self.root / "Projects" / "stack"
+        primary.mkdir(parents=True, mode=0o700)
+        checkout = self.root / ".local" / "share" / "stack" / "weekly-intelligence-source"
+        checkout.mkdir(parents=True, mode=0o700)
+        commands = mock.Mock()
+        loader = mock.Mock()
+        with (
+            mock.patch.multiple(
+                LIVE,
+                ROOT=primary,
+                ACCOUNT_HOME=self.root,
+                AUTOMATION_CHECKOUT=checkout,
+                _load_weekly_contract=loader,
+            ),
+            mock.patch.object(LIVE.subprocess, "run", commands),
+            self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_wrong_root"),
+        ):
+            LIVE.run()
+        commands.assert_not_called()
+        loader.assert_not_called()
+
+    def test_checkout_validation_precedes_local_coordinator_import(self) -> None:
+        loader = mock.Mock()
+        with (
+            mock.patch.object(
+                LIVE,
+                "_validate_execution_checkout",
+                side_effect=LIVE.LiveLoopError("execution_checkout_dirty"),
+            ),
+            mock.patch.object(LIVE, "_load_weekly_contract", loader),
+            self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_dirty"),
+        ):
+            LIVE.run()
+        loader.assert_not_called()
+
+    def test_execution_checkout_requires_clean_detached_fetched_origin_main(self) -> None:
+        checkout = self.execution_checkout()
+        responses = iter((
+            str(checkout),
+            LIVE.CANONICAL_ORIGIN,
+            "",
+            "",
+            "H README.md\0H scripts/run-stack-weekly-live.py\0",
+            "",
+            "",
+            "HEAD",
+            "a" * 40,
+            "a" * 40,
+        ))
+        with (
+            mock.patch.multiple(
+                LIVE,
+                ROOT=checkout.resolve(),
+                ACCOUNT_HOME=self.root,
+                AUTOMATION_CHECKOUT=checkout,
+                _git=mock.Mock(side_effect=lambda argv: next(responses)),
+            ),
+        ):
+            self.assertEqual("a" * 40, LIVE._validate_execution_checkout())
+
+    def test_execution_checkout_stale_commit_blocks(self) -> None:
+        checkout = self.execution_checkout()
+        responses = iter((
+            str(checkout),
+            LIVE.CANONICAL_ORIGIN,
+            "",
+            "",
+            "H README.md\0H scripts/run-stack-weekly-live.py\0",
+            "",
+            "",
+            "HEAD",
+            "a" * 40,
+            "b" * 40,
+        ))
+        with (
+            mock.patch.multiple(
+                LIVE,
+                ROOT=checkout.resolve(),
+                ACCOUNT_HOME=self.root,
+                AUTOMATION_CHECKOUT=checkout,
+                _git=mock.Mock(side_effect=lambda argv: next(responses)),
+            ),
+            self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_stale"),
+        ):
+            LIVE._validate_execution_checkout()
+
+    def test_execution_checkout_rejects_hidden_index_flags_before_fetch(self) -> None:
+        checkout = self.execution_checkout()
+        git = mock.Mock(side_effect=(
+            str(checkout),
+            LIVE.CANONICAL_ORIGIN,
+            "",
+            "",
+            "h scripts/run-stack-weekly-live.py\0S config/weekly-intelligence.json\0",
+        ))
+        with (
+            mock.patch.multiple(
+                LIVE,
+                ROOT=checkout.resolve(),
+                ACCOUNT_HOME=self.root,
+                AUTOMATION_CHECKOUT=checkout,
+                _git=git,
+            ),
+            self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_index_flags"),
+        ):
+            LIVE._validate_execution_checkout()
+        self.assertEqual(5, git.call_count)
+
+    def test_direct_nonisolated_execution_is_explicitly_unsupported(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "run-stack-weekly-live.py")],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(1, result.returncode)
+        self.assertIn('"reason_code":"isolated_no_bytecode_python_required"', result.stderr)
+
+    def test_isolated_no_bytecode_entrypoint_leaves_checkout_free_of_python_artifacts(self) -> None:
+        checkout = self.root / "copied-checkout"
+        scripts = checkout / "scripts"
+        scripts.mkdir(parents=True, mode=0o700)
+        for name in ("run-stack-weekly-live.py", "run-stack-weekly-intelligence.py"):
+            shutil.copy2(ROOT / "scripts" / name, scripts / name)
+        for _attempt in range(2):
+            result = subprocess.run(
+                [sys.executable, "-I", "-B", str(scripts / "run-stack-weekly-live.py")],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertEqual([], list(checkout.rglob("*.pyc")))
+            self.assertEqual([], list(checkout.rglob("__pycache__")))
+
+    def test_prompt_requires_isolated_no_bytecode_mode_for_every_python_command(self) -> None:
+        prompt = (ROOT / "config" / "weekly-intelligence-automation-prompt.md").read_text(encoding="utf-8")
+        executable = "/opt/homebrew/bin/python3.11"
+        matches = list(re.finditer(re.escape(executable), prompt))
+        self.assertGreaterEqual(len(matches), 5)
+        for match in matches:
+            self.assertTrue(
+                prompt.startswith(f"{executable} -I -B ", match.start()),
+                prompt[match.start():match.start() + 100],
+            )
+
+    def test_operations_commands_use_isolated_no_bytecode_python(self) -> None:
+        operations = (ROOT / "docs" / "weekly-intelligence-operations.md").read_text(encoding="utf-8")
+        for command in (
+            "scripts/run-stack-weekly-live.py",
+            "scripts/bootstrap-stack.py",
+            "scripts/stack-doctor.py",
+            "scripts/record-weekly-design-promotion.py",
+        ):
+            self.assertIn(f"/opt/homebrew/bin/python3.11 -I -B {command}", operations)
+
+    def test_execution_checkout_rejects_ignored_files_before_fetch(self) -> None:
+        checkout = self.execution_checkout()
+        git = mock.Mock(side_effect=(
+            str(checkout),
+            LIVE.CANONICAL_ORIGIN,
+            "",
+            "scripts/json.pyc\0",
+        ))
+        with (
+            mock.patch.multiple(
+                LIVE,
+                ROOT=checkout.resolve(),
+                ACCOUNT_HOME=self.root,
+                AUTOMATION_CHECKOUT=checkout,
+                _git=git,
+            ),
+            self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_ignored_files"),
+        ):
+            LIVE._validate_execution_checkout()
+        self.assertEqual(4, git.call_count)
+
+    def test_execution_checkout_rejects_fsmonitor_before_first_git_process(self) -> None:
+        checkout = self.execution_checkout(extra_core="\tfsmonitor = /tmp/untrusted-monitor")
+        commands = mock.Mock()
+        with (
+            mock.patch.multiple(
+                LIVE,
+                ROOT=checkout.resolve(),
+                ACCOUNT_HOME=self.root,
+                AUTOMATION_CHECKOUT=checkout,
+            ),
+            mock.patch.object(LIVE.subprocess, "run", commands),
+            self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_git_config_invalid"),
+        ):
+            LIVE._validate_execution_checkout()
+        commands.assert_not_called()
+
+    def test_execution_checkout_rejects_active_hook_before_first_git_process(self) -> None:
+        checkout = self.execution_checkout()
+        hook = checkout / ".git" / "hooks" / "reference-transaction"
+        hook.write_text("#!/bin/sh\nexit 9\n", encoding="utf-8")
+        hook.chmod(0o700)
+        commands = mock.Mock()
+        with (
+            mock.patch.multiple(
+                LIVE,
+                ROOT=checkout.resolve(),
+                ACCOUNT_HOME=self.root,
+                AUTOMATION_CHECKOUT=checkout,
+            ),
+            mock.patch.object(LIVE.subprocess, "run", commands),
+            self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_hooks_invalid"),
+        ):
+            LIVE._validate_execution_checkout()
+        commands.assert_not_called()
+
+    def test_execution_checkout_rejects_alternate_common_dir_before_first_git_process(self) -> None:
+        checkout = self.execution_checkout()
+        common_dir = checkout / ".git" / "commondir"
+        common_dir.write_text("../alternate-git-dir\n", encoding="utf-8")
+        common_dir.chmod(0o600)
+        commands = mock.Mock()
+        with (
+            mock.patch.multiple(
+                LIVE,
+                ROOT=checkout.resolve(),
+                ACCOUNT_HOME=self.root,
+                AUTOMATION_CHECKOUT=checkout,
+            ),
+            mock.patch.object(LIVE.subprocess, "run", commands),
+            self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_common_dir_invalid"),
+        ):
+            LIVE._validate_execution_checkout()
+        commands.assert_not_called()
+
+    def test_git_commands_disable_replacement_objects(self) -> None:
+        completed = SimpleNamespace(returncode=0, stdout="canonical\n", stderr="")
+        with mock.patch.object(LIVE.subprocess, "run", return_value=completed) as commands:
+            self.assertEqual("canonical", LIVE._git(["rev-parse", "HEAD^{commit}"]))
+
+        argv = commands.call_args.args[0]
+        environment = commands.call_args.kwargs["env"]
+        self.assertEqual([str(LIVE.GIT), "--no-replace-objects", "-C", str(LIVE.ROOT)], argv[:4])
+        self.assertEqual("1", environment["GIT_NO_REPLACE_OBJECTS"])
 
     def automation_file(self, account_home: Path, *, mode: int = 0o644, symlink_codex: bool = False) -> Path:
         config = LIVE.WEEKLY.load_config()
@@ -112,6 +393,8 @@ class WeeklyLiveTests(unittest.TestCase):
                 ACCOUNT_HOME=self.root,
                 FIXED_PATH=f"{self.root}/.bun/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
                 _run=command,
+                _validate_execution_checkout=mock.Mock(return_value="a" * 40),
+                _load_weekly_contract=mock.Mock(return_value=LIVE.WEEKLY),
                 _preflight=mock.Mock(return_value=self.live_root / "maintenance.json"),
             ),
         ):
@@ -133,6 +416,12 @@ class WeeklyLiveTests(unittest.TestCase):
         self.assertEqual(result["campaign_receipt_digest"], binding["campaign_receipt_digest"])
         self.assertIn("u15-source-sync-approved-v1", calls[0])
         self.assertIn("x-bookmarks-import-approved-v1", calls[1])
+        self.assertEqual("-I", calls[0][1])
+        self.assertEqual("-B", calls[0][2])
+        self.assertEqual("-I", calls[1][1])
+        self.assertEqual("-B", calls[1][2])
+        self.assertEqual("-I", calls[2][1])
+        self.assertEqual("-B", calls[2][2])
         self.assertIn("--existing-source-root", calls[1])
         self.assertNotIn("--cli", calls[1])
         self.assertIn("--local-adapter-config", calls[2])
@@ -180,6 +469,8 @@ class WeeklyLiveTests(unittest.TestCase):
                     mock.patch.object(LIVE.WEEKLY, "scheduler_contract_status", return_value=scheduler_status),
                     mock.patch.object(LIVE, "_latest_maintenance_receipt", return_value=self.live_root / "maintenance.json"),
                     mock.patch.object(LIVE.WEEKLY, "read_latest_maintenance_receipt", return_value={"status": maintenance_status}),
+                    mock.patch.object(LIVE, "_validate_execution_checkout", return_value="a" * 40),
+                    mock.patch.object(LIVE, "_load_weekly_contract", return_value=LIVE.WEEKLY),
                     mock.patch.object(LIVE, "_run", side_effect=lambda argv, **kwargs: commands.append(argv)),
                 ):
                     with self.assertRaisesRegex(LIVE.LiveLoopError, reason):
@@ -195,6 +486,8 @@ class WeeklyLiveTests(unittest.TestCase):
                 LIVE,
                 LIVE_ROOT=alias,
                 ACCOUNT_HOME=self.root,
+                _validate_execution_checkout=mock.Mock(return_value="a" * 40),
+                _load_weekly_contract=mock.Mock(return_value=LIVE.WEEKLY),
                 _preflight=mock.Mock(return_value=self.live_root / "maintenance.json"),
                 _run=mock.Mock(side_effect=lambda argv, **kwargs: commands.append(argv)),
             ),
@@ -227,6 +520,8 @@ class WeeklyLiveTests(unittest.TestCase):
                 with (
                     mock.patch.object(LIVE.WEEKLY, "ACCOUNT_HOME", account),
                     mock.patch.object(LIVE.WEEKLY, "DEFAULT_AUTOMATION_ROOT", automation_root),
+                    mock.patch.object(LIVE, "_validate_execution_checkout", return_value="a" * 40),
+                    mock.patch.object(LIVE, "_load_weekly_contract", return_value=LIVE.WEEKLY),
                     mock.patch.object(LIVE, "_run", side_effect=lambda argv, **kwargs: commands.append(argv)),
                     self.assertRaisesRegex(LIVE.LiveLoopError, "scheduler_contract_not_persisted"),
                 ):

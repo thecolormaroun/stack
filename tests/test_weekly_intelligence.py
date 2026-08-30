@@ -92,6 +92,7 @@ class WeeklyIntelligenceTests(unittest.TestCase):
             "execution_environment": scheduler["execution_environment"],
             "project_id": scheduler["project_id"],
             "prompt": prompt.removesuffix("\n"),
+            "cwd": str(WEEKLY.DEFAULT_AUTOMATION_WORKDIR),
         }
         values.update(changes)
         path = self.state / "automation-root" / scheduler["automation_id"] / "automation.toml"
@@ -107,7 +108,7 @@ class WeeklyIntelligenceTests(unittest.TestCase):
                 f'reasoning_effort = {json.dumps(values["reasoning_effort"])}',
                 f'execution_environment = {json.dumps(values["execution_environment"])}',
                 f'target = {{ type = "project", project_id = {json.dumps(values["project_id"])} }}',
-                f'cwds = [{json.dumps(str(ROOT))}]',
+                f'cwds = [{json.dumps(values["cwd"])}]',
             )) + "\n",
             encoding="utf-8",
         )
@@ -466,6 +467,20 @@ class WeeklyIntelligenceTests(unittest.TestCase):
         ):
             self.assertEqual(
                 "mismatch",
+                WEEKLY.scheduler_contract_status(WEEKLY.load_config()),
+            )
+
+    def test_scheduler_contract_can_bind_saved_project_separately_from_execution_root(self) -> None:
+        saved_project = self.state / "saved-stack-project"
+        saved_project.mkdir(mode=0o700)
+        automation = self.automation_file(cwd=str(saved_project))
+        with (
+            mock.patch.object(WEEKLY, "ACCOUNT_HOME", self.state),
+            mock.patch.object(WEEKLY, "DEFAULT_AUTOMATION_ROOT", automation.parents[1]),
+            mock.patch.object(WEEKLY, "DEFAULT_AUTOMATION_WORKDIR", saved_project),
+        ):
+            self.assertEqual(
+                "approved_and_persisted",
                 WEEKLY.scheduler_contract_status(WEEKLY.load_config()),
             )
 

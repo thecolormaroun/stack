@@ -108,6 +108,7 @@ def bootstrap(
     staging_root: Path | None = None,
     receipts_dir: Path | None = None,
     deployment_root: Path | None = None,
+    expected_source_commit: str | None = None,
 ) -> dict[str, object]:
     report = DOCTOR.doctor(root)
     if report["status"] != "ok":
@@ -118,13 +119,17 @@ def bootstrap(
         return result
     if staging_root is None or receipts_dir is None or deployment_root is None:
         raise BootstrapError("--install requires --staging-root, --receipts-dir, and --deployment-root")
+    if expected_source_commit is None:
+        raise BootstrapError("--install requires --expected-source-commit")
+    INSTALLER.validate_merged_source(root, expected_source_commit)
     result["external_packages"] = checkout_external_packages(root, deployment_root)
-    stages = COMPILER.compile_runtimes(root, root / "registry/capabilities.json", root / "config/runtime-targets.json", staging_root, package_cache=deployment_root.resolve() / ".stack-packages")
-    result["install_receipt"] = INSTALLER.install_runtimes(
+    result["install_receipt"] = INSTALLER.compile_and_install_runtimes(
+        root,
         deployment_root.resolve(),
-        root / "config/runtime-targets.json",
-        stages,
+        staging_root,
         receipts_dir,
+        deployment_root.resolve() / ".stack-packages",
+        expected_source_commit=expected_source_commit,
     )
     return result
 
@@ -140,6 +145,7 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Root under which relative runtime destinations are installed; required with --install.",
     )
+    parser.add_argument("--expected-source-commit", help="full merged commit required for every staged runtime")
     args = parser.parse_args(argv)
     try:
         print(json.dumps(bootstrap(
@@ -148,6 +154,7 @@ def main(argv: list[str] | None = None) -> int:
             staging_root=args.staging_root,
             receipts_dir=args.receipts_dir,
             deployment_root=args.deployment_root,
+            expected_source_commit=args.expected_source_commit,
         ), sort_keys=True))
     except (BootstrapError, COMPILER.RuntimeError, INSTALLER.InstallError, DOCTOR.DoctorError) as error:
         print(f"error: {error}", file=sys.stderr)

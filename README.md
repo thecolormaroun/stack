@@ -28,17 +28,25 @@ must remain separate from the checkout:
 
 ```sh
 python3 scripts/bootstrap-stack.py --install \
+  --expected-source-commit "$(git rev-parse --verify 'origin/main^{commit}')" \
   --deployment-root "$HOME" \
   --staging-root "$HOME/.local/share/stack/stages" \
   --receipts-dir "$HOME/.local/state/stack/runtime-receipts"
 python3 scripts/stack-doctor.py --deployment-root "$HOME"
 ```
 
-Real installation refuses a dirty checkout. Read-only bootstrap/doctor checks
-remain usable while developing in one. Runtime targets are atomically switched
+Real installation requires the canonical `https://github.com/thecolormaroun/stack.git`
+origin and refreshes its `main` before compilation and again before pointer
+movement. Clean `HEAD` and the supplied `origin/main` commit must agree exactly. Read-only bootstrap/doctor checks
+remain usable while developing elsewhere. Runtime targets are atomically switched
 under `.claude/skills/stack` and `.codex/skills/stack` within the deployment
 root; no machine-specific workspace or pre-existing global vendor directory is
 used.
+
+Compilation reads an installer-owned detached snapshot of the verified commit.
+Each verifier runs in a disposable copy and dedicated process group; only a
+fresh sealed copy can become live. It is revalidated around pointer movement,
+and failure records the immutable transaction while restoring switched pointers.
 
 ## What belongs
 

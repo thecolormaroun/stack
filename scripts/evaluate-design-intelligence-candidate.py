@@ -644,7 +644,9 @@ def evaluate_design_candidate(
                 synthetic_only = False
             for gate, passed in row["gates"].items():
                 if not passed:
-                    hard_gate_failures.append({"split": split, "fixture_id": row["fixture_id"], "gate": gate})
+                    failure = {"split": split, "fixture_id": row["fixture_id"], "gate": gate}
+                    failure["failure_id"] = "evaluation-failure:" + digest_json(failure)[:16]
+                    hard_gate_failures.append(failure)
             if row["rubric_disagreement"] is not None:
                 max_disagreement = max(max_disagreement, float(row["rubric_disagreement"]))
         fixture_metrics: dict[str, Any] = {}

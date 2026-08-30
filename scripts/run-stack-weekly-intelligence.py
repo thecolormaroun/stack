@@ -380,6 +380,7 @@ def load_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
         "maximum_candidates_per_run": 1,
         "maximum_changed_files": 3,
         "maximum_total_bytes": 32768,
+        "runtime_receipts_root": "~/.local/state/stack/runtime-receipts",
         "allowed_path_patterns": [
             "skills/**/SKILL.md",
             "skills/**/references/**/*.md",

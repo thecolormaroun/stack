@@ -26,6 +26,7 @@ and keep it separate from the checkout:
 
 ```bash
 python3 scripts/bootstrap-stack.py --install \
+  --expected-source-commit "$(git rev-parse --verify 'origin/main^{commit}')" \
   --deployment-root "$HOME" \
   --staging-root "$HOME/.local/share/stack/stages" \
   --receipts-dir "$HOME/.local/state/stack/runtime-receipts"
@@ -35,8 +36,13 @@ python3 scripts/stack-doctor.py --deployment-root "$HOME"
 The install verifies the immutable Compound Engineering and GStack commits in
 that deployment-owned cache, verifies the Stack-Codex bundle digest, then
 atomically switches `.claude/skills/stack` and `.codex/skills/stack` beneath
-the deployment root. It refuses a dirty source checkout for a real install;
-the default readiness command remains read-only and works in a dirty tree.
+the deployment root. It refreshes the canonical Stack GitHub origin immediately
+before compilation and pointer movement, then refuses a real install unless
+clean source `HEAD` exactly equals the supplied `origin/main` commit; the default readiness command
+remains read-only and works in a dirty tree.
+Compilation uses an owner-private detached snapshot. Verifiers run in disposable
+copies with their process groups terminated; a fresh sealed copy is the only
+stage eligible for publication. Failures retain immutable transaction evidence.
 
 `stack-doctor.py` prints a sanitised report with the source commit and dirty
 state, never local destination or receipt paths. It fails closed on command or

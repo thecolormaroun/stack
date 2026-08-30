@@ -37,19 +37,23 @@ scripts/security/scan-sensitive-content.sh
 git diff --check
 ```
 
-After the source revision is committed and the checkout is clean, install it
-into the namespaced Claude and Codex targets:
+After the source revision is merged to `origin/main`, use a clean checkout at
+that exact commit to install into the namespaced Claude and Codex targets:
 
 ```sh
 python3 scripts/bootstrap-stack.py --install \
+  --expected-source-commit "$(git rev-parse --verify 'origin/main^{commit}')" \
   --deployment-root "$HOME" \
   --staging-root "$HOME/.local/share/stack/stages" \
   --receipts-dir "$HOME/.local/state/stack/runtime-receipts"
 python3 scripts/stack-doctor.py --deployment-root "$HOME"
 ```
 
-The installer verifies pinned external packages, compiles only catalogued
-capabilities, switches both targets atomically, and writes rollback receipts.
+The installer refreshes the canonical Stack GitHub `main` before compilation
+and again before pointer movement, verifies pinned external packages, compiles
+only catalogued capabilities, switches both targets atomically, and writes rollback receipts.
+Compilation uses an owner-private detached snapshot. Verifiers run in disposable
+copies and terminated process groups; only a fresh sealed copy may be linked.
 Never edit `.claude/skills/stack` or `.codex/skills/stack` by hand.
 
 ## Scheduled maintenance candidate lane

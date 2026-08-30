@@ -25,9 +25,24 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _configured_runtime_receipts_root() -> Path:
+    try:
+        config = json.loads((ROOT / "config/weekly-intelligence.json").read_text(encoding="utf-8"))
+        raw = config["automatic_promotion"]["runtime_receipts_root"]
+    except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+        raise RuntimeError("weekly runtime receipt root is not configured") from error
+    if raw != "~/.local/state/stack/runtime-receipts":
+        raise RuntimeError("weekly runtime receipt root is not the approved owner-local path")
+    return Path(os.path.abspath(str(Path(raw).expanduser())))
+
+
+TRUSTED_RUNTIME_RECEIPTS_ROOT = _configured_runtime_receipts_root()
 HEX64 = re.compile(r"^[a-f0-9]{64}$")
 COMMIT = re.compile(r"^[a-f0-9]{40}$")
 SAFE_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,95}$")
+OPAQUE = re.compile(r"^[a-z][a-z0-9-]{1,32}:[a-f0-9]{16,64}$")
 AUTHORIZATION_CONTRACT = "weekly-design-auto-promotion-approved-v1"
 REQUIRED_GATES = (
     "material-evidence",
@@ -300,10 +315,10 @@ def _automatic_path(value: Any) -> bool:
     return False
 
 
-def _git_base_file(base_commit: str, path: str) -> bytes:
+def _git_base_file(base_commit: str, path: str, repository: Path = ROOT) -> bytes:
     try:
         result = subprocess.run(
-            ["git", "-C", str(ROOT), "show", f"{base_commit}:{path}"],
+            ["git", "-C", str(repository), "show", f"{base_commit}:{path}"],
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             check=False,
@@ -355,6 +370,7 @@ def _candidate_packet(
     campaign: Mapping[str, Any],
     campaign_digest: str,
     campaign_path: Path,
+    repository: Path = ROOT,
 ) -> tuple[str, int, int, list[dict[str, Any]]]:
     if document.get("schema_version") != 1 or not isinstance(document.get("base_commit"), str) or COMMIT.fullmatch(document["base_commit"]) is None:
         raise PromotionReceiptError("candidate packet identity is invalid")
@@ -385,18 +401,20 @@ def _candidate_packet(
     source_count = materiality.get("source_count")
     critique_failures = materiality.get("critique_failure_ids")
     evaluation_failures = materiality.get("evaluation_failure_ids")
-    if not isinstance(source_count, int) or isinstance(source_count, bool) or source_count != len(evidence_ids) or len(evidence_ids) != len(set(evidence_ids)) or not isinstance(critique_failures, list) or not isinstance(evaluation_failures, list):
+    if (
+        not isinstance(source_count, int)
+        or isinstance(source_count, bool)
+        or source_count < 1
+        or not all(isinstance(value, str) and OPAQUE.fullmatch(value) for value in evidence_ids)
+        or len(evidence_ids) != len(set(evidence_ids))
+        or not isinstance(critique_failures, list)
+        or len(critique_failures) != len(set(critique_failures))
+        or not all(isinstance(value, str) and OPAQUE.fullmatch(value) for value in critique_failures)
+        or not isinstance(evaluation_failures, list)
+        or len(evaluation_failures) != len(set(evaluation_failures))
+        or not all(isinstance(value, str) and OPAQUE.fullmatch(value) for value in evaluation_failures)
+    ):
         raise PromotionReceiptError("candidate packet material evidence count is invalid")
-    basis = materiality.get("basis")
-    material = (
-        basis == "two-independent-sources" and source_count >= 2 and not critique_failures and not evaluation_failures
-    ) or (
-        basis == "source-plus-repeated-critique-failure" and source_count >= 1 and bool(critique_failures) and not evaluation_failures
-    ) or (
-        basis == "source-fixes-hard-evaluation-failure" and source_count >= 1 and bool(evaluation_failures) and not critique_failures
-    )
-    if not material:
-        raise PromotionReceiptError("candidate packet does not satisfy an approved materiality basis")
     cards = design.get("cards")
     changes = design.get("candidate_changes")
     results = retrieval.get("results")
@@ -413,6 +431,78 @@ def _candidate_packet(
     change = matching_changes[0]
     if change.get("card_id") not in card_ids or change.get("revision_id") not in revision_ids or set(change.get("evidence_ids", [])) != set(evidence_ids):
         raise PromotionReceiptError("candidate change is not exactly bound to campaign evidence")
+    selected_card_id = change.get("card_id")
+    selected_revision_id = change.get("revision_id")
+    evidence_sources: dict[str, set[str]] = {evidence_id: set() for evidence_id in evidence_ids}
+    cards_by_id: dict[str, Mapping[str, Any]] = {}
+    for card in cards:
+        if not isinstance(card, Mapping):
+            continue
+        card_id = card.get("card_id")
+        if isinstance(card_id, str):
+            cards_by_id[card_id] = card
+        if card_id != selected_card_id or card.get("revision_id") != selected_revision_id:
+            continue
+        citations = card.get("evidence_citations")
+        if not isinstance(citations, list):
+            continue
+        for citation in citations:
+            if not isinstance(citation, Mapping):
+                continue
+            evidence_id = citation.get("evidence_id")
+            source_identity = citation.get("source_identity")
+            if evidence_id in evidence_sources and isinstance(source_identity, str) and OPAQUE.fullmatch(source_identity):
+                evidence_sources[evidence_id].add(source_identity)
+    if any(len(values) != 1 for values in evidence_sources.values()):
+        raise PromotionReceiptError("candidate evidence lacks an exact campaign source identity")
+    independent_sources = {next(iter(values)) for values in evidence_sources.values()}
+    if source_count != len(independent_sources):
+        raise PromotionReceiptError("candidate packet material evidence source count is invalid")
+
+    valid_critique_failures: set[str] = set()
+    clusters = design.get("clusters")
+    if isinstance(clusters, list):
+        for cluster in clusters:
+            if not isinstance(cluster, Mapping) or not isinstance(cluster.get("cluster_id"), str):
+                continue
+            cluster_cards = cluster.get("card_ids")
+            if (
+                not isinstance(cluster_cards, list)
+                or not all(isinstance(card_id, str) for card_id in cluster_cards)
+                or len(set(cluster_cards)) < 2
+                or cluster.get("count") != len(set(cluster_cards))
+                or selected_card_id not in cluster_cards
+            ):
+                continue
+            records = [cards_by_id.get(card_id) for card_id in set(cluster_cards)]
+            if all(
+                isinstance(record, Mapping)
+                and isinstance(record.get("anti_pattern_failure_mode"), list)
+                and bool(record["anti_pattern_failure_mode"])
+                for record in records
+            ):
+                valid_critique_failures.add(cluster["cluster_id"])
+    metrics = _candidate_evaluation.get("metrics")
+    hard_failures = metrics.get("hard_gate_failures") if isinstance(metrics, Mapping) else None
+    valid_evaluation_failures = {
+        failure.get("failure_id")
+        for failure in hard_failures
+        if isinstance(failure, Mapping)
+        and isinstance(failure.get("failure_id"), str)
+        and OPAQUE.fullmatch(failure["failure_id"])
+    } if isinstance(hard_failures, list) else set()
+    if not set(critique_failures) <= valid_critique_failures or not set(evaluation_failures) <= valid_evaluation_failures:
+        raise PromotionReceiptError("candidate packet material failure IDs are not present in campaign artifacts")
+    basis = materiality.get("basis")
+    material = (
+        basis == "two-independent-sources" and source_count >= 2 and not critique_failures and not evaluation_failures
+    ) or (
+        basis == "source-plus-repeated-critique-failure" and source_count >= 1 and bool(critique_failures) and not evaluation_failures
+    ) or (
+        basis == "source-fixes-hard-evaluation-failure" and source_count >= 1 and bool(evaluation_failures) and not critique_failures
+    )
+    if not material:
+        raise PromotionReceiptError("candidate packet does not satisfy an approved materiality basis")
     edits = document.get("edits")
     if not isinstance(edits, list) or not 1 <= len(edits) <= 3:
         raise PromotionReceiptError("candidate packet exceeds the automatic file limit")
@@ -434,7 +524,7 @@ def _candidate_packet(
         total += len(encoded)
         if total > 32768 or _digest_bytes(encoded) != edit.get("after_digest"):
             raise PromotionReceiptError("candidate packet byte or digest limit is invalid")
-        base = _git_base_file(document["base_commit"], path)
+        base = _git_base_file(document["base_commit"], path, repository)
         if _digest_bytes(base) != edit.get("before_digest"):
             raise PromotionReceiptError("candidate packet before digest does not match its base commit")
         safe_edits.append({key: edit[key] for key in ("path", "role", "operation", "before_digest", "after_digest")})
@@ -508,7 +598,8 @@ def _runtime_receipts(
     rollback_path: Path,
 ) -> None:
     verifiers = install.get("verifier_results")
-    if install.get("schema_version") != 1 or install.get("status") != "published" or install.get("targets") != ["claude", "codex"] or merge_commit not in install.get("source_commits", []) or not isinstance(verifiers, list) or {row.get("target") for row in verifiers if isinstance(row, Mapping) and row.get("status") == "passed"} != {"claude", "codex"}:
+    source_commits = install.get("source_commits")
+    if install.get("schema_version") != 1 or install.get("status") != "published" or install.get("targets") != ["claude", "codex"] or not isinstance(source_commits, list) or not all(isinstance(commit, str) and COMMIT.fullmatch(commit) for commit in source_commits) or set(source_commits) != {merge_commit} or not isinstance(verifiers, list) or {row.get("target") for row in verifiers if isinstance(row, Mapping) and row.get("status") == "passed"} != {"claude", "codex"}:
         raise PromotionReceiptError("runtime publication evidence is invalid or unbound")
     prior = rollback.get("prior_targets")
     if rollback.get("schema_version") != 1 or not isinstance(prior, Mapping) or set(prior) != {"claude", "codex"}:
@@ -529,6 +620,19 @@ def _runtime_receipts(
         or install_path.parent.parent.name != "transactions"
     ):
         raise PromotionReceiptError("runtime evidence is not the immutable transaction receipt pair")
+    _reject_symlink_ancestors(TRUSTED_RUNTIME_RECEIPTS_ROOT)
+    if TRUSTED_RUNTIME_RECEIPTS_ROOT.resolve(strict=False) != TRUSTED_RUNTIME_RECEIPTS_ROOT:
+        raise PromotionReceiptError("configured installer receipt root must not redirect")
+    expected_transaction = TRUSTED_RUNTIME_RECEIPTS_ROOT / "transactions" / transaction_id
+    if install_path.parent != expected_transaction or rollback_path.parent != expected_transaction:
+        raise PromotionReceiptError("runtime evidence is outside the configured installer receipt root")
+    for directory in (TRUSTED_RUNTIME_RECEIPTS_ROOT, TRUSTED_RUNTIME_RECEIPTS_ROOT / "transactions"):
+        try:
+            details = directory.lstat()
+        except OSError as error:
+            raise PromotionReceiptError("configured installer receipt root is unavailable") from error
+        if not stat.S_ISDIR(details.st_mode) or details.st_uid != os.getuid() or stat.S_IMODE(details.st_mode) != 0o700:
+            raise PromotionReceiptError("configured installer receipt root must be owner-only mode 0700")
     if runtime.get("install_receipt_digest") != install_digest or runtime.get("rollback_receipt_digest") != rollback_digest:
         raise PromotionReceiptError("runtime receipt digests do not match the evidence files")
 

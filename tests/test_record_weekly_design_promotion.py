@@ -32,6 +32,7 @@ class RecordWeeklyDesignPromotionTests(unittest.TestCase):
         self.root.chmod(0o700)
         self.evidence_root = self.root / "evidence"
         self.evidence_root.mkdir(mode=0o700)
+        RECORDER.TRUSTED_RUNTIME_RECEIPTS_ROOT = self.evidence_root.resolve()
         self.output = self.root / "promotion-receipts"
         self.campaign = self._real_campaign()
         self.campaign_digest = hashlib.sha256(self.campaign.read_bytes()).hexdigest()
@@ -76,16 +77,51 @@ class RecordWeeklyDesignPromotionTests(unittest.TestCase):
             "design_packet": {
                 "packet_id": "packet:" + "2" * 16,
                 "packet_digest": "3" * 64,
-                "cards": [{"card_id": "card:" + "4" * 16, "revision_id": "revision:" + "5" * 16}],
-                "candidate_changes": [{
-                    "change_id": "change:" + "1" * 16,
-                    "card_id": "card:" + "4" * 16,
-                    "revision_id": "revision:" + "5" * 16,
-                    "evidence_ids": ["evidence:" + "6" * 16],
+                "cards": [
+                    {
+                        "card_id": "card:" + "4" * 16,
+                        "revision_id": "revision:" + "5" * 16,
+                        "anti_pattern_failure_mode": ["Repeated critique fixture."],
+                        "evidence_citations": [{"evidence_id": "evidence:" + "6" * 16, "source_identity": "source:" + "a" * 16}],
+                    },
+                    {
+                        "card_id": "card:" + "7" * 16,
+                        "revision_id": "revision:" + "7" * 16,
+                        "anti_pattern_failure_mode": ["Repeated critique fixture."],
+                        "evidence_citations": [{"evidence_id": "evidence:" + "8" * 16, "source_identity": "source:" + "b" * 16}],
+                    },
+                    {
+                        "card_id": "card:" + "8" * 16,
+                        "revision_id": "revision:" + "9" * 16,
+                        "anti_pattern_failure_mode": ["Independent-source fixture."],
+                        "evidence_citations": [
+                            {"evidence_id": "evidence:" + "6" * 16, "source_identity": "source:" + "a" * 16},
+                            {"evidence_id": "evidence:" + "7" * 16, "source_identity": "source:" + "a" * 16},
+                        ],
+                    },
+                ],
+                "clusters": [{
+                    "cluster_id": "failure:" + "b" * 16,
+                    "card_ids": ["card:" + "4" * 16, "card:" + "7" * 16],
+                    "count": 2,
                 }],
+                "candidate_changes": [
+                    {
+                        "change_id": "change:" + "1" * 16,
+                        "card_id": "card:" + "4" * 16,
+                        "revision_id": "revision:" + "5" * 16,
+                        "evidence_ids": ["evidence:" + "6" * 16],
+                    },
+                    {
+                        "change_id": "change:" + "9" * 16,
+                        "card_id": "card:" + "8" * 16,
+                        "revision_id": "revision:" + "9" * 16,
+                        "evidence_ids": ["evidence:" + "6" * 16, "evidence:" + "7" * 16],
+                    },
+                ],
             },
-            "retrieval": {"results": [{"evidence_id": "evidence:" + "6" * 16}]},
-            "candidate_evaluation": {"status": "prepared", "promotion": "automatic-promotion-pending"},
+            "retrieval": {"results": [{"evidence_id": "evidence:" + "6" * 16}, {"evidence_id": "evidence:" + "7" * 16}]},
+            "candidate_evaluation": {"status": "prepared", "promotion": "automatic-promotion-pending", "metrics": {"hard_gate_failures": []}},
         }
         prepared: dict[str, tuple[str, str]] = {}
         for stage_id, document in documents.items():
@@ -209,6 +245,30 @@ class RecordWeeklyDesignPromotionTests(unittest.TestCase):
                 "harness_required": True,
             },
         }
+
+    def rebind_design_artifact(self, packet: dict, mutate) -> tuple[dict, str]:
+        campaign = json.loads(self.campaign.read_text())
+        stage = next(stage for stage in campaign["stages"] if stage["id"] == "design_packet")
+        artifact = self.campaign.parents[1] / stage["artifact_path"]
+        design = json.loads(artifact.read_text())
+        mutate(design)
+        artifact.write_bytes(RECORDER._canonical(design))
+        artifact.chmod(0o600)
+        new_artifact_digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+        stage["output_digest"] = new_artifact_digest
+        self.campaign.write_bytes(RECORDER._canonical(campaign))
+        self.campaign.chmod(0o600)
+        campaign_digest = hashlib.sha256(self.campaign.read_bytes()).hexdigest()
+        lineage = packet["source_lineage"]
+        lineage["campaign_receipt_digest"] = campaign_digest
+        lineage["design_packet_artifact_digest"] = new_artifact_digest
+        stage_digests = {stage["id"]: stage["output_digest"] for stage in campaign["stages"]}
+        lineage["parent_digests"] = [
+            stage_digests["design_packet"],
+            stage_digests["retrieval"],
+            stage_digests["candidate_evaluation"],
+        ]
+        return campaign, campaign_digest
 
     def write(self, name: str, value: dict) -> tuple[Path, str]:
         path = self.evidence_root / f"{name}.json"
@@ -355,6 +415,21 @@ class RecordWeeklyDesignPromotionTests(unittest.TestCase):
         with self.assertRaisesRegex(RECORDER.PromotionReceiptError, "lacks independent_review"):
             self.record(missing, self.root / "missing-review")
 
+    def test_runtime_receipt_root_cannot_redirect_through_a_symlink(self) -> None:
+        decision = self.published_decision()
+        redirected = self.root / "trusted-receipt-link"
+        redirected.symlink_to(self.evidence_root, target_is_directory=True)
+        original_root = RECORDER.TRUSTED_RUNTIME_RECEIPTS_ROOT
+        RECORDER.TRUSTED_RUNTIME_RECEIPTS_ROOT = redirected
+        try:
+            with self.assertRaisesRegex(
+                RECORDER.PromotionReceiptError,
+                "owner-local path must not use a symlink",
+            ):
+                self.record(decision, self.root / "redirected-runtime-root")
+        finally:
+            RECORDER.TRUSTED_RUNTIME_RECEIPTS_ROOT = original_root
+
     def test_fabricated_or_mismatched_evidence_fails_closed(self) -> None:
         with self.assertRaisesRegex(RECORDER.PromotionReceiptError, "returned digest"):
             RECORDER.record(
@@ -404,6 +479,33 @@ class RecordWeeklyDesignPromotionTests(unittest.TestCase):
         with self.assertRaisesRegex(RECORDER.PromotionReceiptError, "transaction IDs"):
             self.record(stale_pair, self.root / "same-state-stale-rollback")
 
+        forged_pair = self.published_decision()
+        legitimate_install = Path(forged_pair["evidence"]["runtime_publication"]["path"])
+        legitimate_rollback = Path(forged_pair["evidence"]["rollback_receipt"]["path"])
+        transaction_id = json.loads(legitimate_install.read_text())["transaction_id"]
+        forged_transaction = self.root / "forged-runtime-receipts" / "transactions" / transaction_id
+        forged_transaction.mkdir(parents=True, mode=0o700)
+        forged_transaction.parent.chmod(0o700)
+        forged_transaction.parent.parent.chmod(0o700)
+        forged_install, forged_install_digest = self.write_path(
+            forged_transaction / "install.json",
+            json.loads(legitimate_install.read_text()),
+        )
+        forged_rollback, forged_rollback_digest = self.write_path(
+            forged_transaction / "rollback.json",
+            json.loads(legitimate_rollback.read_text()),
+        )
+        forged_pair["evidence"]["runtime_publication"] = {
+            "path": str(forged_install), "digest": forged_install_digest,
+        }
+        forged_pair["evidence"]["rollback_receipt"] = {
+            "path": str(forged_rollback), "digest": forged_rollback_digest,
+        }
+        forged_pair["runtime"]["install_receipt_digest"] = forged_install_digest
+        forged_pair["runtime"]["rollback_receipt_digest"] = forged_rollback_digest
+        with self.assertRaisesRegex(RECORDER.PromotionReceiptError, "configured installer receipt root"):
+            self.record(forged_pair, self.root / "forged-runtime-pair")
+
         weak = json.loads(json.dumps(self.packet))
         weak["rationale"]["materiality"] = {
             "basis": "two-independent-sources",
@@ -429,6 +531,102 @@ class RecordWeeklyDesignPromotionTests(unittest.TestCase):
                 self.campaign_digest,
                 self.campaign,
             )
+
+        invented_failure = json.loads(json.dumps(self.packet))
+        invented_failure["rationale"]["materiality"]["critique_failure_ids"] = ["failure:" + "f" * 16]
+        with self.assertRaisesRegex(RECORDER.PromotionReceiptError, "failure IDs"):
+            RECORDER._candidate_packet(
+                invented_failure,
+                json.loads(self.campaign.read_text()),
+                self.campaign_digest,
+                self.campaign,
+            )
+
+        same_source = json.loads(json.dumps(self.packet))
+        same_source["change_id"] = "change:" + "9" * 16
+        same_source["source_lineage"]["card_ids"] = ["card:" + "8" * 16]
+        same_source["source_lineage"]["revision_ids"] = ["revision:" + "9" * 16]
+        same_source["source_lineage"]["evidence_ids"] = ["evidence:" + "6" * 16, "evidence:" + "7" * 16]
+        same_source["rationale"]["materiality"] = {
+            "basis": "two-independent-sources",
+            "source_count": 2,
+            "critique_failure_ids": [],
+            "evaluation_failure_ids": [],
+        }
+        with self.assertRaisesRegex(RECORDER.PromotionReceiptError, "source count"):
+            RECORDER._candidate_packet(
+                same_source,
+                json.loads(self.campaign.read_text()),
+                self.campaign_digest,
+                self.campaign,
+            )
+
+        original_campaign = self.campaign.read_bytes()
+        original_campaign_document = json.loads(original_campaign)
+        original_design_stage = next(
+            stage for stage in original_campaign_document["stages"] if stage["id"] == "design_packet"
+        )
+        original_design_path = self.campaign.parents[1] / original_design_stage["artifact_path"]
+        original_design = original_design_path.read_bytes()
+        unrelated_source = json.loads(json.dumps(same_source))
+
+        def move_second_source_to_unrelated_card(design: dict) -> None:
+            selected = next(card for card in design["cards"] if card["card_id"] == "card:" + "8" * 16)
+            selected["evidence_citations"] = [selected["evidence_citations"][0]]
+            unrelated_card = next(card for card in design["cards"] if card["card_id"] == "card:" + "7" * 16)
+            unrelated_card["evidence_citations"] = [{
+                "evidence_id": "evidence:" + "7" * 16,
+                "source_identity": "source:" + "b" * 16,
+            }]
+
+        unrelated_campaign, unrelated_campaign_digest = self.rebind_design_artifact(
+            unrelated_source,
+            move_second_source_to_unrelated_card,
+        )
+        with self.assertRaisesRegex(RECORDER.PromotionReceiptError, "exact campaign source identity"):
+            RECORDER._candidate_packet(
+                unrelated_source,
+                unrelated_campaign,
+                unrelated_campaign_digest,
+                self.campaign,
+            )
+
+        unrelated_cluster = json.loads(json.dumps(self.packet))
+        unrelated_cluster["rationale"]["materiality"]["critique_failure_ids"] = ["failure:" + "c" * 16]
+
+        def add_unrelated_cluster(design: dict) -> None:
+            design["clusters"].append({
+                "cluster_id": "failure:" + "c" * 16,
+                "card_ids": ["card:" + "7" * 16, "card:" + "8" * 16],
+                "count": 2,
+            })
+
+        cluster_campaign, cluster_campaign_digest = self.rebind_design_artifact(
+            unrelated_cluster,
+            add_unrelated_cluster,
+        )
+        with self.assertRaisesRegex(RECORDER.PromotionReceiptError, "failure IDs"):
+            RECORDER._candidate_packet(
+                unrelated_cluster,
+                cluster_campaign,
+                cluster_campaign_digest,
+                self.campaign,
+            )
+        original_design_path.write_bytes(original_design)
+        original_design_path.chmod(0o600)
+        self.campaign.write_bytes(original_campaign)
+        self.campaign.chmod(0o600)
+
+        mixed_runtime = self.published_decision()
+        install_path = Path(mixed_runtime["evidence"]["runtime_publication"]["path"])
+        install = json.loads(install_path.read_text())
+        install["source_commits"] = [self.merge_commit, "e" * 40]
+        install_path.write_bytes(RECORDER._canonical(install))
+        install_digest = hashlib.sha256(install_path.read_bytes()).hexdigest()
+        mixed_runtime["evidence"]["runtime_publication"]["digest"] = install_digest
+        mixed_runtime["runtime"]["install_receipt_digest"] = install_digest
+        with self.assertRaisesRegex(RECORDER.PromotionReceiptError, "runtime publication"):
+            self.record(mixed_runtime, self.root / "mixed-runtime-commits")
 
     def test_no_action_campaign_cannot_be_published(self) -> None:
         campaign = json.loads(self.campaign.read_text())

@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -151,6 +152,14 @@ class DesignIntelligenceCandidateTests(unittest.TestCase):
         rejected = self.evaluate(result_paths=self.results(gate_overrides={"privacy": False}))
         self.assertEqual("rejected", rejected["status"])
         self.assertIn("hard_gate_failure", rejected["reason_codes"])
+        failures = rejected["metrics"]["hard_gate_failures"]
+        self.assertTrue(failures)
+        self.assertTrue(all(re.fullmatch(r"evaluation-failure:[a-f0-9]{16}", failure["failure_id"]) for failure in failures))
+        identities = {
+            (failure["split"], failure["fixture_id"], failure["gate"]): failure["failure_id"]
+            for failure in failures
+        }
+        self.assertEqual(len(identities), len({failure["failure_id"] for failure in failures}))
 
     def test_unstable_scores_or_rubric_usefulness_disagreement_requires_human(self) -> None:
         unstable = self.evaluate(result_paths=self.results(candidate_by_rep=[0.4, 0.6, 0.5]))

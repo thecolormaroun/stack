@@ -372,15 +372,12 @@ def load_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
     if value.get("provider_egress") != "deny":
         raise WeeklyIntelligenceError("provider_egress_not_denied")
     budget = value.get("analysis_budget")
-    if not isinstance(budget, dict) or set(budget) != {"unit", "maximum", "authorized", "note"} or budget.get("unit") != "model_calls" or budget.get("maximum") != 3 or budget.get("authorized") is not True or not isinstance(budget.get("note"), str) or not budget["note"]:
+    if not isinstance(budget, dict) or set(budget) != {"unit", "maximum", "authorized", "note"} or budget.get("unit") != "concurrent_model_contexts" or budget.get("maximum") != 3 or budget.get("authorized") is not True or not isinstance(budget.get("note"), str) or not budget["note"]:
         raise WeeklyIntelligenceError("analysis_budget_invalid")
     promotion = value.get("automatic_promotion")
     expected_promotion = {
         "state": "active",
         "authorization_contract": "weekly-design-auto-promotion-approved-v1",
-        "maximum_candidates_per_run": 1,
-        "maximum_changed_files": 3,
-        "maximum_total_bytes": 32768,
         "runtime_receipts_root": "~/.local/state/stack/runtime-receipts",
         "allowed_path_patterns": [
             "skills/**/SKILL.md",

@@ -43,6 +43,7 @@ HEX64 = re.compile(r"^[a-f0-9]{64}$")
 COMMIT = re.compile(r"^[a-f0-9]{40}$")
 SAFE_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,95}$")
 OPAQUE = re.compile(r"^[a-z][a-z0-9-]{1,32}:[a-f0-9]{16,64}$")
+CONTENT_FILE_RE = re.compile(r"^candidate-content/[a-f0-9]{64}\.utf8$")
 AUTHORIZATION_CONTRACT = "weekly-design-auto-promotion-approved-v1"
 REQUIRED_GATES = (
     "material-evidence",
@@ -112,7 +113,12 @@ def _reject_symlink_ancestors(path: Path, *, allow_missing_leaf: bool = False) -
             raise PromotionReceiptError("owner-local path must not use a symlink")
 
 
-def _private_file(path: Path, label: str) -> tuple[Path, bytes]:
+def _private_file(
+    path: Path,
+    label: str,
+    *,
+    maximum_bytes: int | None = MAX_PRIVATE_JSON_BYTES,
+) -> tuple[Path, bytes]:
     lexical = Path(os.path.abspath(str(Path(path).expanduser())))
     _reject_symlink_ancestors(lexical)
     resolved = lexical.resolve(strict=False)
@@ -131,7 +137,7 @@ def _private_file(path: Path, label: str) -> tuple[Path, bytes]:
         raise PromotionReceiptError(f"{label} must be an owner-only regular file with mode 0600")
     if not stat.S_ISDIR(parent.st_mode) or parent.st_uid != os.getuid() or stat.S_IMODE(parent.st_mode) != 0o700:
         raise PromotionReceiptError(f"{label} parent must be an owner-only directory with mode 0700")
-    if details.st_size > MAX_PRIVATE_JSON_BYTES:
+    if maximum_bytes is not None and details.st_size > maximum_bytes:
         raise PromotionReceiptError(f"{label} exceeds the private JSON size limit")
     flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
     descriptor = -1
@@ -142,18 +148,18 @@ def _private_file(path: Path, label: str) -> tuple[Path, bytes]:
             not stat.S_ISREG(opened.st_mode)
             or opened.st_uid != os.getuid()
             or stat.S_IMODE(opened.st_mode) != 0o600
-            or opened.st_size > MAX_PRIVATE_JSON_BYTES
+            or (maximum_bytes is not None and opened.st_size > maximum_bytes)
         ):
             raise PromotionReceiptError(f"{label} changed during validation")
         with os.fdopen(descriptor, "rb") as handle:
             descriptor = -1
-            content = handle.read(MAX_PRIVATE_JSON_BYTES + 1)
+            content = handle.read() if maximum_bytes is None else handle.read(maximum_bytes + 1)
     except OSError as error:
         raise PromotionReceiptError(f"{label} is unavailable") from error
     finally:
         if descriptor >= 0:
             os.close(descriptor)
-    if len(content) > MAX_PRIVATE_JSON_BYTES:
+    if maximum_bytes is not None and len(content) > maximum_bytes:
         raise PromotionReceiptError(f"{label} exceeds the private JSON size limit")
     return resolved, content
 
@@ -235,12 +241,17 @@ def _live_binding(
     return value, exact_digest
 
 
-def _decision(value: Mapping[str, Any] | Path | str) -> dict[str, Any]:
+def _decision(
+    value: Mapping[str, Any] | Path | str,
+) -> tuple[dict[str, Any], Path | None, str | None]:
     if isinstance(value, (Path, str)):
-        _resolved, raw = _private_file(Path(value), "promotion decision")
+        resolved, raw = _private_file(Path(value), "promotion decision")
         document = _object_from_bytes(raw, "promotion decision")
+        file_digest = _digest_bytes(raw)
     elif isinstance(value, Mapping):
         document = dict(value)
+        resolved = None
+        file_digest = None
     else:
         raise PromotionReceiptError("promotion decision must be an object")
     expected = {
@@ -262,7 +273,7 @@ def _decision(value: Mapping[str, Any] | Path | str) -> dict[str, Any]:
         raise PromotionReceiptError("promotion disposition is invalid")
     if not isinstance(document.get("reason_code"), str) or SAFE_ID.fullmatch(document["reason_code"]) is None:
         raise PromotionReceiptError("promotion reason code is invalid")
-    return document
+    return document, resolved, file_digest
 
 
 def _evidence_documents(value: Any) -> tuple[
@@ -290,7 +301,11 @@ def _evidence_documents(value: Any) -> tuple[
         path = descriptor.get("path")
         if not isinstance(path, str) or not path:
             raise PromotionReceiptError(f"{name} evidence path is invalid")
-        resolved, raw = _private_file(Path(path), f"{name} evidence")
+        resolved, raw = _private_file(
+            Path(path),
+            f"{name} evidence",
+            maximum_bytes=None if name == "candidate_packet" else MAX_PRIVATE_JSON_BYTES,
+        )
         if _digest_bytes(raw) != expected_digest:
             raise PromotionReceiptError(f"{name} evidence digest does not match the file")
         documents[name] = _object_from_bytes(raw, f"{name} evidence")
@@ -313,6 +328,62 @@ def _automatic_path(value: Any) -> bool:
         index = path.parts.index("references")
         return index >= 2 and index < len(path.parts) - 1
     return False
+
+
+def _candidate_content_size(edit: Mapping[str, Any], candidate_path: Path | None) -> int:
+    """Validate one inline or digest-addressed body without buffering a file."""
+
+    content_file = edit.get("content_file")
+    if not isinstance(content_file, str) or CONTENT_FILE_RE.fullmatch(content_file) is None:
+        raise PromotionReceiptError("candidate packet content_file is invalid")
+    if content_file != f"candidate-content/{edit.get('after_digest')}.utf8":
+        raise PromotionReceiptError("candidate packet content_file is not digest-addressed")
+    if candidate_path is None:
+        raise PromotionReceiptError("candidate packet path is required for content_file")
+    root = candidate_path.parent.resolve(strict=True)
+    source = root / content_file
+    expected_parent = root / "candidate-content"
+    _reject_symlink_ancestors(source)
+    try:
+        parent = expected_parent.stat()
+        details = source.stat()
+    except OSError as error:
+        raise PromotionReceiptError("candidate packet content_file is unavailable") from error
+    if (
+        not stat.S_ISDIR(parent.st_mode)
+        or parent.st_uid != os.getuid()
+        or stat.S_IMODE(parent.st_mode) != 0o700
+        or not stat.S_ISREG(details.st_mode)
+        or details.st_uid != os.getuid()
+        or stat.S_IMODE(details.st_mode) != 0o600
+    ):
+        raise PromotionReceiptError("candidate packet content_file permissions are unsafe")
+
+    digest = hashlib.sha256()
+    size = 0
+    descriptor = -1
+    try:
+        descriptor = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        opened = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or opened.st_uid != os.getuid()
+            or stat.S_IMODE(opened.st_mode) != 0o600
+        ):
+            raise PromotionReceiptError("candidate packet content_file changed during validation")
+        with os.fdopen(descriptor, "rb") as handle:
+            descriptor = -1
+            while chunk := handle.read(65536):
+                size += len(chunk)
+                digest.update(chunk)
+    except OSError as error:
+        raise PromotionReceiptError("candidate packet content_file is unreadable") from error
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    if not size or digest.hexdigest() != edit.get("after_digest"):
+        raise PromotionReceiptError("candidate packet content_file digest is invalid")
+    return size
 
 
 def _git_base_file(base_commit: str, path: str, repository: Path = ROOT) -> bytes:
@@ -370,8 +441,9 @@ def _candidate_packet(
     campaign: Mapping[str, Any],
     campaign_digest: str,
     campaign_path: Path,
+    candidate_path: Path | None = None,
     repository: Path = ROOT,
-) -> tuple[str, int, int, list[dict[str, Any]]]:
+) -> tuple[str, int, int]:
     if document.get("schema_version") != 1 or not isinstance(document.get("base_commit"), str) or COMMIT.fullmatch(document["base_commit"]) is None:
         raise PromotionReceiptError("candidate packet identity is invalid")
     target = document.get("target")
@@ -504,31 +576,24 @@ def _candidate_packet(
     if not material:
         raise PromotionReceiptError("candidate packet does not satisfy an approved materiality basis")
     edits = document.get("edits")
-    if not isinstance(edits, list) or not 1 <= len(edits) <= 3:
-        raise PromotionReceiptError("candidate packet exceeds the automatic file limit")
+    if not isinstance(edits, list) or not edits:
+        raise PromotionReceiptError("candidate packet must declare at least one edit")
     total = 0
-    safe_edits: list[dict[str, Any]] = []
     seen: set[str] = set()
     for edit in edits:
-        if not isinstance(edit, Mapping) or set(edit) != {"path", "role", "operation", "before_digest", "after_digest", "content"}:
+        common = {"path", "role", "operation", "before_digest", "after_digest"}
+        if not isinstance(edit, Mapping) or set(edit) != common | {"content_file"}:
             raise PromotionReceiptError("candidate packet edit shape is invalid")
         path = edit.get("path")
         role = edit.get("role")
         if not _automatic_path(path) or role not in {"skill", "reference"} or edit.get("operation") != "replace" or path in seen:
             raise PromotionReceiptError("candidate packet edit is outside the automatic contract")
         seen.add(path)
-        content = edit.get("content")
-        if not isinstance(content, str) or not content:
-            raise PromotionReceiptError("candidate packet edit content is invalid")
-        encoded = content.encode("utf-8")
-        total += len(encoded)
-        if total > 32768 or _digest_bytes(encoded) != edit.get("after_digest"):
-            raise PromotionReceiptError("candidate packet byte or digest limit is invalid")
+        total += _candidate_content_size(edit, candidate_path)
         base = _git_base_file(document["base_commit"], path, repository)
         if _digest_bytes(base) != edit.get("before_digest"):
             raise PromotionReceiptError("candidate packet before digest does not match its base commit")
-        safe_edits.append({key: edit[key] for key in ("path", "role", "operation", "before_digest", "after_digest")})
-    return _digest_json(document), len(edits), total, safe_edits
+    return _digest_json(document), len(edits), total
 
 
 def _materialization(document: Mapping[str, Any], packet: Mapping[str, Any], packet_digest: str, campaign: Mapping[str, Any], campaign_digest: str) -> None:
@@ -537,6 +602,17 @@ def _materialization(document: Mapping[str, Any], packet: Mapping[str, Any], pac
     authorization = document.get("authorization")
     if not isinstance(authorization, Mapping) or authorization.get("authorization_contract") != AUTHORIZATION_CONTRACT or authorization.get("campaign_run_id") != campaign.get("run_id") or authorization.get("campaign_receipt_digest") != campaign_digest:
         raise PromotionReceiptError("materialization evidence is not bound to the campaign authorization")
+    campaign_evidence = document.get("campaign_evidence")
+    if (
+        not isinstance(campaign_evidence, Mapping)
+        or set(campaign_evidence) != {
+            "receipt_digest",
+            "materiality_verified_before_materialization",
+        }
+        or campaign_evidence.get("receipt_digest") != campaign_digest
+        or campaign_evidence.get("materiality_verified_before_materialization") is not True
+    ):
+        raise PromotionReceiptError("materialization evidence lacks verified campaign materiality")
     packet_paths = [row.get("path") for row in packet.get("edits", []) if isinstance(row, Mapping)]
     receipt_paths = [row.get("path") for row in document.get("edits", []) if isinstance(row, Mapping)] if isinstance(document.get("edits"), list) else []
     active = document.get("active_checkout")
@@ -647,9 +723,9 @@ def _validate_candidate(value: Any) -> str:
     elif state == "selected":
         if not isinstance(value.get("digest"), str) or HEX64.fullmatch(value["digest"]) is None:
             raise PromotionReceiptError("selected candidate digest is invalid")
-        if not isinstance(value.get("changed_files"), int) or isinstance(value.get("changed_files"), bool) or not 1 <= value["changed_files"] <= 3:
+        if not isinstance(value.get("changed_files"), int) or isinstance(value.get("changed_files"), bool) or value["changed_files"] < 1:
             raise PromotionReceiptError("selected candidate file count is invalid")
-        if not isinstance(value.get("total_bytes"), int) or isinstance(value.get("total_bytes"), bool) or not 1 <= value["total_bytes"] <= 32768:
+        if not isinstance(value.get("total_bytes"), int) or isinstance(value.get("total_bytes"), bool) or value["total_bytes"] < 1:
             raise PromotionReceiptError("selected candidate byte count is invalid")
     elif state not in CANDIDATE_STATES:
         raise PromotionReceiptError("candidate state is invalid")
@@ -742,11 +818,12 @@ def _validate_outcome(
         packet = evidence.get("candidate_packet")
         if packet is None:
             raise PromotionReceiptError("selected candidate requires a bound candidate packet")
-        packet_digest, changed_files, total_bytes, _safe_edits = _candidate_packet(
+        packet_digest, changed_files, total_bytes = _candidate_packet(
             packet,
             campaign,
             campaign_digest,
             campaign_path,
+            evidence_paths["candidate_packet"] or Path(),
         )
         if document["candidate"] != {
             "state": "selected",
@@ -885,7 +962,13 @@ def record(
         campaign,
         campaign_digest,
     )
-    document = _decision(decision)
+    document, decision_path, decision_digest = _decision(decision)
+    if decision_path is not None:
+        candidate_digest = document.get("candidate", {}).get("digest")
+        candidate_component = candidate_digest if candidate_digest is not None else "no-candidate"
+        expected_name = f"{campaign['run_id']}--{candidate_component}--{decision_digest}.json"
+        if decision_path.name != expected_name:
+            raise PromotionReceiptError("promotion decision filename digest is invalid")
     evidence, evidence_digests, evidence_paths = _evidence_documents(document["evidence"])
     _validate_outcome(
         document,
@@ -915,7 +998,14 @@ def record(
         "evidence": evidence_digests,
         "receipt_persisted": True,
     }
-    destination = _output_directory(Path(out_dir)) / f"{campaign['run_id']}.json"
+    candidate_digest = document["candidate"]["digest"]
+    receipt_digest = _digest_json(receipt)
+    receipt_name = (
+        f"{campaign['run_id']}--{candidate_digest}--{receipt_digest}.json"
+        if candidate_digest is not None
+        else f"{campaign['run_id']}.json"
+    )
+    destination = _output_directory(Path(out_dir)) / receipt_name
     _persist(destination, receipt)
     return receipt
 

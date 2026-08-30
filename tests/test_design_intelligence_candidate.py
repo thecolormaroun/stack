@@ -138,6 +138,78 @@ class DesignIntelligenceCandidateTests(unittest.TestCase):
         self.assertEqual("blocked-eval", unsafe["status"])
         self.assertIn("unsafe_eval_root", unsafe["reason_codes"])
 
+    def test_manual_packet_limits_remain_fail_closed(self) -> None:
+        too_many = json.loads(json.dumps(self.packet))
+        too_many["edits"] = [dict(too_many["edits"][0], path=f"skills/design/fixture/references/{index}.md") for index in range(6)]
+        with self.assertRaisesRegex(EVALUATOR.DesignEvaluationError, "file limit"):
+            EVALUATOR._validate_packet(too_many)
+
+        oversized_edit = json.loads(json.dumps(self.packet))
+        oversized_edit["edits"][0]["content"] = "x" * 65537
+        with self.assertRaisesRegex(EVALUATOR.DesignEvaluationError, "content"):
+            EVALUATOR._validate_packet(oversized_edit)
+
+        oversized_total = json.loads(json.dumps(self.packet))
+        oversized_total["edits"] = [
+            dict(oversized_total["edits"][0], path=f"skills/design/fixture/references/{index}.md", content="x" * 50000)
+            for index in range(3)
+        ]
+        with self.assertRaisesRegex(EVALUATOR.DesignEvaluationError, "byte limit"):
+            EVALUATOR._validate_packet(oversized_total)
+
+        external_manual = json.loads(json.dumps(self.packet))
+        external_manual["edits"][0].pop("content")
+        external_manual["edits"][0]["content_file"] = "candidate-content/" + "a" * 64 + ".utf8"
+        with self.assertRaisesRegex(EVALUATOR.DesignEvaluationError, "shape"):
+            EVALUATOR._validate_packet(external_manual)
+
+    def test_automatic_packet_uses_external_content_without_file_limit(self) -> None:
+        automatic = json.loads(json.dumps(self.packet))
+        automatic["source_lineage"].update({
+            "campaign_run_id": "weekly-fixture",
+            "campaign_receipt_digest": "2" * 64,
+            "design_packet_artifact_digest": "3" * 64,
+            "retrieval_artifact_digest": "4" * 64,
+            "candidate_evaluation_artifact_digest": "5" * 64,
+        })
+        prototype = automatic["edits"][0]
+        prototype.pop("content")
+        prototype["content_file"] = f"candidate-content/{prototype['after_digest']}.utf8"
+        automatic["edits"] = [
+            dict(prototype, path=f"skills/design/fixture/references/{index}.md")
+            for index in range(6)
+        ]
+
+        digest, _evaluation = EVALUATOR._validate_packet(automatic)
+
+        self.assertEqual(EVALUATOR.digest_json(automatic), digest)
+
+    def test_automatic_materialization_campaign_evidence_reaches_evaluator(self) -> None:
+        automatic = json.loads(json.dumps(self.packet))
+        automatic["source_lineage"].update({
+            "campaign_run_id": "weekly-fixture",
+            "campaign_receipt_digest": "2" * 64,
+            "design_packet_artifact_digest": "3" * 64,
+            "retrieval_artifact_digest": "4" * 64,
+            "candidate_evaluation_artifact_digest": "5" * 64,
+        })
+        edit = automatic["edits"][0]
+        edit.pop("content")
+        edit["content_file"] = f"candidate-content/{edit['after_digest']}.utf8"
+        materialization = json.loads(json.dumps(self.materialization))
+        materialization["change_digest"] = EVALUATOR.digest_json(automatic)
+        materialization["authorization"]["change_digest"] = materialization["change_digest"]
+        materialization["campaign_evidence"] = {
+            "receipt_digest": automatic["source_lineage"]["campaign_receipt_digest"],
+            "materiality_verified_before_materialization": True,
+        }
+
+        EVALUATOR._validate_materialization(
+            materialization,
+            automatic,
+            EVALUATOR.digest_json(automatic),
+        )
+
     def test_four_development_wins_do_not_override_holdout_regression_or_hard_gate(self) -> None:
         results = self.results()
         holdout = json.loads(results["holdout"].read_text())

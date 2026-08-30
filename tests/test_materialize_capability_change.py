@@ -39,6 +39,13 @@ class MaterializeCapabilityChangeTests(unittest.TestCase):
         target_root = self.repo / "skills" / "design" / "fixture"
         target_root.mkdir(parents=True)
         (target_root / "SKILL.md").write_text("---\nname: fixture\n---\n# Fixture\n", encoding="utf-8")
+        references = target_root / "references"
+        references.mkdir()
+        for index in range(1, 7):
+            (references / f"rule-{index}.md").write_text(
+                f"# Rule {index}\n\nExisting guidance.\n",
+                encoding="utf-8",
+            )
         (target_root / "capability.json").write_text(json.dumps({"canonical_name": "fixture", "ownership": {"provider": "stack", "package": "stack"}}), encoding="utf-8")
         (self.repo / "registry").mkdir()
         (self.repo / "registry" / "capabilities.json").write_text(json.dumps({
@@ -144,6 +151,34 @@ class MaterializeCapabilityChangeTests(unittest.TestCase):
         })
         value.update(overrides)
         return value
+
+    @staticmethod
+    def automatic_policy() -> dict:
+        return {
+            "materialization": {"allowed_roles": ["skill", "reference", "registry", "test", "documentation"]},
+            "automatic_weekly_design_promotion": {
+                "state": "active",
+                "authorization_contract": "weekly-design-auto-promotion-approved-v1",
+            },
+        }
+
+    def packet_bundle(self, packet: dict, name: str) -> Path:
+        bundle = self.root / name
+        bundle.mkdir(mode=0o700)
+        content_dir = bundle / "candidate-content"
+        content_dir.mkdir(mode=0o700)
+        for edit in packet["edits"]:
+            if "content" not in edit:
+                continue
+            content = edit.pop("content").encode()
+            blob = content_dir / f"{edit['after_digest']}.utf8"
+            blob.write_bytes(content)
+            blob.chmod(0o600)
+            edit["content_file"] = f"candidate-content/{blob.name}"
+        packet_path = bundle / "candidate.json"
+        packet_path.write_text(MATERIALIZER.canonical_json(packet))
+        packet_path.chmod(0o600)
+        return packet_path
 
     def automatic_campaign(self, packet: dict) -> tuple[Path, str]:
         state = self.root / "campaign-state"
@@ -318,20 +353,13 @@ class MaterializeCapabilityChangeTests(unittest.TestCase):
     def test_automatic_weekly_mode_accepts_only_existing_skill_or_reference_replacements(self) -> None:
         packet = self.packet()
         campaign, campaign_digest = self.automatic_campaign(packet)
+        packet_path = self.packet_bundle(packet, "automatic-packet")
         receipt = MATERIALIZER.materialize_change(
-            packet,
+            packet_path,
             self.automatic_authorization(packet),
             repository=self.repo,
             output_dir=self.root / "automatic",
-            policy={
-                "materialization": {"allowed_roles": ["skill", "reference", "registry", "test", "documentation"]},
-                "automatic_weekly_design_promotion": {
-                    "state": "active",
-                    "authorization_contract": "weekly-design-auto-promotion-approved-v1",
-                    "maximum_changed_files": 3,
-                    "maximum_total_bytes": 32768,
-                },
-            },
+            policy=self.automatic_policy(),
             automatic_weekly=True,
             campaign_receipt=campaign,
             campaign_receipt_digest=campaign_digest,
@@ -343,44 +371,90 @@ class MaterializeCapabilityChangeTests(unittest.TestCase):
         support.update({"path": "tests/fixture.md", "role": "test", "operation": "create", "before_digest": None})
         support["after_digest"] = MATERIALIZER.digest_bytes(support["content"].encode())
         rejected = self.packet(edits=[support])
+        self.automatic_authorization(rejected)
+        rejected_path = self.packet_bundle(rejected, "rejected-packet")
+        rejected_authorization = self.automatic_authorization(rejected)
         with self.assertRaisesRegex(MATERIALIZER.MaterializationError, "automatic weekly"):
             MATERIALIZER.materialize_change(
-                rejected,
-                self.automatic_authorization(rejected),
+                rejected_path,
+                rejected_authorization,
                 repository=self.repo,
                 output_dir=self.root / "rejected",
-                policy={
-                    "materialization": {"allowed_roles": ["skill", "reference", "registry", "test", "documentation"]},
-                    "automatic_weekly_design_promotion": {
-                        "state": "active",
-                        "authorization_contract": "weekly-design-auto-promotion-approved-v1",
-                        "maximum_changed_files": 3,
-                        "maximum_total_bytes": 32768,
-                    },
-                },
+                policy=self.automatic_policy(),
                 automatic_weekly=True,
             )
+
+    def test_automatic_weekly_mode_has_no_candidate_file_or_byte_cap(self) -> None:
+        references = self.repo / "skills/design/fixture/references"
+        for index in range(1, 141):
+            (references / f"rule-{index}.md").write_text(f"# Rule {index}\n")
+        subprocess.run(["git", "-C", str(self.repo), "add", "skills/design/fixture/references"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.repo), "commit", "-m", "fixture: add uncapped references"],
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+        self.base = subprocess.check_output(
+            ["git", "-C", str(self.repo), "rev-parse", "HEAD"],
+            text=True,
+        ).strip()
+
+        edits = []
+        bundle = self.root / "uncapped-bundle"
+        bundle.mkdir(mode=0o700)
+        content_dir = bundle / "candidate-content"
+        content_dir.mkdir(mode=0o700)
+        for index in range(1, 141):
+            relative = f"skills/design/fixture/references/rule-{index}.md"
+            before = (self.repo / relative).read_bytes()
+            content = before.decode() + "\n" + (f"Expanded rule {index}. " * 350) + "\n"
+            after_digest = MATERIALIZER.digest_bytes(content.encode())
+            blob = content_dir / f"{after_digest}.utf8"
+            blob.write_bytes(content.encode())
+            blob.chmod(0o600)
+            edits.append({
+                "path": relative,
+                "role": "reference",
+                "operation": "replace",
+                "before_digest": MATERIALIZER.digest_bytes(before),
+                "after_digest": after_digest,
+                "content_file": f"candidate-content/{blob.name}",
+            })
+        self.assertGreater(len(edits), 128)
+        self.assertGreater(sum(path.stat().st_size for path in content_dir.iterdir()), 32768)
+        packet = self.packet(change_kind="reference-update", edits=edits)
+        campaign, campaign_digest = self.automatic_campaign(packet)
+        packet_path = bundle / "candidate.json"
+        packet_path.write_text(MATERIALIZER.canonical_json(packet))
+        packet_path.chmod(0o600)
+
+        receipt = MATERIALIZER.materialize_change(
+            packet_path,
+            self.automatic_authorization(packet),
+            repository=self.repo,
+            output_dir=self.root / "uncapped-automatic",
+            policy=self.automatic_policy(),
+            automatic_weekly=True,
+            campaign_receipt=campaign,
+            campaign_receipt_digest=campaign_digest,
+        )
+
+        self.assertEqual("prepared", receipt["status"])
+        self.assertEqual(len(edits), len(receipt["edits"]))
 
     def test_automatic_weekly_forged_failure_id_is_rejected_before_materialization(self) -> None:
         packet = self.packet()
         campaign, campaign_digest = self.automatic_campaign(packet)
         packet["rationale"]["materiality"]["critique_failure_ids"] = ["failure:" + "f" * 16]
+        packet_path = self.packet_bundle(packet, "forged-packet")
         output = self.root / "forged"
         with self.assertRaisesRegex(MATERIALIZER.MaterializationError, "material failure IDs"):
             MATERIALIZER.materialize_change(
-                packet,
+                packet_path,
                 self.automatic_authorization(packet),
                 repository=self.repo,
                 output_dir=output,
-                policy={
-                    "materialization": {"allowed_roles": ["skill", "reference", "registry", "test", "documentation"]},
-                    "automatic_weekly_design_promotion": {
-                        "state": "active",
-                        "authorization_contract": "weekly-design-auto-promotion-approved-v1",
-                        "maximum_changed_files": 3,
-                        "maximum_total_bytes": 32768,
-                    },
-                },
+                policy=self.automatic_policy(),
                 automatic_weekly=True,
                 campaign_receipt=campaign,
                 campaign_receipt_digest=campaign_digest,
@@ -390,42 +464,26 @@ class MaterializeCapabilityChangeTests(unittest.TestCase):
     def test_automatic_campaign_cannot_bypass_preflight_by_omitting_mode_flag(self) -> None:
         packet = self.packet()
         self.automatic_campaign(packet)
+        packet_path = self.packet_bundle(packet, "implicit-packet")
         output = self.root / "implicit-automatic"
         with self.assertRaisesRegex(MATERIALIZER.MaterializationError, "campaign receipt and digest"):
             MATERIALIZER.materialize_change(
-                packet,
+                packet_path,
                 self.automatic_authorization(packet),
                 repository=self.repo,
                 output_dir=output,
-                policy={
-                    "materialization": {"allowed_roles": ["skill", "reference"]},
-                    "automatic_weekly_design_promotion": {
-                        "state": "active",
-                        "authorization_contract": "weekly-design-auto-promotion-approved-v1",
-                        "maximum_changed_files": 3,
-                        "maximum_total_bytes": 32768,
-                    },
-                },
+                policy=self.automatic_policy(),
             )
         self.assertFalse(output.exists())
 
     def test_cli_cannot_bypass_automatic_preflight_by_omitting_mode_flag(self) -> None:
         packet = self.packet()
         self.automatic_campaign(packet)
+        packet_path = self.packet_bundle(packet, "cli-automatic-packet")
         authorization = self.automatic_authorization(packet)
-        policy = {
-            "materialization": {"allowed_roles": ["skill", "reference"]},
-            "automatic_weekly_design_promotion": {
-                "state": "active",
-                "authorization_contract": "weekly-design-auto-promotion-approved-v1",
-                "maximum_changed_files": 3,
-                "maximum_total_bytes": 32768,
-            },
-        }
-        packet_path = self.root / "automatic-packet.json"
+        policy = self.automatic_policy()
         authorization_path = self.root / "automatic-authorization.json"
         policy_path = self.root / "automatic-policy.json"
-        packet_path.write_text(json.dumps(packet), encoding="utf-8")
         authorization_path.write_text(json.dumps(authorization), encoding="utf-8")
         policy_path.write_text(json.dumps(policy), encoding="utf-8")
         output = self.root / "cli-implicit-automatic"

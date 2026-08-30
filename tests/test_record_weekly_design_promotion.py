@@ -182,11 +182,26 @@ class RecordWeeklyDesignPromotionTests(unittest.TestCase):
             out,
         )
 
+    def packet_total_bytes(self) -> int:
+        total = 0
+        for edit in self.packet["edits"]:
+            if "content" in edit:
+                total += len(edit["content"].encode())
+            else:
+                total += (self.evidence_root / edit["content_file"]).stat().st_size
+        return total
+
     def _candidate_packet(self) -> dict:
         base = subprocess.check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True).strip()
         path = "skills/design/design-intelligence/SKILL.md"
         before = subprocess.check_output(["git", "-C", str(ROOT), "show", f"{base}:{path}"])
         content = before.decode("utf-8") + "\n<!-- weekly fixture -->\n"
+        after_digest = hashlib.sha256(content.encode()).hexdigest()
+        content_dir = self.evidence_root / "candidate-content"
+        content_dir.mkdir(mode=0o700, exist_ok=True)
+        blob = content_dir / f"{after_digest}.utf8"
+        blob.write_bytes(content.encode())
+        blob.chmod(0o600)
         campaign = json.loads(self.campaign.read_text())
         stage_digests = {stage["id"]: stage["output_digest"] for stage in campaign["stages"]}
         return {
@@ -234,8 +249,8 @@ class RecordWeeklyDesignPromotionTests(unittest.TestCase):
                 "role": "skill",
                 "operation": "replace",
                 "before_digest": hashlib.sha256(before).hexdigest(),
-                "after_digest": hashlib.sha256(content.encode()).hexdigest(),
-                "content": content,
+                "after_digest": after_digest,
+                "content_file": f"candidate-content/{blob.name}",
             }],
             "evaluation": {
                 "profile": "design-learning-v1",
@@ -280,6 +295,23 @@ class RecordWeeklyDesignPromotionTests(unittest.TestCase):
         path.chmod(0o600)
         return path, hashlib.sha256(raw).hexdigest()
 
+    def write_decision_path(self, decision: dict, *, valid_name: bool = True) -> Path:
+        directory = self.root / "promotion-decisions"
+        directory.mkdir(mode=0o700, exist_ok=True)
+        raw = RECORDER._canonical(decision)
+        digest = hashlib.sha256(raw).hexdigest()
+        campaign_run_id = json.loads(self.campaign.read_text())["run_id"]
+        candidate_digest = decision["candidate"]["digest"] or "no-candidate"
+        name = (
+            f"{campaign_run_id}--{candidate_digest}--{digest}.json"
+            if valid_name
+            else "wrong-decision-name.json"
+        )
+        path = directory / name
+        path.write_bytes(raw)
+        path.chmod(0o600)
+        return path
+
     @staticmethod
     def gates(status: str = "passed") -> dict[str, str]:
         return {gate: status for gate in RECORDER.REQUIRED_GATES}
@@ -304,6 +336,10 @@ class RecordWeeklyDesignPromotionTests(unittest.TestCase):
                 "authorization_contract": RECORDER.AUTHORIZATION_CONTRACT,
                 "campaign_run_id": json.loads(self.campaign.read_text())["run_id"],
                 "campaign_receipt_digest": self.campaign_digest,
+            },
+            "campaign_evidence": {
+                "receipt_digest": self.campaign_digest,
+                "materiality_verified_before_materialization": True,
             },
             "active_checkout": {"head_before": self.packet["base_commit"], "head_after": self.packet["base_commit"], "status_digest_before": "c" * 64, "status_digest_after": "c" * 64, "unchanged": True},
             "isolation": {"disposable_checkout": True, "network": "not_used", "temporary_checkout_cleaned": True},
@@ -375,7 +411,12 @@ class RecordWeeklyDesignPromotionTests(unittest.TestCase):
             "authorization_contract": RECORDER.AUTHORIZATION_CONTRACT,
             "disposition": "published",
             "reason_code": "published",
-            "candidate": {"state": "selected", "digest": self.packet_digest, "changed_files": 1, "total_bytes": len(self.packet["edits"][0]["content"].encode())},
+            "candidate": {
+                "state": "selected",
+                "digest": self.packet_digest,
+                "changed_files": len(self.packet["edits"]),
+                "total_bytes": self.packet_total_bytes(),
+            },
             "gates": self.gates(),
             "pull_request": {"state": "merged", "number": 42, "head_sha": self.head_sha, "merge_commit": self.merge_commit},
             "runtime": {"state": "published", "targets": ["claude", "codex"], "install_receipt_digest": artifacts["runtime_publication"][1], "rollback_receipt_digest": artifacts["rollback_receipt"][1]},
@@ -387,7 +428,12 @@ class RecordWeeklyDesignPromotionTests(unittest.TestCase):
         if candidate:
             packet_path, packet_file_digest = self.write("candidate", self.packet)
             evidence["candidate_packet"] = {"path": str(packet_path), "digest": packet_file_digest}
-            candidate_summary = {"state": "selected", "digest": self.packet_digest, "changed_files": 1, "total_bytes": len(self.packet["edits"][0]["content"].encode())}
+            candidate_summary = {
+                "state": "selected",
+                "digest": self.packet_digest,
+                "changed_files": len(self.packet["edits"]),
+                "total_bytes": self.packet_total_bytes(),
+            }
         else:
             candidate_summary = {"state": "absent", "digest": None, "changed_files": 0, "total_bytes": 0}
         return {
@@ -406,7 +452,10 @@ class RecordWeeklyDesignPromotionTests(unittest.TestCase):
         receipt = self.record(self.published_decision(), self.output)
         self.assertEqual("published", receipt["disposition"])
         self.assertEqual(set(RECORDER.EVIDENCE_KEYS), set(receipt["evidence"]))
-        path = self.output / f"{receipt['campaign']['run_id']}.json"
+        path = self.output / (
+            f"{receipt['campaign']['run_id']}--{receipt['candidate']['digest']}--"
+            f"{RECORDER._digest_json(receipt)}.json"
+        )
         self.assertNotIn(str(self.root), path.read_text())
         self.assertEqual(0o600, stat.S_IMODE(path.stat().st_mode))
 
@@ -444,6 +493,28 @@ class RecordWeeklyDesignPromotionTests(unittest.TestCase):
         decision["evidence"]["evaluation"]["digest"] = "0" * 64
         with self.assertRaisesRegex(RECORDER.PromotionReceiptError, "does not match"):
             self.record(decision, self.root / "bad-digest")
+
+        missing_materiality = self.published_decision()
+        materialization_path = Path(missing_materiality["evidence"]["materialization"]["path"])
+        materialization = json.loads(materialization_path.read_text())
+        materialization.pop("campaign_evidence")
+        materialization_path.write_bytes(RECORDER._canonical(materialization))
+        missing_materiality["evidence"]["materialization"]["digest"] = hashlib.sha256(
+            materialization_path.read_bytes()
+        ).hexdigest()
+        with self.assertRaisesRegex(RECORDER.PromotionReceiptError, "verified campaign materiality"):
+            self.record(missing_materiality, self.root / "missing-campaign-materiality")
+
+        mismatched_materiality = self.published_decision()
+        materialization_path = Path(mismatched_materiality["evidence"]["materialization"]["path"])
+        materialization = json.loads(materialization_path.read_text())
+        materialization["campaign_evidence"]["receipt_digest"] = "0" * 64
+        materialization_path.write_bytes(RECORDER._canonical(materialization))
+        mismatched_materiality["evidence"]["materialization"]["digest"] = hashlib.sha256(
+            materialization_path.read_bytes()
+        ).hexdigest()
+        with self.assertRaisesRegex(RECORDER.PromotionReceiptError, "verified campaign materiality"):
+            self.record(mismatched_materiality, self.root / "mismatched-campaign-materiality")
 
         decision = self.published_decision()
         review_path = Path(decision["evidence"]["independent_review"]["path"])
@@ -644,6 +715,122 @@ class RecordWeeklyDesignPromotionTests(unittest.TestCase):
         receipt = self.record(self.inactive_decision("no_action", candidate=False), self.output)
         self.assertEqual("no_action", receipt["disposition"])
         self.assertTrue(all(value is None for value in receipt["evidence"].values()))
+        self.assertTrue((self.output / f"{receipt['campaign']['run_id']}.json").is_file())
+
+    def test_selected_candidate_has_no_file_or_byte_cap(self) -> None:
+        paths = [
+            "skills/design/design-intelligence/references/output-contract.md",
+            "skills/design/design-intelligence/references/promotion-rules.md",
+            "skills/design/design-intelligence/references/card-contract.md",
+            "skills/design/design-intelligence/references/source-adapters.md",
+        ]
+        edits = []
+        base = self.packet["base_commit"]
+        for index, path in enumerate(paths):
+            before = subprocess.check_output(["git", "-C", str(ROOT), "show", f"{base}:{path}"])
+            repetitions = 40000 if index == 0 else 350
+            content = before.decode("utf-8") + "\n" + (f"Expanded candidate guidance {index}. " * repetitions) + "\n"
+            edits.append({
+                "path": path,
+                "role": "reference",
+                "operation": "replace",
+                "before_digest": hashlib.sha256(before).hexdigest(),
+                "after_digest": hashlib.sha256(content.encode()).hexdigest(),
+                "content": content,
+            })
+        self.assertGreater(len(edits), 3)
+        self.assertGreater(sum(len(edit["content"].encode()) for edit in edits), 32768)
+        content_dir = self.evidence_root / "candidate-content"
+        content_dir.mkdir(mode=0o700, exist_ok=True)
+        for edit in edits:
+            content = edit.pop("content").encode()
+            blob = content_dir / f"{edit['after_digest']}.utf8"
+            blob.write_bytes(content)
+            blob.chmod(0o600)
+            edit["content_file"] = f"candidate-content/{blob.name}"
+        self.packet["edits"] = edits
+        self.packet["rationale"]["change_kind"] = "reference-update"
+        self.packet["rollback"]["path_digests"] = {edit["path"]: edit["before_digest"] for edit in edits}
+        self.packet_digest = RECORDER._digest_json(self.packet)
+
+        decision = self.published_decision()
+        candidate_path = Path(decision["evidence"]["candidate_packet"]["path"])
+        self.assertLess(candidate_path.stat().st_size, RECORDER.MAX_PRIVATE_JSON_BYTES)
+        receipt = self.record(decision, self.output)
+
+        self.assertEqual(len(edits), receipt["candidate"]["changed_files"])
+        self.assertGreater(receipt["candidate"]["total_bytes"], 32768)
+
+    def test_multiple_selected_candidate_receipts_do_not_collide(self) -> None:
+        first = self.record(self.published_decision(), self.output)
+        first_path = self.output / (
+            f"{first['campaign']['run_id']}--{first['candidate']['digest']}--"
+            f"{RECORDER._digest_json(first)}.json"
+        )
+
+        edit = self.packet["edits"][0]
+        current = (self.evidence_root / edit["content_file"]).read_bytes()
+        revised = current + b"\nA second independently evaluated refinement.\n"
+        edit["after_digest"] = hashlib.sha256(revised).hexdigest()
+        revised_blob = self.evidence_root / "candidate-content" / f"{edit['after_digest']}.utf8"
+        revised_blob.write_bytes(revised)
+        revised_blob.chmod(0o600)
+        edit["content_file"] = f"candidate-content/{revised_blob.name}"
+        self.packet_digest = RECORDER._digest_json(self.packet)
+        second = self.record(self.published_decision(), self.output)
+        second_path = self.output / (
+            f"{second['campaign']['run_id']}--{second['candidate']['digest']}--"
+            f"{RECORDER._digest_json(second)}.json"
+        )
+
+        self.assertNotEqual(first_path, second_path)
+        self.assertTrue(first_path.is_file())
+        self.assertTrue(second_path.is_file())
+
+    def test_retry_then_publication_for_same_candidate_is_append_only(self) -> None:
+        retry = self.inactive_decision("retry_with_alert", candidate=True)
+        retry["gates"]["material-evidence"] = "passed"
+        retry["gates"]["isolated-materialization"] = "unavailable"
+        retry_receipt = self.record(retry, self.output)
+
+        published_receipt = self.record(self.published_decision(), self.output)
+        retry_path = self.output / (
+            f"{retry_receipt['campaign']['run_id']}--{retry_receipt['candidate']['digest']}--"
+            f"{RECORDER._digest_json(retry_receipt)}.json"
+        )
+        published_path = self.output / (
+            f"{published_receipt['campaign']['run_id']}--{published_receipt['candidate']['digest']}--"
+            f"{RECORDER._digest_json(published_receipt)}.json"
+        )
+
+        self.assertNotEqual(retry_path, published_path)
+        self.assertEqual("retry_with_alert", json.loads(retry_path.read_text())["disposition"])
+        self.assertEqual("published", json.loads(published_path.read_text())["disposition"])
+
+    def test_decision_file_requires_campaign_candidate_and_exact_digest_name(self) -> None:
+        decision = self.inactive_decision("retry_with_alert", candidate=True)
+        decision["gates"]["material-evidence"] = "passed"
+        decision["gates"]["isolated-materialization"] = "unavailable"
+        valid = self.write_decision_path(decision)
+
+        receipt = RECORDER.record(
+            self.live_receipt,
+            self.live_receipt_digest,
+            self.campaign,
+            valid,
+            self.output,
+        )
+
+        self.assertEqual("retry_with_alert", receipt["disposition"])
+        invalid = self.write_decision_path(decision, valid_name=False)
+        with self.assertRaisesRegex(RECORDER.PromotionReceiptError, "filename digest"):
+            RECORDER.record(
+                self.live_receipt,
+                self.live_receipt_digest,
+                self.campaign,
+                invalid,
+                self.root / "invalid-decision-name",
+            )
 
     def test_rejected_and_retry_outcomes_cannot_leave_open_pull_requests(self) -> None:
         rejected = self.inactive_decision("rejected_no_queue", candidate=True)

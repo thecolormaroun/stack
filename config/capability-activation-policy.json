@@ -58,9 +58,6 @@
       "skills/**/SKILL.md",
       "skills/**/references/**/*.md"
     ],
-    "maximum_candidates_per_run": 1,
-    "maximum_changed_files": 3,
-    "maximum_total_bytes": 32768,
     "required_gates": [
       "material-evidence",
       "isolated-materialization",

@@ -359,7 +359,7 @@ class WeeklyIntelligenceTests(unittest.TestCase):
             maintenance=maintenance,
         )
         changed = json.loads(json.dumps(config))
-        changed["automatic_promotion"]["maximum_total_bytes"] -= 1
+        changed["automatic_promotion"]["weak_candidate_outcome"] = "changed"
         drifted = WEEKLY.stage_input_fingerprints(
             config=changed,
             input_digests=input_digests,

@@ -3,17 +3,14 @@
   "campaign_id": "stack-weekly-intelligence",
   "provider_egress": "deny",
   "analysis_budget": {
-    "unit": "model_calls",
+    "unit": "concurrent_model_contexts",
     "maximum": 3,
     "authorized": true,
-    "note": "The approved weekly automation may use up to three Codex model contexts for critique, candidate authoring, and independent review; paid external-provider fallback remains prohibited."
+    "note": "The approved weekly automation may use up to three concurrent Codex model contexts; candidates run sequentially and the current quota preflight controls each wave. Paid external-provider fallback remains prohibited."
   },
   "automatic_promotion": {
     "state": "active",
     "authorization_contract": "weekly-design-auto-promotion-approved-v1",
-    "maximum_candidates_per_run": 1,
-    "maximum_changed_files": 3,
-    "maximum_total_bytes": 32768,
     "runtime_receipts_root": "~/.local/state/stack/runtime-receipts",
     "allowed_path_patterns": [
       "skills/**/SKILL.md",
@@ -84,7 +81,7 @@
     "reasoning_effort": "high",
     "execution_environment": "local",
     "prompt_path": "config/weekly-intelligence-automation-prompt.md",
-    "prompt_digest": "e13e5234738dc7d93c17bc53e10a378d2becc013a029fbb769a91a247b9c8bd1",
+    "prompt_digest": "c1ceba6d3e156e3ef3ebe4cc3194b6d8429cbb85964ab9df94ec847d0a589cd2",
     "enabled": true,
     "approval_required": true,
     "state": "active"

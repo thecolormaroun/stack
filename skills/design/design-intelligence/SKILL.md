@@ -1,6 +1,6 @@
 ---
 name: design-intelligence
-description: "Run the weekly design intelligence loop: scan curated sources, Arc bookmarks, Field Theory/X bookmarks, and GBrain deltas; synthesize a design digest; and automatically promote one evaluated Stack-owned skill/reference improvement when every publication gate passes."
+description: "Run the weekly design intelligence loop: scan curated sources, Arc bookmarks, Field Theory/X bookmarks, and GBrain deltas; synthesize a design digest; and automatically promote every independently evaluated Stack-owned skill/reference improvement when every publication gate passes."
 ---
 
 # Design Intelligence Loop
@@ -9,7 +9,7 @@ Use this skill for the rebuilt weekly design digest and taste-compounding workfl
 
 The loop has two jobs:
 - Find high-signal design inspiration from curated sources and Maroun's saved links.
-- Convert repeated lessons into evaluated Studio/CDO skill updates and publish at most one automatically when every scoped gate passes.
+- Convert repeated lessons into evaluated Studio/CDO skill updates and publish every independently material candidate sequentially when every scoped gate passes.
 
 ## Operating Rule
 
@@ -17,8 +17,9 @@ Run source intake read-only. Do not mutate Arc, Field Theory, X/Twitter, GBrain 
 
 Promotion is a separate automatic tail under authorization contract
 `weekly-design-auto-promotion-approved-v1`. It may touch only existing
-Stack-owned skill/reference Markdown, at most one candidate and three files per
-run. It still requires isolated materialization, frozen evaluation, full tests,
+Stack-owned skill/reference Markdown. It has no per-run candidate-count,
+changed-file, or byte ceiling, and processes one independent candidate lineage
+at a time. It still requires isolated materialization, frozen evaluation, full tests,
 a fresh independent `ship` review, green pull-request checks, verified merge,
 atomic runtime publication, discovery, and rollback evidence.
 
@@ -61,6 +62,10 @@ Every run must produce:
 - A source manifest with counts, paths used, fetch/read status, and candidate samples.
 - A weekly design digest with Output A, Output B, and Output C.
 - A promotion packet with proposed Studio/CDO changes, evidence links, gate results, and a `no_action`, `rejected_no_queue`, `retry_with_alert`, or published disposition.
+
+Automatic candidate JSON keeps proposed bodies in sibling owner-only,
+digest-addressed `candidate-content/*.utf8` files. This transport permits every
+independently material candidate and does not impose a file-count or byte cap.
 
 The digest may suggest Zettelkasten notes but must not write them. Skill and
 reference changes advance only through the separate automatic promotion tail;

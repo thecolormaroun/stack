@@ -251,7 +251,17 @@ class RuntimeCompileTests(unittest.TestCase):
             stack.mkdir(parents=True); run.mkdir(parents=True)
             (stack / "SKILL.md").write_text("[run](../run/SKILL.md) [guide](../../../docs/guide.md)\n", encoding="utf-8")
             (run / "SKILL.md").write_text("# Run\n", encoding="utf-8")
-            (root / "docs").mkdir(); (root / "docs/guide.md").write_text("# Guide\n", encoding="utf-8")
+            (root / "docs").mkdir()
+            (root / "docs/guide.md").write_text(
+                "# Guide\n\n[maintenance](../config/stack-maintenance.json)\n",
+                encoding="utf-8",
+            )
+            (root / "config").mkdir()
+            (root / "config/stack-maintenance.json").write_text("{}\n", encoding="utf-8")
+            (root / "config/bookmark-sources.json").write_text(
+                json.dumps({"sources": [{"path": "~/private/bookmarks"}]}) + "\n",
+                encoding="utf-8",
+            )
             entries = [capability("core-stack"), capability("core-run")]
             entries[0]["source"] = {"skill_path": "skills/core/stack/SKILL.md"}
             entries[1]["source"] = {"skill_path": "skills/core/run/SKILL.md"}
@@ -260,6 +270,7 @@ class RuntimeCompileTests(unittest.TestCase):
             (bundle / "skills/stack-extra").mkdir(parents=True)
             (bundle / "skills/stack-extra/SKILL.md").write_text("# Extra\n", encoding="utf-8")
             (bundle / "commands").mkdir(); (bundle / "commands/extra.md").write_text("# Command\n", encoding="utf-8")
+            (bundle / "config").mkdir(); (bundle / "config/sol.config.toml").write_text("model = 'fixture'\n", encoding="utf-8")
             (bundle / ".codex-plugin").mkdir()
             (bundle / ".codex-plugin/plugin.json").write_text(
                 json.dumps({"homepage": "https://github.com/example/stack"}),
@@ -272,8 +283,29 @@ class RuntimeCompileTests(unittest.TestCase):
             COMPILER.validate_staged_links(stage)
             self.assertTrue((stage / "skills/stack-extra/SKILL.md").is_file())
             self.assertTrue((stage / "commands/extra.md").is_file())
+            self.assertTrue((stage / "config/sol.config.toml").is_file())
+            self.assertTrue((stage / "config/stack-maintenance.json").is_file())
+            self.assertFalse((stage / "config/bookmark-sources.json").exists())
             self.assertIn("../core-run/SKILL.md", (stage / "skills/core-stack/SKILL.md").read_text())
             self.assertIn("../../docs/guide.md", (stage / "skills/core-stack/SKILL.md").read_text())
+            self.assertIn("../config/stack-maintenance.json", (stage / "docs/guide.md").read_text())
+
+    def test_repository_config_cannot_overwrite_bundled_config(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.write_skill(root, "active")
+            catalog = self.write_catalog(root, [capability("active")])
+            (root / "config").mkdir()
+            (root / "config/stack-maintenance.json").write_text("{}\n", encoding="utf-8")
+            bundle = root / "packages/stack-codex/content"
+            (bundle / "skills/stack-extra").mkdir(parents=True)
+            (bundle / "skills/stack-extra/SKILL.md").write_text("# Extra\n", encoding="utf-8")
+            (bundle / "config").mkdir()
+            (bundle / "config/stack-maintenance.json").write_text("{}\n", encoding="utf-8")
+            (root / "registry/upstreams.json").write_text(json.dumps({"providers": [{"id": "stack-codex", "install": "repository-bundle", "bundle_path": "packages/stack-codex/content", "exports": ["stack-extra"]}]}), encoding="utf-8")
+
+            with self.assertRaisesRegex(COMPILER.RuntimeError, "shared config input collides"):
+                COMPILER.compile_runtimes(root, catalog, self.target(root), root / "runtime")
 
     def test_private_overlay_is_separate_and_requires_target_authorization(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

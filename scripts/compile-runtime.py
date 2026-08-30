@@ -17,6 +17,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PUBLIC_RUNTIME_CONFIG_FILES = ("stack-maintenance.json",)
 REFERENCE_LINK = re.compile(r"\[[^\]]*\]\(([^)#]+)(?:#[^)]+)?\)")
 FENCE_START = re.compile(r"^[ \t]*(`{3,}|~{3,})")
 RESOLVER_CONTRACT = {
@@ -509,6 +510,31 @@ def copy_shared_tree(source: Path, destination: Path, mapping: dict[Path, Path],
     source_file_map(source, destination, mapping)
 
 
+def copy_shared_files(
+    source: Path,
+    destination: Path,
+    filenames: tuple[str, ...],
+    mapping: dict[Path, Path],
+    *,
+    label: str,
+) -> None:
+    """Copy an explicit public support-file allowlist without overwrites."""
+    if source.is_symlink():
+        raise RuntimeError(f"{label}: symlinks are not allowed: {source}")
+    destination.mkdir(parents=True, exist_ok=True)
+    for filename in sorted(filenames):
+        reject_symlinks(source / filename, label=label)
+        path = repository_relative(source, filename, label=label)
+        if not path.is_file():
+            raise RuntimeError(f"{label} is missing required file: {filename}")
+        target = destination / filename
+        if target.exists() or target.is_symlink():
+            raise RuntimeError(f"{label} collides with staged output: {filename}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, target)
+        mapping[path.resolve()] = target
+
+
 def rewrite_relative_links(stage: Path, mapping: dict[Path, Path]) -> None:
     """Keep copied Markdown links valid after canonical capability flattening."""
     def replacement(source: Path, destination: Path, match: re.Match[str]) -> str:
@@ -653,6 +679,21 @@ def compile_runtimes(root: Path, catalog_path: Path, targets_path: Path, staging
         docs = root / "docs"
         if docs.is_dir():
             copy_shared_tree(docs, stage / "docs", mapping, label="shared docs input")
+        config = root / "config"
+        if config.is_dir():
+            available_public_configs = tuple(
+                filename
+                for filename in PUBLIC_RUNTIME_CONFIG_FILES
+                if (config / filename).exists() or (config / filename).is_symlink()
+            )
+            if available_public_configs:
+                copy_shared_files(
+                    config,
+                    stage / "config",
+                    available_public_configs,
+                    mapping,
+                    label="shared config input",
+                )
         if (root / "README.md").is_file():
             reject_symlinks(root / "README.md", label="shared README input")
             shutil.copy2(root / "README.md", stage / "README.md")

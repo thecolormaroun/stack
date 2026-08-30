@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -430,7 +431,7 @@ class MaterializeCapabilityChangeTests(unittest.TestCase):
         output = self.root / "cli-implicit-automatic"
         result = subprocess.run(
             [
-                "/opt/homebrew/bin/python3.11",
+                sys.executable,
                 str(ROOT / "scripts/materialize-capability-change.py"),
                 "--packet", str(packet_path),
                 "--authorization", str(authorization_path),

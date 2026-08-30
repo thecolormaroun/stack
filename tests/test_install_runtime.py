@@ -7,6 +7,7 @@ import json
 import os
 import stat
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -207,7 +208,7 @@ class RuntimeInstallTests(unittest.TestCase):
             deployment = root / "deployment"
             result = subprocess.run(
                 [
-                    "/opt/homebrew/bin/python3.11",
+                    sys.executable,
                     str(ROOT / "scripts/install-runtime.py"),
                     "--root", str(deployment),
                     "--source-repository", str(root),

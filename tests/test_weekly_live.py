@@ -80,6 +80,7 @@ class WeeklyLiveTests(unittest.TestCase):
             str(checkout),
             LIVE.CANONICAL_ORIGIN,
             "",
+            "H README.md\0H scripts/run-stack-weekly-live.py\0",
             "",
             "",
             "HEAD",
@@ -106,6 +107,7 @@ class WeeklyLiveTests(unittest.TestCase):
             str(checkout),
             LIVE.CANONICAL_ORIGIN,
             "",
+            "H README.md\0H scripts/run-stack-weekly-live.py\0",
             "",
             "",
             "HEAD",
@@ -123,6 +125,30 @@ class WeeklyLiveTests(unittest.TestCase):
             self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_stale"),
         ):
             LIVE._validate_execution_checkout()
+
+    def test_execution_checkout_rejects_hidden_index_flags_before_fetch(self) -> None:
+        checkout = self.root / ".local" / "share" / "stack" / "weekly-intelligence-source"
+        git_dir = checkout / ".git"
+        git_dir.mkdir(parents=True, mode=0o700)
+        checkout.chmod(0o700)
+        git = mock.Mock(side_effect=(
+            str(checkout),
+            LIVE.CANONICAL_ORIGIN,
+            "",
+            "h scripts/run-stack-weekly-live.py\0S config/weekly-intelligence.json\0",
+        ))
+        with (
+            mock.patch.multiple(
+                LIVE,
+                ROOT=checkout.resolve(),
+                ACCOUNT_HOME=self.root,
+                AUTOMATION_CHECKOUT=checkout,
+                _git=git,
+            ),
+            self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_index_flags"),
+        ):
+            LIVE._validate_execution_checkout()
+        self.assertEqual(4, git.call_count)
 
     def automation_file(self, account_home: Path, *, mode: int = 0o644, symlink_codex: bool = False) -> Path:
         config = LIVE.WEEKLY.load_config()

@@ -50,7 +50,8 @@ identity. A missing or unsafe execution checkout fails as `retry_with_alert`;
 the automation never cleans or switches the saved project checkout. Before any
 private-source or campaign subprocess, the live entrypoint independently
 requires that exact owner-private checkout, refreshes the canonical remote
-tracking ref, and proves clean detached `HEAD == origin/main`. A wrong root is
+tracking ref, rejects tracked paths hidden by `assume-unchanged` or
+`skip-worktree`, and proves clean detached `HEAD == origin/main`. A wrong root is
 rejected before even a Git subprocess can run; a concurrent upstream advance
 fails closed as a stale checkout for the next scheduled retry.
 

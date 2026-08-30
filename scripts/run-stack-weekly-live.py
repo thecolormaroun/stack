@@ -166,6 +166,12 @@ def _validate_execution_checkout() -> str:
         raise LiveLoopError("execution_checkout_origin_mismatch")
     if _git(["status", "--porcelain=v1", "--untracked-files=all"]):
         raise LiveLoopError("execution_checkout_dirty")
+    tracked = [entry for entry in _git(["ls-files", "-v", "-z"]).split("\0") if entry]
+    if not tracked or any(not entry.startswith("H ") for entry in tracked):
+        # `h` marks assume-unchanged and `S` marks skip-worktree. Requiring the
+        # ordinary cached tag for every tracked path prevents either flag from
+        # hiding working-tree changes from the status checks above and below.
+        raise LiveLoopError("execution_checkout_index_flags")
 
     # Refresh the exact remote-tracking ref before any private-source or state
     # operation. The automation prompt checks out this commit first; this

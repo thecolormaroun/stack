@@ -25,6 +25,9 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 ACCOUNT_HOME = Path(pwd.getpwuid(os.getuid()).pw_dir).resolve()
+AUTOMATION_CHECKOUT = ACCOUNT_HOME / ".local" / "share" / "stack" / "weekly-intelligence-source"
+CANONICAL_ORIGIN = "https://github.com/thecolormaroun/stack.git"
+GIT = Path("/usr/bin/git")
 LIVE_ROOT = ACCOUNT_HOME / ".local" / "state" / "stack" / "weekly-intelligence" / "live"
 FIELD_THEORY_DB = ACCOUNT_HOME / ".ft-bookmarks" / "bookmarks.db"
 GBRAIN_SOURCE_ROOT = ACCOUNT_HOME / ".gbrain" / "source-roots" / "x-bookmarks-native"
@@ -130,6 +133,58 @@ def _environment() -> dict[str, str]:
         "TMPDIR": str(LIVE_ROOT / "tmp"),
         "GBRAIN_SOURCE": "x-bookmarks",
     }
+
+
+def _git(argv: list[str], *, timeout: int = 120) -> str:
+    try:
+        result = subprocess.run(
+            [str(GIT), "-C", str(ROOT), *argv],
+            capture_output=True,
+            text=True,
+            env=_environment(),
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise LiveLoopError("execution_checkout_unavailable") from exc
+    if result.returncode != 0:
+        raise LiveLoopError("execution_checkout_invalid")
+    return result.stdout.strip()
+
+
+def _validate_execution_checkout() -> str:
+    """Prove the unattended lane is the clean, freshly fetched automation clone."""
+    expected = _private_path(AUTOMATION_CHECKOUT, directory=True)
+    if ROOT != expected:
+        # This check intentionally precedes every subprocess so invoking the
+        # live lane from the saved/dirty project cannot reach any mutation.
+        raise LiveLoopError("execution_checkout_wrong_root")
+    _private_path(expected / ".git", directory=True, private=False)
+    if Path(_git(["rev-parse", "--show-toplevel"])).resolve(strict=True) != expected:
+        raise LiveLoopError("execution_checkout_invalid")
+    if _git(["remote", "get-url", "origin"]) != CANONICAL_ORIGIN:
+        raise LiveLoopError("execution_checkout_origin_mismatch")
+    if _git(["status", "--porcelain=v1", "--untracked-files=all"]):
+        raise LiveLoopError("execution_checkout_dirty")
+
+    # Refresh the exact remote-tracking ref before any private-source or state
+    # operation. The automation prompt checks out this commit first; this
+    # second fetch closes the stale-ref window and fails closed if main moved.
+    _git([
+        "fetch",
+        "--no-tags",
+        "origin",
+        "+refs/heads/main:refs/remotes/origin/main",
+    ])
+    if _git(["status", "--porcelain=v1", "--untracked-files=all"]):
+        raise LiveLoopError("execution_checkout_dirty")
+    if _git(["rev-parse", "--abbrev-ref", "HEAD"]) != "HEAD":
+        raise LiveLoopError("execution_checkout_not_detached")
+    head = _git(["rev-parse", "--verify", "HEAD^{commit}"])
+    origin_main = _git(["rev-parse", "--verify", "refs/remotes/origin/main^{commit}"])
+    if head != origin_main:
+        raise LiveLoopError("execution_checkout_stale")
+    return head
 
 
 def _run(argv: list[str], *, timeout: int = 180, receipt_path: Path | None = None) -> dict[str, Any]:
@@ -253,6 +308,7 @@ def _preflight() -> Path:
 
 
 def run() -> dict[str, Any]:
+    _validate_execution_checkout()
     maintenance_receipt = _preflight()
     live_root = _private_path(LIVE_ROOT, directory=True)
     _private_path(FIELD_THEORY_DB)

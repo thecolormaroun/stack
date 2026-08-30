@@ -43,6 +43,7 @@ DEFAULT_TEMPLATE = ROOT / "templates" / "weekly-stack-report.md"
 DEFAULT_SCHEMA = ROOT / "registry" / "weekly-campaign-receipt.schema.json"
 ACCOUNT_HOME = Path(pwd.getpwuid(os.getuid()).pw_dir).resolve()
 DEFAULT_AUTOMATION_ROOT = ACCOUNT_HOME / ".codex" / "automations"
+DEFAULT_AUTOMATION_WORKDIR = ACCOUNT_HOME / "Projects" / "stack"
 TASK_ID = "stack-weekly-intelligence"
 SCHEMA_VERSION = 1
 TERMINAL_STATES = {
@@ -1017,7 +1018,7 @@ def scheduler_contract_status(
         "reasoning_effort": scheduler["reasoning_effort"],
         "execution_environment": scheduler["execution_environment"],
         "target": {"type": "project", "project_id": scheduler["project_id"]},
-        "cwds": [str(ROOT)],
+        "cwds": [str(DEFAULT_AUTOMATION_WORKDIR)],
         "prompt_digest": hashlib.sha256(canonical_prompt_bytes(prompt)).hexdigest(),
     }
     if expected["prompt_digest"] != scheduler["prompt_digest"]:

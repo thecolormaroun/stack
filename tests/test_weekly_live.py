@@ -46,6 +46,84 @@ class WeeklyLiveTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
+    def test_live_scheduler_binding_uses_saved_project_not_execution_checkout(self) -> None:
+        self.assertEqual(
+            LIVE.ACCOUNT_HOME / "Projects" / "stack",
+            LIVE.WEEKLY.DEFAULT_AUTOMATION_WORKDIR,
+        )
+
+    def test_saved_primary_execution_is_rejected_before_any_subprocess(self) -> None:
+        primary = self.root / "Projects" / "stack"
+        primary.mkdir(parents=True, mode=0o700)
+        checkout = self.root / ".local" / "share" / "stack" / "weekly-intelligence-source"
+        checkout.mkdir(parents=True, mode=0o700)
+        commands = mock.Mock()
+        with (
+            mock.patch.multiple(
+                LIVE,
+                ROOT=primary,
+                ACCOUNT_HOME=self.root,
+                AUTOMATION_CHECKOUT=checkout,
+            ),
+            mock.patch.object(LIVE.subprocess, "run", commands),
+            self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_wrong_root"),
+        ):
+            LIVE.run()
+        commands.assert_not_called()
+
+    def test_execution_checkout_requires_clean_detached_fetched_origin_main(self) -> None:
+        checkout = self.root / ".local" / "share" / "stack" / "weekly-intelligence-source"
+        git_dir = checkout / ".git"
+        git_dir.mkdir(parents=True, mode=0o700)
+        checkout.chmod(0o700)
+        responses = iter((
+            str(checkout),
+            LIVE.CANONICAL_ORIGIN,
+            "",
+            "",
+            "",
+            "HEAD",
+            "a" * 40,
+            "a" * 40,
+        ))
+        with (
+            mock.patch.multiple(
+                LIVE,
+                ROOT=checkout.resolve(),
+                ACCOUNT_HOME=self.root,
+                AUTOMATION_CHECKOUT=checkout,
+                _git=mock.Mock(side_effect=lambda argv: next(responses)),
+            ),
+        ):
+            self.assertEqual("a" * 40, LIVE._validate_execution_checkout())
+
+    def test_execution_checkout_stale_commit_blocks(self) -> None:
+        checkout = self.root / ".local" / "share" / "stack" / "weekly-intelligence-source"
+        git_dir = checkout / ".git"
+        git_dir.mkdir(parents=True, mode=0o700)
+        checkout.chmod(0o700)
+        responses = iter((
+            str(checkout),
+            LIVE.CANONICAL_ORIGIN,
+            "",
+            "",
+            "",
+            "HEAD",
+            "a" * 40,
+            "b" * 40,
+        ))
+        with (
+            mock.patch.multiple(
+                LIVE,
+                ROOT=checkout.resolve(),
+                ACCOUNT_HOME=self.root,
+                AUTOMATION_CHECKOUT=checkout,
+                _git=mock.Mock(side_effect=lambda argv: next(responses)),
+            ),
+            self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_stale"),
+        ):
+            LIVE._validate_execution_checkout()
+
     def automation_file(self, account_home: Path, *, mode: int = 0o644, symlink_codex: bool = False) -> Path:
         config = LIVE.WEEKLY.load_config()
         scheduler = config["scheduler"]
@@ -112,6 +190,7 @@ class WeeklyLiveTests(unittest.TestCase):
                 ACCOUNT_HOME=self.root,
                 FIXED_PATH=f"{self.root}/.bun/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
                 _run=command,
+                _validate_execution_checkout=mock.Mock(return_value="a" * 40),
                 _preflight=mock.Mock(return_value=self.live_root / "maintenance.json"),
             ),
         ):
@@ -180,6 +259,7 @@ class WeeklyLiveTests(unittest.TestCase):
                     mock.patch.object(LIVE.WEEKLY, "scheduler_contract_status", return_value=scheduler_status),
                     mock.patch.object(LIVE, "_latest_maintenance_receipt", return_value=self.live_root / "maintenance.json"),
                     mock.patch.object(LIVE.WEEKLY, "read_latest_maintenance_receipt", return_value={"status": maintenance_status}),
+                    mock.patch.object(LIVE, "_validate_execution_checkout", return_value="a" * 40),
                     mock.patch.object(LIVE, "_run", side_effect=lambda argv, **kwargs: commands.append(argv)),
                 ):
                     with self.assertRaisesRegex(LIVE.LiveLoopError, reason):
@@ -195,6 +275,7 @@ class WeeklyLiveTests(unittest.TestCase):
                 LIVE,
                 LIVE_ROOT=alias,
                 ACCOUNT_HOME=self.root,
+                _validate_execution_checkout=mock.Mock(return_value="a" * 40),
                 _preflight=mock.Mock(return_value=self.live_root / "maintenance.json"),
                 _run=mock.Mock(side_effect=lambda argv, **kwargs: commands.append(argv)),
             ),
@@ -227,6 +308,7 @@ class WeeklyLiveTests(unittest.TestCase):
                 with (
                     mock.patch.object(LIVE.WEEKLY, "ACCOUNT_HOME", account),
                     mock.patch.object(LIVE.WEEKLY, "DEFAULT_AUTOMATION_ROOT", automation_root),
+                    mock.patch.object(LIVE, "_validate_execution_checkout", return_value="a" * 40),
                     mock.patch.object(LIVE, "_run", side_effect=lambda argv, **kwargs: commands.append(argv)),
                     self.assertRaisesRegex(LIVE.LiveLoopError, "scheduler_contract_not_persisted"),
                 ):

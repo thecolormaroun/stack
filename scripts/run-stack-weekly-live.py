@@ -10,13 +10,25 @@ separate evaluated promotion tail.
 
 from __future__ import annotations
 
+import sys
+
+# The executable script must enter in isolated mode so ignored files in the
+# persistent checkout cannot shadow stdlib imports before validation runs.
+# Unit tests import this module under a non-__main__ name and exercise the same
+# gate separately.
+if __name__ == "__main__" and (not sys.flags.isolated or not sys.dont_write_bytecode):
+    print(
+        '{"reason_code":"isolated_no_bytecode_python_required","status":"failed","task_id":"stack-weekly-live"}',
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
 import json
 import hashlib
 import os
 import pwd
 import stat
 import subprocess
-import sys
 import importlib.util
 import tempfile
 from pathlib import Path
@@ -166,6 +178,8 @@ def _validate_execution_checkout() -> str:
         raise LiveLoopError("execution_checkout_origin_mismatch")
     if _git(["status", "--porcelain=v1", "--untracked-files=all"]):
         raise LiveLoopError("execution_checkout_dirty")
+    if _git(["ls-files", "--others", "--ignored", "--exclude-standard", "-z"]):
+        raise LiveLoopError("execution_checkout_ignored_files")
     tracked = [entry for entry in _git(["ls-files", "-v", "-z"]).split("\0") if entry]
     if not tracked or any(not entry.startswith("H ") for entry in tracked):
         # `h` marks assume-unchanged and `S` marks skip-worktree. Requiring the
@@ -331,6 +345,8 @@ def run() -> dict[str, Any]:
 
     reconcile = _run([
         sys.executable,
+        "-I",
+        "-B",
         str(ROOT / "scripts" / "reconcile-bookmark-sources.py"),
         "--sources", str(ROOT / "config" / "bookmark-sources.json"),
         "--policy", str(ROOT / "config" / "bookmark-fetch-policy.json"),
@@ -345,6 +361,8 @@ def run() -> dict[str, Any]:
     import_receipt_path = _private_output(live_root / "gbrain-import-weekly.json")
     imported = _run([
         sys.executable,
+        "-I",
+        "-B",
         str(ROOT / "scripts" / "import-bookmark-deltas.py"),
         "--snapshot", str(snapshot),
         "--markdown-dir", str(live_root / "gbrain-import"),
@@ -359,6 +377,8 @@ def run() -> dict[str, Any]:
 
     campaign = _run([
         sys.executable,
+        "-I",
+        "-B",
         str(ROOT / "scripts" / "run-stack-weekly-intelligence.py"),
         "--local-adapter-config", str(adapter_config),
         "--state-dir", str(live_root / "coordinator"),

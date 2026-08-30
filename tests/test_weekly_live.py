@@ -3,6 +3,10 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -80,6 +84,7 @@ class WeeklyLiveTests(unittest.TestCase):
             str(checkout),
             LIVE.CANONICAL_ORIGIN,
             "",
+            "",
             "H README.md\0H scripts/run-stack-weekly-live.py\0",
             "",
             "",
@@ -106,6 +111,7 @@ class WeeklyLiveTests(unittest.TestCase):
         responses = iter((
             str(checkout),
             LIVE.CANONICAL_ORIGIN,
+            "",
             "",
             "H README.md\0H scripts/run-stack-weekly-live.py\0",
             "",
@@ -135,6 +141,7 @@ class WeeklyLiveTests(unittest.TestCase):
             str(checkout),
             LIVE.CANONICAL_ORIGIN,
             "",
+            "",
             "h scripts/run-stack-weekly-live.py\0S config/weekly-intelligence.json\0",
         ))
         with (
@@ -146,6 +153,78 @@ class WeeklyLiveTests(unittest.TestCase):
                 _git=git,
             ),
             self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_index_flags"),
+        ):
+            LIVE._validate_execution_checkout()
+        self.assertEqual(5, git.call_count)
+
+    def test_direct_nonisolated_execution_is_explicitly_unsupported(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "run-stack-weekly-live.py")],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(1, result.returncode)
+        self.assertIn('"reason_code":"isolated_no_bytecode_python_required"', result.stderr)
+
+    def test_isolated_no_bytecode_entrypoint_leaves_checkout_free_of_python_artifacts(self) -> None:
+        checkout = self.root / "copied-checkout"
+        scripts = checkout / "scripts"
+        scripts.mkdir(parents=True, mode=0o700)
+        for name in ("run-stack-weekly-live.py", "run-stack-weekly-intelligence.py"):
+            shutil.copy2(ROOT / "scripts" / name, scripts / name)
+        for _attempt in range(2):
+            result = subprocess.run(
+                [sys.executable, "-I", "-B", str(scripts / "run-stack-weekly-live.py")],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertEqual([], list(checkout.rglob("*.pyc")))
+            self.assertEqual([], list(checkout.rglob("__pycache__")))
+
+    def test_prompt_requires_isolated_no_bytecode_mode_for_every_python_command(self) -> None:
+        prompt = (ROOT / "config" / "weekly-intelligence-automation-prompt.md").read_text(encoding="utf-8")
+        executable = "/opt/homebrew/bin/python3.11"
+        matches = list(re.finditer(re.escape(executable), prompt))
+        self.assertGreaterEqual(len(matches), 5)
+        for match in matches:
+            self.assertTrue(
+                prompt.startswith(f"{executable} -I -B ", match.start()),
+                prompt[match.start():match.start() + 100],
+            )
+
+    def test_operations_commands_use_isolated_no_bytecode_python(self) -> None:
+        operations = (ROOT / "docs" / "weekly-intelligence-operations.md").read_text(encoding="utf-8")
+        for command in (
+            "scripts/run-stack-weekly-live.py",
+            "scripts/bootstrap-stack.py",
+            "scripts/stack-doctor.py",
+            "scripts/record-weekly-design-promotion.py",
+        ):
+            self.assertIn(f"/opt/homebrew/bin/python3.11 -I -B {command}", operations)
+
+    def test_execution_checkout_rejects_ignored_files_before_fetch(self) -> None:
+        checkout = self.root / ".local" / "share" / "stack" / "weekly-intelligence-source"
+        git_dir = checkout / ".git"
+        git_dir.mkdir(parents=True, mode=0o700)
+        checkout.chmod(0o700)
+        git = mock.Mock(side_effect=(
+            str(checkout),
+            LIVE.CANONICAL_ORIGIN,
+            "",
+            "scripts/json.pyc\0",
+        ))
+        with (
+            mock.patch.multiple(
+                LIVE,
+                ROOT=checkout.resolve(),
+                ACCOUNT_HOME=self.root,
+                AUTOMATION_CHECKOUT=checkout,
+                _git=git,
+            ),
+            self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_ignored_files"),
         ):
             LIVE._validate_execution_checkout()
         self.assertEqual(4, git.call_count)
@@ -238,6 +317,12 @@ class WeeklyLiveTests(unittest.TestCase):
         self.assertEqual(result["campaign_receipt_digest"], binding["campaign_receipt_digest"])
         self.assertIn("u15-source-sync-approved-v1", calls[0])
         self.assertIn("x-bookmarks-import-approved-v1", calls[1])
+        self.assertEqual("-I", calls[0][1])
+        self.assertEqual("-B", calls[0][2])
+        self.assertEqual("-I", calls[1][1])
+        self.assertEqual("-B", calls[1][2])
+        self.assertEqual("-I", calls[2][1])
+        self.assertEqual("-B", calls[2][2])
         self.assertIn("--existing-source-root", calls[1])
         self.assertNotIn("--cli", calls[1])
         self.assertIn("--local-adapter-config", calls[2])

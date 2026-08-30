@@ -51,7 +51,12 @@ the automation never cleans or switches the saved project checkout. Before any
 private-source or campaign subprocess, the live entrypoint independently
 requires that exact owner-private checkout, refreshes the canonical remote
 tracking ref, rejects tracked paths hidden by `assume-unchanged` or
-`skip-worktree`, and proves clean detached `HEAD == origin/main`. A wrong root is
+`skip-worktree`, rejects ignored files, and proves clean detached
+`HEAD == origin/main`. The entrypoint and every Python child require isolated,
+no-bytecode mode (`-I -B`) so a checkout artifact cannot shadow standard-library
+imports before those checks run and a successful run cannot create ignored
+bytecode that blocks the next one. Direct or shebang execution is unsupported;
+the automation's exact interpreter invocation is part of the contract. A wrong root is
 rejected before even a Git subprocess can run; a concurrent upstream advance
 fails closed as a stale checkout for the next scheduled retry.
 
@@ -112,13 +117,15 @@ written through an atomic replace. The state database is the existing
 Example (manual, read-only coordination):
 
 ```sh
-python3 scripts/run-stack-weekly-intelligence.py \
+/opt/homebrew/bin/python3.11 -I -B scripts/run-stack-weekly-intelligence.py \
   --state-dir "$HOME/.local/state/stack/weekly-intelligence" \
   --source-manifest /path/to/manifest.json \
   --source-delta /path/to/delta.json
 ```
 
-The active weekly entrypoint is `python3 scripts/run-stack-weekly-live.py`. It
+The active weekly entrypoint is
+`/opt/homebrew/bin/python3.11 -I -B scripts/run-stack-weekly-live.py`. Direct,
+shebang, or ambient-`python3` execution is unsupported. The entrypoint
 first verifies the exact persisted active automation and a current canonical
 maintenance receipt. It exits before spawning any reconciliation or import
 subprocess when either preflight fails. After preflight it reconciles the
@@ -144,7 +151,7 @@ Without an adapter configuration this example stops at
 `source_intake_adapter_not_configured`. The explicit local preparation route is:
 
 ```sh
-python3 scripts/run-stack-weekly-intelligence.py \
+/opt/homebrew/bin/python3.11 -I -B scripts/run-stack-weekly-intelligence.py \
   --local-adapter-config /owner-local/weekly-inputs.json \
   --state-dir /owner-local/weekly-state \
   --maintenance-receipt /owner-local/maintenance-receipt.json
@@ -215,9 +222,11 @@ no-network clone. The terminal recorder repeats the path, digest, and limit
 checks against the immutable base commit.
 
 Publication runs only from a fresh clean checkout of verified merged
-`origin/main` through `scripts/bootstrap-stack.py --install`, followed by
-`scripts/stack-doctor.py`. Both Claude and Codex discovery and the owner-local
-rollback receipt must pass before the outcome is `published`. Direct main
+`origin/main` through
+`/opt/homebrew/bin/python3.11 -I -B scripts/bootstrap-stack.py --install`,
+followed by `/opt/homebrew/bin/python3.11 -I -B scripts/stack-doctor.py`. Both
+Claude and Codex discovery and the owner-local rollback receipt must pass before
+the outcome is `published`. Direct main
 commits, vendor/imported changes, route/command edits, source mutation,
 upstream-pin updates, credentials, paid fallback, and destructive cleanup are
 outside this contract and still require separate approval.
@@ -232,7 +241,7 @@ without a merged PR, both runtimes, or rollback proof, and it refuses retry or
 rejection while a pull request remains open:
 
 ```sh
-python3 scripts/record-weekly-design-promotion.py \
+/opt/homebrew/bin/python3.11 -I -B scripts/record-weekly-design-promotion.py \
   --live-receipt /owner-local/weekly-state/live/live-receipts/run-id.json \
   --live-receipt-digest returned-live-binding-sha256 \
   --campaign-receipt /owner-local/weekly-state/receipts/run-id.json \

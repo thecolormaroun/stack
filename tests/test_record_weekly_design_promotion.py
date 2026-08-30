@@ -717,6 +717,16 @@ class RecordWeeklyDesignPromotionTests(unittest.TestCase):
         self.assertTrue(all(value is None for value in receipt["evidence"].values()))
         self.assertTrue((self.output / f"{receipt['campaign']['run_id']}.json").is_file())
 
+    def test_retry_requires_a_selected_candidate(self) -> None:
+        retry = self.inactive_decision("retry_with_alert", candidate=False)
+        retry["gates"]["isolated-materialization"] = "unavailable"
+
+        with self.assertRaisesRegex(
+            RECORDER.PromotionReceiptError,
+            "retry_with_alert requires a selected candidate",
+        ):
+            self.record(retry, self.output)
+
     def test_selected_candidate_has_no_file_or_byte_cap(self) -> None:
         paths = [
             "skills/design/design-intelligence/references/output-contract.md",

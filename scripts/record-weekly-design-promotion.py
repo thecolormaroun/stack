@@ -884,6 +884,8 @@ def _validate_outcome(
         if pull_request not in {"not_created", "closed"} or runtime != "not_run":
             raise PromotionReceiptError("rejected candidate cannot leave a review queue or runtime change")
     elif disposition == "retry_with_alert":
+        if candidate != "selected":
+            raise PromotionReceiptError("retry_with_alert requires a selected candidate")
         if "unavailable" not in gates.values():
             raise PromotionReceiptError("retry_with_alert requires an unavailable gate")
         if pull_request not in {"not_created", "closed"} or runtime != "not_run":

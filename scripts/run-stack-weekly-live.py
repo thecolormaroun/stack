@@ -161,6 +161,7 @@ def _git(argv: list[str], *, timeout: int = 120) -> str:
     environment.update({
         "GIT_CONFIG_GLOBAL": "/dev/null",
         "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_NO_REPLACE_OBJECTS": "1",
         "GIT_DIR": str(ROOT / ".git"),
         "GIT_WORK_TREE": str(ROOT),
         "GIT_COMMON_DIR": str(ROOT / ".git"),
@@ -168,7 +169,7 @@ def _git(argv: list[str], *, timeout: int = 120) -> str:
     })
     try:
         result = subprocess.run(
-            [str(GIT), "-C", str(ROOT), *argv],
+            [str(GIT), "--no-replace-objects", "-C", str(ROOT), *argv],
             capture_output=True,
             text=True,
             env=environment,

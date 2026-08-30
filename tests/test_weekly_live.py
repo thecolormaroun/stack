@@ -317,6 +317,16 @@ class WeeklyLiveTests(unittest.TestCase):
             LIVE._validate_execution_checkout()
         commands.assert_not_called()
 
+    def test_git_commands_disable_replacement_objects(self) -> None:
+        completed = SimpleNamespace(returncode=0, stdout="canonical\n", stderr="")
+        with mock.patch.object(LIVE.subprocess, "run", return_value=completed) as commands:
+            self.assertEqual("canonical", LIVE._git(["rev-parse", "HEAD^{commit}"]))
+
+        argv = commands.call_args.args[0]
+        environment = commands.call_args.kwargs["env"]
+        self.assertEqual([str(LIVE.GIT), "--no-replace-objects", "-C", str(LIVE.ROOT)], argv[:4])
+        self.assertEqual("1", environment["GIT_NO_REPLACE_OBJECTS"])
+
     def automation_file(self, account_home: Path, *, mode: int = 0o644, symlink_codex: bool = False) -> Path:
         config = LIVE.WEEKLY.load_config()
         scheduler = config["scheduler"]

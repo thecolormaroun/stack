@@ -181,7 +181,24 @@ class RuntimeCommandAdapterTests(unittest.TestCase):
                 self.assertIn("`gstack:land-and-deploy`", ship)
                 self.assertIn("Require explicit user approval", ship)
             health = DOCTOR.runtime_health(root, deployment)
-            self.assertFalse(any("command adapter" in error or "command alias" in error for error in health), health)
+            self.assertFalse(any(error.startswith("runtime target") for error in health), health)
+            commands_path = root / "registry/commands.json"
+            command_registry = json.loads(commands_path.read_text())
+            extended = next(command for command in command_registry["commands"] if command["visibility"] == "extended")
+            extended["runtimes"].pop("claude")
+            commands_path.write_text(json.dumps(command_registry), encoding="utf-8")
+            malformed = DOCTOR.runtime_health(root, deployment)
+            self.assertTrue(any("malformed extended command" in error for error in malformed), malformed)
+            extended["runtimes"]["claude"] = "   "
+            commands_path.write_text(json.dumps(command_registry), encoding="utf-8")
+            whitespace = DOCTOR.runtime_health(root, deployment)
+            self.assertTrue(any("malformed extended command" in error for error in whitespace), whitespace)
+            for invalid_runtimes in (None, []):
+                extended["runtimes"] = invalid_runtimes
+                commands_path.write_text(json.dumps(command_registry), encoding="utf-8")
+                malformed_shape = DOCTOR.runtime_health(root, deployment)
+                self.assertTrue(any("malformed extended command" in error for error in malformed_shape), malformed_shape)
+            shutil.copy2(ROOT / "registry/commands.json", commands_path)
             missing_adapter = deployment / ".codex/skills/stack/skills/stack-plan/SKILL.md"
             missing_adapter.parent.chmod(0o700)
             missing_adapter.chmod(0o600)

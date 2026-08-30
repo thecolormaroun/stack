@@ -24,6 +24,7 @@ if __name__ == "__main__" and (not sys.flags.isolated or not sys.dont_write_byte
     raise SystemExit(1)
 
 import json
+import configparser
 import hashlib
 import os
 import pwd
@@ -156,12 +157,18 @@ def _environment() -> dict[str, str]:
 
 
 def _git(argv: list[str], *, timeout: int = 120) -> str:
+    environment = _environment()
+    environment.update({
+        "GIT_CONFIG_GLOBAL": "/dev/null",
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_TERMINAL_PROMPT": "0",
+    })
     try:
         result = subprocess.run(
             [str(GIT), "-C", str(ROOT), *argv],
             capture_output=True,
             text=True,
-            env=_environment(),
+            env=environment,
             timeout=timeout,
             check=False,
         )
@@ -172,6 +179,74 @@ def _git(argv: list[str], *, timeout: int = 120) -> str:
     return result.stdout.strip()
 
 
+def _validate_git_config(git_dir: Path) -> None:
+    """Reject local Git features that can execute code before status/fetch."""
+    config_path = _private_path(git_dir / "config", private=False)
+    parser = configparser.RawConfigParser(interpolation=None, strict=True)
+    try:
+        parser.read_string(config_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, configparser.Error) as exc:
+        raise LiveLoopError("execution_checkout_git_config_invalid") from exc
+
+    allowed_sections = {"core", 'remote "origin"', 'branch "main"'}
+    if set(parser.sections()) != allowed_sections:
+        raise LiveLoopError("execution_checkout_git_config_invalid")
+    core = dict(parser.items("core"))
+    required_core = {
+        "repositoryformatversion": "0",
+        "bare": "false",
+        "logallrefupdates": "true",
+    }
+    if any(core.get(key) != value for key, value in required_core.items()):
+        raise LiveLoopError("execution_checkout_git_config_invalid")
+    if set(core) - {
+        "repositoryformatversion", "filemode", "bare", "logallrefupdates",
+        "ignorecase", "precomposeunicode",
+    }:
+        raise LiveLoopError("execution_checkout_git_config_invalid")
+    if core.get("filemode") not in {"true", "false"} or any(
+        core.get(key) not in {None, "true", "false"}
+        for key in ("ignorecase", "precomposeunicode")
+    ):
+        raise LiveLoopError("execution_checkout_git_config_invalid")
+
+    remote = dict(parser.items('remote "origin"'))
+    if set(remote) not in ({"url", "fetch"}, {"url", "fetch", "tagopt"}):
+        raise LiveLoopError("execution_checkout_git_config_invalid")
+    if (
+        remote.get("url") != CANONICAL_ORIGIN
+        or remote.get("fetch") != "+refs/heads/main:refs/remotes/origin/main"
+        or remote.get("tagopt") not in {None, "--no-tags"}
+    ):
+        raise LiveLoopError("execution_checkout_git_config_invalid")
+    if dict(parser.items('branch "main"')) != {
+        "remote": "origin",
+        "merge": "refs/heads/main",
+    }:
+        raise LiveLoopError("execution_checkout_git_config_invalid")
+
+
+def _validate_git_hooks(git_dir: Path) -> None:
+    """Allow only inert clone-template samples in the repository hook path."""
+    hooks = _private_path(git_dir / "hooks", directory=True, private=False)
+    try:
+        entries = list(hooks.iterdir())
+    except OSError as exc:
+        raise LiveLoopError("execution_checkout_hooks_invalid") from exc
+    for entry in entries:
+        try:
+            details = entry.lstat()
+        except OSError as exc:
+            raise LiveLoopError("execution_checkout_hooks_invalid") from exc
+        if (
+            not entry.name.endswith(".sample")
+            or stat.S_ISLNK(details.st_mode)
+            or not stat.S_ISREG(details.st_mode)
+        ):
+            raise LiveLoopError("execution_checkout_hooks_invalid")
+        _private_path(entry, private=False)
+
+
 def _validate_execution_checkout() -> str:
     """Prove the unattended lane is the clean, freshly fetched automation clone."""
     expected = _private_path(AUTOMATION_CHECKOUT, directory=True)
@@ -180,6 +255,8 @@ def _validate_execution_checkout() -> str:
         # live lane from the saved/dirty project cannot reach any mutation.
         raise LiveLoopError("execution_checkout_wrong_root")
     _private_path(expected / ".git", directory=True, private=False)
+    _validate_git_config(expected / ".git")
+    _validate_git_hooks(expected / ".git")
     if Path(_git(["rev-parse", "--show-toplevel"])).resolve(strict=True) != expected:
         raise LiveLoopError("execution_checkout_invalid")
     if _git(["remote", "get-url", "origin"]) != CANONICAL_ORIGIN:

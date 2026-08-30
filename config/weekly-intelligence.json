@@ -84,7 +84,7 @@
     "reasoning_effort": "high",
     "execution_environment": "local",
     "prompt_path": "config/weekly-intelligence-automation-prompt.md",
-    "prompt_digest": "b00ccdaa6dd56bb438cb0202fd19eda7fbb2890af4084a91df8d616fb1e0ebe6",
+    "prompt_digest": "3bab176a23a1dd7453e66825194164be17da2e869860c428609e7f9ea0d85b20",
     "enabled": true,
     "approval_required": true,
     "state": "active"

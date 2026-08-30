@@ -51,6 +51,34 @@ class WeeklyLiveTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
+    def execution_checkout(self, *, extra_core: str = "") -> Path:
+        checkout = self.root / ".local" / "share" / "stack" / "weekly-intelligence-source"
+        git_dir = checkout / ".git"
+        git_dir.mkdir(parents=True, mode=0o700)
+        (git_dir / "hooks").mkdir(mode=0o700)
+        checkout.chmod(0o700)
+        config = git_dir / "config"
+        config.write_text(
+            "\n".join((
+                "[core]",
+                "\trepositoryformatversion = 0",
+                "\tfilemode = true",
+                "\tbare = false",
+                "\tlogallrefupdates = true",
+                extra_core,
+                '[remote "origin"]',
+                f"\turl = {LIVE.CANONICAL_ORIGIN}",
+                "\ttagOpt = --no-tags",
+                "\tfetch = +refs/heads/main:refs/remotes/origin/main",
+                '[branch "main"]',
+                "\tremote = origin",
+                "\tmerge = refs/heads/main",
+            )) + "\n",
+            encoding="utf-8",
+        )
+        config.chmod(0o600)
+        return checkout
+
     def test_live_scheduler_binding_uses_saved_project_not_execution_checkout(self) -> None:
         self.assertEqual(
             LIVE.ACCOUNT_HOME / "Projects" / "stack",
@@ -94,10 +122,7 @@ class WeeklyLiveTests(unittest.TestCase):
         loader.assert_not_called()
 
     def test_execution_checkout_requires_clean_detached_fetched_origin_main(self) -> None:
-        checkout = self.root / ".local" / "share" / "stack" / "weekly-intelligence-source"
-        git_dir = checkout / ".git"
-        git_dir.mkdir(parents=True, mode=0o700)
-        checkout.chmod(0o700)
+        checkout = self.execution_checkout()
         responses = iter((
             str(checkout),
             LIVE.CANONICAL_ORIGIN,
@@ -122,10 +147,7 @@ class WeeklyLiveTests(unittest.TestCase):
             self.assertEqual("a" * 40, LIVE._validate_execution_checkout())
 
     def test_execution_checkout_stale_commit_blocks(self) -> None:
-        checkout = self.root / ".local" / "share" / "stack" / "weekly-intelligence-source"
-        git_dir = checkout / ".git"
-        git_dir.mkdir(parents=True, mode=0o700)
-        checkout.chmod(0o700)
+        checkout = self.execution_checkout()
         responses = iter((
             str(checkout),
             LIVE.CANONICAL_ORIGIN,
@@ -151,10 +173,7 @@ class WeeklyLiveTests(unittest.TestCase):
             LIVE._validate_execution_checkout()
 
     def test_execution_checkout_rejects_hidden_index_flags_before_fetch(self) -> None:
-        checkout = self.root / ".local" / "share" / "stack" / "weekly-intelligence-source"
-        git_dir = checkout / ".git"
-        git_dir.mkdir(parents=True, mode=0o700)
-        checkout.chmod(0o700)
+        checkout = self.execution_checkout()
         git = mock.Mock(side_effect=(
             str(checkout),
             LIVE.CANONICAL_ORIGIN,
@@ -224,10 +243,7 @@ class WeeklyLiveTests(unittest.TestCase):
             self.assertIn(f"/opt/homebrew/bin/python3.11 -I -B {command}", operations)
 
     def test_execution_checkout_rejects_ignored_files_before_fetch(self) -> None:
-        checkout = self.root / ".local" / "share" / "stack" / "weekly-intelligence-source"
-        git_dir = checkout / ".git"
-        git_dir.mkdir(parents=True, mode=0o700)
-        checkout.chmod(0o700)
+        checkout = self.execution_checkout()
         git = mock.Mock(side_effect=(
             str(checkout),
             LIVE.CANONICAL_ORIGIN,
@@ -246,6 +262,41 @@ class WeeklyLiveTests(unittest.TestCase):
         ):
             LIVE._validate_execution_checkout()
         self.assertEqual(4, git.call_count)
+
+    def test_execution_checkout_rejects_fsmonitor_before_first_git_process(self) -> None:
+        checkout = self.execution_checkout(extra_core="\tfsmonitor = /tmp/untrusted-monitor")
+        commands = mock.Mock()
+        with (
+            mock.patch.multiple(
+                LIVE,
+                ROOT=checkout.resolve(),
+                ACCOUNT_HOME=self.root,
+                AUTOMATION_CHECKOUT=checkout,
+            ),
+            mock.patch.object(LIVE.subprocess, "run", commands),
+            self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_git_config_invalid"),
+        ):
+            LIVE._validate_execution_checkout()
+        commands.assert_not_called()
+
+    def test_execution_checkout_rejects_active_hook_before_first_git_process(self) -> None:
+        checkout = self.execution_checkout()
+        hook = checkout / ".git" / "hooks" / "reference-transaction"
+        hook.write_text("#!/bin/sh\nexit 9\n", encoding="utf-8")
+        hook.chmod(0o700)
+        commands = mock.Mock()
+        with (
+            mock.patch.multiple(
+                LIVE,
+                ROOT=checkout.resolve(),
+                ACCOUNT_HOME=self.root,
+                AUTOMATION_CHECKOUT=checkout,
+            ),
+            mock.patch.object(LIVE.subprocess, "run", commands),
+            self.assertRaisesRegex(LIVE.LiveLoopError, "execution_checkout_hooks_invalid"),
+        ):
+            LIVE._validate_execution_checkout()
+        commands.assert_not_called()
 
     def automation_file(self, account_home: Path, *, mode: int = 0o644, symlink_codex: bool = False) -> Path:
         config = LIVE.WEEKLY.load_config()

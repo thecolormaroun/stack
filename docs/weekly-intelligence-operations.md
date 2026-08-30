@@ -49,7 +49,10 @@ the saved checkout out of the unattended lane without weakening scheduler
 identity. A missing or unsafe execution checkout fails as `retry_with_alert`;
 the automation never cleans or switches the saved project checkout. Before any
 private-source or campaign subprocess, the live entrypoint independently
-requires that exact owner-private checkout, refreshes the canonical remote
+requires that exact owner-private checkout, parses and allowlists its minimal
+local Git configuration and rejects every active or symlinked repository hook
+before the first Git process, ignores global/system Git configuration,
+refreshes the canonical remote
 tracking ref, rejects tracked paths hidden by `assume-unchanged` or
 `skip-worktree`, rejects ignored files, and proves clean detached
 `HEAD == origin/main`. The entrypoint and every Python child require isolated,

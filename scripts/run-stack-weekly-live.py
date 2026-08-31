@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Run Stack's approved local weekly bookmark and design-intelligence loop.
 
-The live lane reads Field Theory, imports missing x-bookmarks without
-embeddings, and then runs the deterministic weekly collection coordinator. This
+The live lane reads Field Theory, reconciles an owner-local snapshot, and then
+runs the deterministic weekly collection coordinator. GBrain mutation is
+forbidden here; any configured downstream GBrain access remains read-only. This
 entrypoint itself never enables Direct X/OAuth, provider egress, skill
 promotion, or runtime publication; the approved Codex automation owns the
 separate evaluated promotion tail.
@@ -43,9 +44,10 @@ CANONICAL_ORIGIN = "https://github.com/thecolormaroun/stack.git"
 GIT = Path("/usr/bin/git")
 LIVE_ROOT = ACCOUNT_HOME / ".local" / "state" / "stack" / "weekly-intelligence" / "live"
 FIELD_THEORY_DB = ACCOUNT_HOME / ".ft-bookmarks" / "bookmarks.db"
-GBRAIN_SOURCE_ROOT = ACCOUNT_HOME / ".gbrain" / "source-roots" / "x-bookmarks-native"
-GBRAIN_CLI = ACCOUNT_HOME / ".bun" / "bin" / "gbrain"
 FIXED_PATH = f"{ACCOUNT_HOME}/.bun/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+GBRAIN_MUTATION_POLICY = "forbidden"
+GBRAIN_IMPORTER_SCRIPT = "import-bookmark-deltas.py"
 
 WEEKLY: Any = None
 
@@ -298,7 +300,17 @@ def _validate_execution_checkout() -> str:
     return head
 
 
+def _reject_gbrain_mutation(argv: list[str]) -> None:
+    """Keep this runner fail-closed while allowing read-only downstream use."""
+
+    if GBRAIN_MUTATION_POLICY != "forbidden":
+        raise LiveLoopError("gbrain_mutation_policy_invalid")
+    if any(Path(str(argument)).name == GBRAIN_IMPORTER_SCRIPT for argument in argv):
+        raise LiveLoopError("gbrain_mutation_forbidden")
+
+
 def _run(argv: list[str], *, timeout: int = 180, receipt_path: Path | None = None) -> dict[str, Any]:
+    _reject_gbrain_mutation(argv)
     try:
         result = subprocess.run(
             argv,
@@ -427,10 +439,7 @@ def run() -> dict[str, Any]:
     maintenance_receipt = _preflight()
     live_root = _private_path(LIVE_ROOT, directory=True)
     _private_path(FIELD_THEORY_DB)
-    _private_path(GBRAIN_SOURCE_ROOT, directory=True, private=False)
-    _private_path(GBRAIN_CLI, private=False, executable=True, allow_leaf_symlink=True)
     _private_path(live_root / "tmp", directory=True)
-    _private_path(live_root / "gbrain-import", directory=True)
     _private_path(live_root / "coordinator", directory=True)
     _private_path(live_root / "live-receipts", directory=True)
     ledger = _private_path(live_root / "bookmarks-ledger.sqlite3")
@@ -453,23 +462,6 @@ def run() -> dict[str, Any]:
     ], receipt_path=snapshot)
     _private_path(snapshot)
 
-    import_receipt_path = _private_output(live_root / "gbrain-import-weekly.json")
-    imported = _run([
-        sys.executable,
-        "-I",
-        "-B",
-        str(ROOT / "scripts" / "import-bookmark-deltas.py"),
-        "--snapshot", str(snapshot),
-        "--markdown-dir", str(live_root / "gbrain-import"),
-        "--ledger", str(ledger),
-        "--existing-source-root", str(GBRAIN_SOURCE_ROOT),
-        "--out", str(import_receipt_path),
-        "--apply",
-        "--approval-contract", "x-bookmarks-import-approved-v1",
-    ], receipt_path=import_receipt_path)
-    if imported.get("status") not in {"indexed", "no_action"}:
-        raise LiveLoopError("gbrain_import_not_indexed")
-
     campaign = _run([
         sys.executable,
         "-I",
@@ -488,8 +480,6 @@ def run() -> dict[str, Any]:
         "task_id": "stack-weekly-live",
         "source_observation_count": len(reconcile.get("observations", [])),
         "source_zero_delta_state": (reconcile.get("zero_delta") or {}).get("state"),
-        "import_status": imported.get("status"),
-        "import_accepted_count": imported.get("accepted_count"),
         "campaign_run_id": campaign.get("run_id"),
         "campaign_terminal_state": campaign.get("terminal_state"),
         "campaign_reason_code": campaign.get("reason_code"),

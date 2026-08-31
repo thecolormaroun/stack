@@ -49,6 +49,63 @@ and local paths remain in an owner-only local ledger. Bookmark text is untrusted
 evidence, never instructions. Collection does not mutate browser, Field Theory,
 GitHub, or Hermes source data.
 
+## Operational status and weekly preflight
+
+The single metadata-only operations surface is
+`scripts/x_bookmark_infrastructure_status.py`. It does not return bookmark
+bodies, URLs, credentials, or model output:
+
+```sh
+python3 scripts/x_bookmark_infrastructure_status.py status
+python3 scripts/x_bookmark_infrastructure_status.py inspect
+```
+
+`status` and `inspect` are read-only. They report the current Field Theory
+receipt/database binding, aggregate media state, daily scheduler posture,
+latest collection and curation receipts, job uniqueness, circuit/lock state,
+and the separate cross-project knowledge-maintenance hold. Installed does not
+mean healthy: a fresh bound receipt and complete downstream receipts are the
+evidence that closes the relevant gate.
+
+The weekly scheduler uses the Stack-only preflight before synthesis:
+
+```sh
+python3 scripts/x_bookmark_infrastructure_status.py weekly-preflight
+```
+
+It may write only the owner-local `weekly-preflight.json` receipt. If the
+Field Theory receipt is stale/mismatched or the separate knowledge task has
+not recorded a stable handoff, it persists `field_theory_source_unhealthy` or
+`gbrain_maintenance_active` and exits held. The preflight contains no route to
+the knowledge importer and must not be treated as permission to change any
+cross-project index. It also blocks on a missing, duplicate, or drifted daily
+schedule: the exact Field Theory calendar, collection/curation expressions,
+wrapper names, and `--no-agent` posture must match the contract below.
+
+The owner schedule is deliberately ordered. Field Theory refreshes at 02:07;
+the same idempotent collection job runs at 04:17 and 06:17 so an unusually
+long media or model pass gets one later retry without creating a second job;
+curation runs Monday at 09:23. A collection that sees an in-progress or
+non-authoritative Field Theory receipt stops before opening its ledger.
+
+The mutating controls are explicit and owner-gated. Both commands require a
+mode-0600 owner-local authorization receipt with schema
+`x-bookmark-owner-authorization/v1`; without it they stop before invoking the
+Field Theory controller:
+
+```sh
+python3 scripts/x_bookmark_infrastructure_status.py run \
+  --authorization-receipt /owner-local/field-theory-authorization.json
+python3 scripts/x_bookmark_infrastructure_status.py resume \
+  --authorization-receipt /owner-local/field-theory-authorization.json
+```
+
+The run and resume wrappers invoke only the existing Field Theory maintenance
+controller with the `field-theory-bookmarks` selector. They do not broaden the
+source boundary or grant cross-project writes. See
+[`registry/bookmark-infrastructure.json`](../registry/bookmark-infrastructure.json)
+for the action-level trust and authorization contract.
+
 Historical completeness is stronger than a successful fetch. The backfill must
 reach terminal cursor evidence, reconcile available source/folder counts,
 record missing or deleted items and media/link status, preserve deduplication

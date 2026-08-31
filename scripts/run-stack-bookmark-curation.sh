@@ -57,18 +57,33 @@ open(path, "w", encoding="utf-8").write(json.dumps(data, indent=2, sort_keys=Tru
 PY
   chmod 600 "$receipt"
 }
+ensure_failed_receipt() {
+  if [[ ! -f "$receipt" ]]; then
+    printf '{"reason":"phase_failed_before_packet"}\n' > "$receipt"
+  fi
+  annotate_failed_receipt
+}
 if [[ "$mode" == "collection" ]]; then
-  python3 "$root/scripts/collect-bookmark-candidates.py" \
-    --sources "${STACK_BOOKMARK_SOURCES:-$root/config/bookmark-sources.json}" \
-    --policy "${STACK_BOOKMARK_FETCH_POLICY:-$root/config/bookmark-fetch-policy.json}" \
-    --ledger "${STACK_BOOKMARK_LEDGER:-$state_root/bookmark-intake.sqlite}" \
-    --out "$receipt" "$@"
+  if ! python3 "$root/scripts/collect-bookmark-candidates.py" \
+      --sources "${STACK_BOOKMARK_SOURCES:-$root/config/bookmark-sources.json}" \
+      --policy "${STACK_BOOKMARK_FETCH_POLICY:-$root/config/bookmark-fetch-policy.json}" \
+      --ledger "${STACK_BOOKMARK_LEDGER:-$state_root/bookmark-intake.sqlite}" \
+      --out "$receipt" "$@"; then
+    ensure_failed_receipt
+    exit 1
+  fi
   annotate_receipt
   exit 0
 fi
 
 # Curation is intentionally review-only.  Candidates are materialized from the
 # owner-only ledger; no external candidate export is required.
+if ! python3 "$root/scripts/field_theory_freshness.py" \
+    --sources "${STACK_BOOKMARK_SOURCES:-$root/config/bookmark-sources.json}" >/dev/null; then
+  printf '{"reason":"field_theory_freshness_failed"}\n' > "$receipt"
+  ensure_failed_receipt
+  exit 1
+fi
 apply=0
 if [[ "${1:-}" == "--apply" ]]; then
   apply=1
@@ -82,13 +97,19 @@ ledger="${STACK_BOOKMARK_LEDGER:-$state_root/bookmark-intake.sqlite}"
 curation_policy="${STACK_CAPABILITY_ACTIVATION_POLICY:-$root/config/capability-activation-policy.json}"
 candidate_file="$state_root/.curation-candidates-$stamp.json"
 trap 'rm -f "$candidate_file"; rmdir "$lock"' EXIT
-python3 "$root/scripts/materialize-bookmark-candidates.py" \
-  --ledger "$ledger" --policy "$curation_policy" --out "$candidate_file"
-python3 "$root/scripts/triage-bookmark-candidates.py" \
-  --candidates "$candidate_file" \
-  --catalog "${STACK_CAPABILITY_CATALOG:-$root/registry/capabilities.json}" \
-  --policy "$curation_policy" \
-  --out "$receipt"
+if ! python3 "$root/scripts/materialize-bookmark-candidates.py" \
+    --ledger "$ledger" --policy "$curation_policy" --out "$candidate_file"; then
+  ensure_failed_receipt
+  exit 1
+fi
+if ! python3 "$root/scripts/triage-bookmark-candidates.py" \
+    --candidates "$candidate_file" \
+    --catalog "${STACK_CAPABILITY_CATALOG:-$root/registry/capabilities.json}" \
+    --policy "$curation_policy" \
+    --out "$receipt"; then
+  ensure_failed_receipt
+  exit 1
+fi
 if [[ "$apply" -eq 1 ]]; then
   if [[ -n "${HERMES_LINK_INBOX_SCRIPT:-}" ]]; then
     if ! python3 - "$receipt" "$HERMES_LINK_INBOX_SCRIPT" "$root/scripts/triage-bookmark-candidates.py" <<'PY'

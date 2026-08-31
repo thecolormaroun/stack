@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "surface": "x-bookmark-infrastructure",
+  "entrypoint": "scripts/x_bookmark_infrastructure_status.py",
+  "source_boundary": "field-theory-only",
+  "gbrain_mutation": "forbidden",
+  "actions": [
+    {
+      "id": "status",
+      "command": "status",
+      "trust_class": "read-only",
+      "authorization": "none",
+      "writes": [],
+      "outputs": ["redacted-infrastructure-status"]
+    },
+    {
+      "id": "inspect",
+      "command": "inspect",
+      "trust_class": "read-only",
+      "authorization": "none",
+      "writes": [],
+      "outputs": ["redacted-infrastructure-status"]
+    },
+    {
+      "id": "weekly-preflight",
+      "command": "weekly-preflight",
+      "trust_class": "owner-local-receipt",
+      "authorization": "bounded-owner-local-receipt",
+      "writes": ["owner-local-weekly-preflight-receipt"],
+      "outputs": ["redacted-weekly-preflight"],
+      "gbrain_mutation": "forbidden"
+    },
+    {
+      "id": "run",
+      "command": "run",
+      "trust_class": "local-mutation",
+      "authorization": "owner-local-authorization-receipt",
+      "controller": "field-theory-only",
+      "writes": ["field-theory-owner-controller"],
+      "outputs": ["redacted-controller-receipt"],
+      "gbrain_mutation": "forbidden"
+    },
+    {
+      "id": "resume",
+      "command": "resume",
+      "trust_class": "local-mutation",
+      "authorization": "owner-local-authorization-receipt",
+      "controller": "field-theory-only",
+      "writes": ["field-theory-owner-controller"],
+      "outputs": ["redacted-controller-receipt"],
+      "gbrain_mutation": "forbidden"
+    }
+  ]
+}

@@ -26,3 +26,10 @@ Legacy adapters preserve existing entry points: `agent-operating-stack` maps to
 CE, GStack, and Stack-Codex commands remain usable through their registry
 aliases. The router asks for clarification when review intent is ambiguous and
 never performs an external mutation without explicit approval.
+
+The `stack bookmarks` operational route resolves to the metadata-only
+`scripts/x_bookmark_infrastructure_status.py` surface. Its `status` and
+`inspect` actions are read-only; `weekly-preflight` may persist only its
+owner-local hold receipt; and `run`/`resume` require the separate
+owner-authorization receipt documented in
+[`bookmark-curation.md`](bookmark-curation.md).

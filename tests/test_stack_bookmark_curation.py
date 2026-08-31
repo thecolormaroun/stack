@@ -182,7 +182,7 @@ def test_installer_uses_exact_cron_argv_with_separate_wrappers(tmp_path):
     result = subprocess.run([str(INSTALLER), "--enable", "--approval-token", "I_APPROVE_HERMES_STACK_CURATION"], cwd=ROOT, env=env, text=True, capture_output=True)
     assert result.returncode == 0, result.stderr
     collection, curation = argv_log.read_text().splitlines()
-    assert collection == "cron create 17 1 * * * --name stack-bookmark-collection --script stack-bookmark-collection.sh --no-agent"
+    assert collection == "cron create 17 4,6 * * * --name stack-bookmark-collection --script stack-bookmark-collection.sh --no-agent"
     assert curation == "cron create 23 9 * * 1 --name stack-bookmark-curation --script stack-bookmark-curation.sh --no-agent"
 
 

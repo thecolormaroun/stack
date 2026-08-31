@@ -26,10 +26,10 @@ collection_script="$(basename "$collection_wrapper")"
 curation_script="$(basename "$curation_wrapper")"
 verification_dir="${STACK_HERMES_VERIFICATION_DIR:-${HOME}/.local/state/stack/receipts}"
 max_receipt_age="${STACK_HERMES_RECEIPT_MAX_AGE_SECONDS:-86400}"
-collection_command=("$hermes_bin" cron create '17 1 * * *' --name stack-bookmark-collection --script "$collection_script" --no-agent)
+collection_command=("$hermes_bin" cron create '17 4,6 * * *' --name stack-bookmark-collection --script "$collection_script" --no-agent)
 curation_command=("$hermes_bin" cron create '23 9 * * 1' --name stack-bookmark-curation --script "$curation_script" --no-agent)
 printf 'Dry-run only. Exact Hermes commands:\n'
-printf 'hermes cron create %q --name %q --script %q --no-agent\n' '17 1 * * *' stack-bookmark-collection "$collection_script"
+printf 'hermes cron create %q --name %q --script %q --no-agent\n' '17 4,6 * * *' stack-bookmark-collection "$collection_script"
 printf 'hermes cron create %q --name %q --script %q --no-agent\n' '23 9 * * 1' stack-bookmark-curation "$curation_script"
 if [[ "$install_wrappers" == true ]]; then
   mkdir -p "$scripts_dir"
@@ -82,20 +82,8 @@ for phase in ("collection", "curation"):
             data = json.load(open(path, encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        operational_collection = (
-            phase == "collection"
-            and data.get("receipt_type") in {"collection", "partial"}
-            and isinstance(data.get("sources"), list)
-            and bool(data["sources"])
-            and any(source.get("status") == "ok" for source in data["sources"])
-            and all(
-                source.get("status") in {"ok", "partial_repository_inaccessible"}
-                for source in data["sources"]
-                if isinstance(source, dict)
-            )
-        )
         complete_phase = data.get("receipt_type") == phase and data.get("complete") is True
-        if data.get("phase") == phase and (complete_phase or operational_collection) and data.get("manual_run") is True and data.get("mode") == "apply":
+        if data.get("phase") == phase and complete_phase and data.get("manual_run") is True and data.get("mode") == "apply":
             found = True
             break
     if not found:
@@ -121,12 +109,20 @@ then
   echo "Refusing enablement: Stack curation configuration is not ready." >&2
   exit 6
 fi
-gateway_status="$("$hermes_bin" cron status 2>&1 || true)"
+if ! gateway_status="$("$hermes_bin" cron status 2>&1)"; then
+  printf '%s\n' "$gateway_status" >&2
+  echo "Refusing enablement: Hermes gateway status could not be verified." >&2
+  exit 3
+fi
 if [[ "$gateway_status" != *"Gateway is running"* || "$gateway_status" == *"not running"* ]]; then
   echo "Refusing enablement: Hermes gateway is not running." >&2
   exit 3
 fi
-existing_jobs="$("$hermes_bin" cron list --all 2>&1 || true)"
+if ! existing_jobs="$("$hermes_bin" cron list --all 2>&1)"; then
+  printf '%s\n' "$existing_jobs" >&2
+  echo "Refusing enablement: existing Hermes cron jobs could not be verified." >&2
+  exit 7
+fi
 if [[ "$existing_jobs" == *"stack-bookmark-collection"* || "$existing_jobs" == *"stack-bookmark-curation"* ]]; then
   echo "Refusing enablement: a Stack bookmark cron name already exists." >&2
   exit 7

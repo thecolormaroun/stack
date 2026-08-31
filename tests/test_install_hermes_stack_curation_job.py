@@ -20,8 +20,8 @@ def _fake_hermes(tmp_path: Path) -> tuple[Path, Path]:
     command = bin_dir / "hermes"
     command.write_text(
         "#!/usr/bin/env bash\n"
-        "if [[ \"$1 $2\" == 'cron status' ]]; then echo 'Gateway is running'; exit 0; fi\n"
-        "if [[ \"$1 $2\" == 'cron list' ]]; then cat \"$HERMES_JOBS_FILE\" 2>/dev/null || true; exit 0; fi\n"
+        "if [[ \"$1 $2\" == 'cron status' ]]; then [[ \"${HERMES_FAIL_STATUS:-}\" == 1 ]] && exit 9; echo 'Gateway is running'; exit 0; fi\n"
+        "if [[ \"$1 $2\" == 'cron list' ]]; then [[ \"${HERMES_FAIL_LIST:-}\" == 1 ]] && exit 9; cat \"$HERMES_JOBS_FILE\" 2>/dev/null || true; exit 0; fi\n"
         "printf '%s\\n' \"$*\" >> \"$HERMES_ARGV_LOG\"\n"
         "if [[ \"$1 $2\" == 'cron create' ]]; then\n"
         "  name=''\n"
@@ -97,11 +97,11 @@ def test_enable_requires_receipts_then_uses_exact_cron_argv(tmp_path):
     result = subprocess.run([str(INSTALLER), "--enable", "--approval-token", "I_APPROVE_HERMES_STACK_CURATION"], cwd=ROOT, env=env, text=True, capture_output=True)
     assert result.returncode == 0, result.stderr
     collection, curation = argv.read_text().splitlines()
-    assert collection == "cron create 17 1 * * * --name stack-bookmark-collection --script stack-bookmark-collection.sh --no-agent"
+    assert collection == "cron create 17 4,6 * * * --name stack-bookmark-collection --script stack-bookmark-collection.sh --no-agent"
     assert curation == "cron create 23 9 * * 1 --name stack-bookmark-curation --script stack-bookmark-curation.sh --no-agent"
 
 
-def test_enable_accepts_operational_collection_with_an_inaccessible_link(tmp_path):
+def test_enable_rejects_partial_collection_even_with_an_inaccessible_link(tmp_path):
     bin_dir, argv = _fake_hermes(tmp_path)
     receipts = _receipts(tmp_path / "receipts")
     collection = receipts / "collection-proof.json"
@@ -128,7 +128,22 @@ def test_enable_accepts_operational_collection_with_an_inaccessible_link(tmp_pat
     assert installed.returncode == 0, installed.stderr
     result = subprocess.run([str(INSTALLER), "--enable", "--approval-token", "I_APPROVE_HERMES_STACK_CURATION"], cwd=ROOT, env=env, text=True, capture_output=True)
 
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == 5
+
+
+def test_enable_fails_closed_when_existing_cron_list_is_unavailable(tmp_path):
+    bin_dir, argv = _fake_hermes(tmp_path)
+    receipts = _receipts(tmp_path / "receipts")
+    env = _env(tmp_path, bin_dir, argv, receipts)
+    env["HERMES_FAIL_LIST"] = "1"
+
+    installed = subprocess.run([str(INSTALLER), "--install-wrappers"], cwd=ROOT, env=env, text=True, capture_output=True)
+    assert installed.returncode == 0, installed.stderr
+    result = subprocess.run([str(INSTALLER), "--enable", "--approval-token", "I_APPROVE_HERMES_STACK_CURATION"], cwd=ROOT, env=env, text=True, capture_output=True)
+
+    assert result.returncode == 7
+    assert "could not be verified" in result.stderr
+    assert not argv.exists() or not argv.read_text().strip()
 
 
 def test_installs_wrappers_under_explicit_hermes_home(tmp_path):

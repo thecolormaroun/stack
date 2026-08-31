@@ -17,9 +17,11 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 try:
     from bookmark_private_corpus import FIELD_THEORY_COLUMNS, FIELD_THEORY_REQUIRED_COLUMNS  # type: ignore
+    import field_theory_freshness  # type: ignore
 except ModuleNotFoundError:  # imported by a focused test through a file spec
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from bookmark_private_corpus import FIELD_THEORY_COLUMNS, FIELD_THEORY_REQUIRED_COLUMNS  # type: ignore
+    import field_theory_freshness  # type: ignore
 
 TRACKING_KEYS = {"fbclid", "gclid", "mc_cid", "mc_eid"}
 URL_RE = re.compile(r"https?://[^\s)>\]}'\"]+")
@@ -363,6 +365,14 @@ def now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def write_receipt(receipt: dict, out: str | None) -> None:
+    encoded = json.dumps(receipt, indent=2, sort_keys=True) + "\n"
+    if out:
+        Path(out).write_text(encoded, encoding="utf-8")
+    else:
+        sys.stdout.write(encoded)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sources", default=str(Path(__file__).parents[1] / "config/bookmark-sources.json"))
@@ -375,6 +385,18 @@ def main(argv: list[str] | None = None) -> int:
     sources_doc, policy_doc = json.loads(Path(args.sources).read_text()), json.loads(Path(args.policy).read_text())
     policy_digest, run_id = digest(policy_doc), "run_" + hashlib.sha256(os.urandom(16)).hexdigest()[:16]
     receipt = {"schema_version": 1, "run_id": run_id, "mode": "apply" if args.apply else "dry-run", "policy_digest": policy_digest, "sources": [], "complete": True}
+
+    # A live Field Theory SQLite source must prove that its owner-local
+    # refresh is current and bound to the exact identity/revision projection
+    # before Stack creates or mutates its ledger.  Fixture and non-SQLite
+    # sources remain available for adapter tests and dry-run checks.
+    upstream = field_theory_freshness.preflight_sources(sources_doc)
+    receipt["upstream_preflight"] = upstream
+    if not upstream["ok"]:
+        receipt["complete"] = False
+        receipt["reason"] = upstream["reason"]
+        write_receipt(receipt, args.out)
+        return 75
     connection = safe_ledger(Path(args.ledger)) if args.apply else None
     discovered_items: list[dict] = []
     try:
@@ -395,9 +417,7 @@ def main(argv: list[str] | None = None) -> int:
             receipt["sources"].append(row)
     finally:
         if connection: connection.close()
-    encoded = json.dumps(receipt, indent=2, sort_keys=True) + "\n"
-    if args.out: Path(args.out).write_text(encoded, encoding="utf-8")
-    else: sys.stdout.write(encoded)
+    write_receipt(receipt, args.out)
     return 0
 
 

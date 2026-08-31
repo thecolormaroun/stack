@@ -20,6 +20,7 @@
     {"command": "stack.learn", "intents": ["retro", "document learning"]},
     {"command": "stack.maintain", "intents": ["doctor", "install stack", "update stack", "audit stack"]},
     {"command": "stack.run", "intents": ["run full workflow", "end to end"]},
-    {"command": "stack", "intents": ["help", "route", "status"]}
+    {"command": "stack", "intents": ["help", "route", "status"]},
+    {"command": "stack", "subcommand": "bookmarks", "intents": ["bookmark infrastructure", "x bookmark status", "bookmark status", "bookmark inspect", "bookmark preflight"]}
   ]
 }

@@ -29,16 +29,11 @@ class WeeklyLiveTests(unittest.TestCase):
         self.root.chmod(0o700)
         self.live_root = self.root / "live"
         self.live_root.mkdir(mode=0o700)
-        for name in ("tmp", "gbrain-import", "coordinator", "live-receipts"):
+        for name in ("tmp", "coordinator", "live-receipts"):
             (self.live_root / name).mkdir(mode=0o700)
         self.field_theory = self.root / "bookmarks.db"
         self.field_theory.write_bytes(b"fixture")
         self.field_theory.chmod(0o600)
-        self.gbrain_root = self.root / "x-bookmarks"
-        self.gbrain_root.mkdir(mode=0o700)
-        self.gbrain_cli = self.root / "gbrain"
-        self.gbrain_cli.write_text("#!/bin/sh\n", encoding="utf-8")
-        self.gbrain_cli.chmod(0o700)
         for name, value in (
             ("bookmarks-ledger.sqlite3", "fixture"),
             ("local-adapter-config.json", "{}"),
@@ -356,15 +351,13 @@ class WeeklyLiveTests(unittest.TestCase):
         path.chmod(mode)
         return path
 
-    def test_live_entrypoint_sequences_reconcile_import_and_campaign(self) -> None:
+    def test_live_entrypoint_sequences_reconcile_and_campaign_without_gbrain_mutation(self) -> None:
         calls: list[list[str]] = []
 
         def command(argv, *, timeout=180, receipt_path=None):
             calls.append(argv)
             if receipt_path is not None and receipt_path.name == "source-snapshot-current.json":
                 value = {"observations": [{}, {}], "zero_delta": {"state": "passed"}}
-            elif receipt_path is not None:
-                value = {"status": "no_action", "accepted_count": 2}
             else:
                 value = {
                     "run_id": "weekly-fixture",
@@ -388,8 +381,6 @@ class WeeklyLiveTests(unittest.TestCase):
                 LIVE,
                 LIVE_ROOT=self.live_root,
                 FIELD_THEORY_DB=self.field_theory,
-                GBRAIN_SOURCE_ROOT=self.gbrain_root,
-                GBRAIN_CLI=self.gbrain_cli,
                 ACCOUNT_HOME=self.root,
                 FIXED_PATH=f"{self.root}/.bun/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
                 _run=command,
@@ -414,17 +405,33 @@ class WeeklyLiveTests(unittest.TestCase):
         self.assertRegex(result["live_binding_receipt_digest"], r"^[a-f0-9]{64}$")
         binding = json.loads((self.live_root / "live-receipts" / "weekly-fixture.json").read_text())
         self.assertEqual(result["campaign_receipt_digest"], binding["campaign_receipt_digest"])
+        self.assertEqual(2, len(calls))
         self.assertIn("u15-source-sync-approved-v1", calls[0])
-        self.assertIn("x-bookmarks-import-approved-v1", calls[1])
+        self.assertEqual("reconcile-bookmark-sources.py", Path(calls[0][3]).name)
+        self.assertEqual("run-stack-weekly-intelligence.py", Path(calls[1][3]).name)
         self.assertEqual("-I", calls[0][1])
         self.assertEqual("-B", calls[0][2])
         self.assertEqual("-I", calls[1][1])
         self.assertEqual("-B", calls[1][2])
-        self.assertEqual("-I", calls[2][1])
-        self.assertEqual("-B", calls[2][2])
-        self.assertIn("--existing-source-root", calls[1])
-        self.assertNotIn("--cli", calls[1])
-        self.assertIn("--local-adapter-config", calls[2])
+        self.assertNotIn("import-bookmark-deltas.py", " ".join(calls[0] + calls[1]))
+        self.assertNotIn("--existing-source-root", calls[0] + calls[1])
+        self.assertNotIn("--cli", calls[0] + calls[1])
+        self.assertIn("--local-adapter-config", calls[1])
+
+    def test_gbrain_mutation_command_is_rejected_before_any_subprocess(self) -> None:
+        commands = mock.Mock()
+        with (
+            mock.patch.object(LIVE.subprocess, "run", commands),
+            self.assertRaisesRegex(LIVE.LiveLoopError, "gbrain_mutation_forbidden"),
+        ):
+            LIVE._run([
+                sys.executable,
+                "-I",
+                "-B",
+                str(ROOT / "scripts" / "import-bookmark-deltas.py"),
+                "--apply",
+            ])
+        commands.assert_not_called()
 
     def test_campaign_receipt_binding_rejects_ambiguous_matches(self) -> None:
         campaign = {

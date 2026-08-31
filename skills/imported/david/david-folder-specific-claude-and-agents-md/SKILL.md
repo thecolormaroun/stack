@@ -1,20 +1,17 @@
 ---
 name: david-folder-specific-claude-and-agents-md
-description: 'Namespaced import of David Ondrej agent skills: Create a specialized
-  CLAUDE.md (+ AGENTS.md symlink) inside a specific folder to give future agents folder-scoped
-  context. Use when the user asks to create a CLAUDE.md for a folder, write folder
-  instructions, or add agent context to a directory.. Use via $david-folder-specific-claude-and-agents-md
-  when this upstream workflow is needed inside Maroun''s Stack or Hermes-safe operating
-  loop.'
+description: Create a specialized CLAUDE.md (+ AGENTS.md symlink) inside a specific folder to give future agents folder-scoped context. Use when the user asks to create a CLAUDE.md for a folder, write folder instructions, or add agent context to a directory.
 user-invocable: true
 ---
+
 ## Stack Import
 
-- Invoke this imported skill as `$david-folder-specific-claude-and-agents-md`.
+- Invoke this curated import as `$david-folder-specific-claude-and-agents-md`.
 - Upstream name: `folder-specific-claude-and-agents-md`.
+- Upstream author: David Ondrej.
+- Exact upstream commit: `69c3ae5228eb146724fd23dac3d43eab5805bcc3`.
 - Source metadata and license notice: [references/source.md](references/source.md).
-- For broad routing, Hermes/Mookie safety boundaries, or verification choice, start with `$agent-operating-stack` and then use this skill as the focused workflow.
-
+- New skills, deletions, and license changes remain review-gated.
 
 # Folder CLAUDE.md Creation
 
@@ -25,7 +22,7 @@ Background reference: `library/claude-code/claude-and-agents-md.md`.
 ## Process
 
 ### Step 1: Confirm the target folder + sanity-check it deserves a file
-Ask the user which folder. Use absolute path under `~/path/to/project/`.
+Ask the user which folder. Use absolute path under `~/Documents/code/workspace/`.
 
 **Only create a file if the folder has context needed across multiple sessions** — active evolving work, specific conventions, ongoing decisions. A folder of static reference files does NOT need one (agents can read on demand). If unsure, ask the user.
 
@@ -64,9 +61,9 @@ Before writing the file, give the user a bullet list grouped by section — let 
 - **Heavy reference docs:** annotate with `**Read when:**` triggers (e.g. "Read when: writing offer copy"). Prevents loading every session.
 
 ### Step 6: Create the AGENTS.md symlink
-```
+
 cd <folder> && ln -s CLAUDE.md AGENTS.md
-```
+
 Verify with `ls -la CLAUDE.md AGENTS.md`.
 
 ### Step 7: Commit only when asked

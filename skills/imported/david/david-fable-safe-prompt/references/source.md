@@ -4,7 +4,7 @@
 - Upstream skill name: `fable-safe-prompt`
 - Upstream repo: https://github.com/davidondrej/skills
 - Upstream path: `skills/agent-orchestration/fable-safe-prompt`
-- Inspected commit: `5c99080334072075eb9e0a17837f7d24e4f3e6ae`
+- Inspected commit: `69c3ae5228eb146724fd23dac3d43eab5805bcc3`
 - License: MIT
 
 ## License Notice

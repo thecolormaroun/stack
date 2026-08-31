@@ -1,4 +1,5 @@
 interface:
-  display_name: "Matt Grill Me"
-  short_description: "A relentless interview to sharpen a plan or design."
-  default_prompt: "Use $matt-grill-me to a relentless interview to sharpen a plan or design."
+  display_name: "Grill Me"
+  short_description: "Sharpen a plan through interview"
+policy:
+  allow_implicit_invocation: false

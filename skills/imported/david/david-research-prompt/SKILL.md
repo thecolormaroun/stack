@@ -1,20 +1,16 @@
 ---
 name: david-research-prompt
-description: 'Namespaced import of David Ondrej agent skills: Write a single-paragraph
-  Deep Research prompt to hand to a human researcher (or a deep-research AI). Use
-  when the user wants a research brief, a "deep research prompt", a one-paragraph
-  task for a researcher, or asks "what should our researcher look for". Produces ONE
-  tight paragraph with full context, numbered sub-questions, and per-finding output
-  format.. Use via $david-research-prompt when this upstream workflow is needed inside
-  Maroun''s Stack or Hermes-safe operating loop.'
+description: Write a single-paragraph Deep Research prompt to hand to a human researcher (or a deep-research AI). Use when the user wants a research brief, a "deep research prompt", a one-paragraph task for a researcher, or asks "what should our researcher look for". Produces ONE tight paragraph with full context, numbered sub-questions, and per-finding output format.
 ---
+
 ## Stack Import
 
-- Invoke this imported skill as `$david-research-prompt`.
+- Invoke this curated import as `$david-research-prompt`.
 - Upstream name: `research-prompt`.
+- Upstream author: David Ondrej.
+- Exact upstream commit: `69c3ae5228eb146724fd23dac3d43eab5805bcc3`.
 - Source metadata and license notice: [references/source.md](references/source.md).
-- For broad routing, Hermes/Mookie safety boundaries, or verification choice, start with `$agent-operating-stack` and then use this skill as the focused workflow.
-
+- New skills, deletions, and license changes remain review-gated.
 
 # Research Prompt
 

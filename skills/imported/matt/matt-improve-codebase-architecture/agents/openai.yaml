@@ -1,4 +1,5 @@
 interface:
-  display_name: "Matt Improve Codebase Architecture"
-  short_description: "Scan a codebase for deepening opportunities, present them as..."
-  default_prompt: "Use $matt-improve-codebase-architecture to scan a codebase for deepening opportunities, present them as a visual HTML report, then grill through whichever one you pick."
+  display_name: "Improve Codebase Architecture"
+  short_description: "Find and grill architecture improvements"
+policy:
+  allow_implicit_invocation: false

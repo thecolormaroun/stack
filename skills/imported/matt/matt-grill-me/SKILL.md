@@ -1,16 +1,16 @@
 ---
 name: matt-grill-me
-description: 'Namespaced import of Matt Pocock engineering/productivity skills: A
-  relentless interview to sharpen a plan or design.. Use via $matt-grill-me when this
-  upstream workflow is needed inside Maroun''s Stack or Hermes-safe operating loop.'
+description: A relentless interview to sharpen a plan or design.
 disable-model-invocation: true
 ---
+
 ## Stack Import
 
-- Invoke this imported skill as `$matt-grill-me`.
+- Invoke this curated import as `$matt-grill-me`.
 - Upstream name: `grill-me`.
+- Upstream author: Matt Pocock.
+- Exact upstream commit: `5b15a47f2d7150f545fbcacbfe381787fc0230dc`.
 - Source metadata and license notice: [references/source.md](references/source.md).
-- For broad routing, Hermes/Mookie safety boundaries, or verification choice, start with `$agent-operating-stack` and then use this skill as the focused workflow.
+- New skills, deletions, and license changes remain review-gated.
 
-
-Run a `$matt-grilling` session.
+Call the Skill tool with "grilling".

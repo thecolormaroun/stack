@@ -1,22 +1,17 @@
 ---
 name: david-fable-safe-prompt
-description: 'Namespaced import of David Ondrej agent skills: Rewrite a user''s prompt
-  to reduce the chance it trips Claude Fable 5''s server-side safety classifiers (cyber/bio
-  guardrails that force-route to Opus 4.8 or return stop_reason "refusal"). Use when
-  the user hands you a prompt that touches cybersecurity, auth, exploits, malware,
-  pentesting, or other dual-use topics and asks to make it "Fable-safe", "guardrail-safe",
-  "won''t get flagged/refused/downgraded", or to rewrite it so Fable 5 won''t block
-  it.. Use via $david-fable-safe-prompt when this upstream workflow is needed inside
-  Maroun''s Stack or Hermes-safe operating loop.'
+description: Rewrite a user's prompt to reduce the chance it trips Claude Fable 5's server-side safety classifiers (cyber/bio guardrails that force-route to Opus 4.8 or return stop_reason "refusal"). Use when the user hands you a prompt that touches cybersecurity, auth, exploits, malware, pentesting, or other dual-use topics and asks to make it "Fable-safe", "guardrail-safe", "won't get flagged/refused/downgraded", or to rewrite it so Fable 5 won't block it.
 disable-model-invocation: true
 ---
+
 ## Stack Import
 
-- Invoke this imported skill as `$david-fable-safe-prompt`.
+- Invoke this curated import as `$david-fable-safe-prompt`.
 - Upstream name: `fable-safe-prompt`.
+- Upstream author: David Ondrej.
+- Exact upstream commit: `69c3ae5228eb146724fd23dac3d43eab5805bcc3`.
 - Source metadata and license notice: [references/source.md](references/source.md).
-- For broad routing, Hermes/Mookie safety boundaries, or verification choice, start with `$agent-operating-stack` and then use this skill as the focused workflow.
-
+- New skills, deletions, and license changes remain review-gated.
 
 # Fable-Safe Prompt
 

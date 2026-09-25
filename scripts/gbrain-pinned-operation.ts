@@ -17,6 +17,7 @@ import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { assertSafeEnvironment } from "./gbrain-pinned-environment.mjs";
+import { operationVersionAllowed, extractionIsUnverified } from "./gbrain-read-contract.mjs";
 
 type Request =
   | { schema_version: 1; source: "x-bookmarks"; operation: "version" }
@@ -34,8 +35,6 @@ type Request =
       operation: "import";
       directory: string;
     };
-
-const VERSION = "0.42.67.0";
 
 function fail(): never {
   throw new Error("pinned operation failed closed");
@@ -92,16 +91,17 @@ function boundConfigBytes(): Buffer {
   return payload;
 }
 
-function moduleRoot(): string {
+function moduleRoot(operation: Request["operation"]): { root: string; version: string } {
   const cliPath = process.env.GBRAIN_CLI_PATH;
   if (!cliPath) fail();
   const expectedCli = realpathSync(join(homedir(), ".bun", "bin", "gbrain"));
   const resolvedCli = realpathSync(cliPath);
-  if (resolvedCli !== expectedCli || !resolvedCli.endsWith("/gbrain/src/cli.ts")) fail();
+  const installedCli = realpathSync(join(homedir(), ".bun", "install", "global", "node_modules", "gbrain", "src", "cli.ts"));
+  if (resolvedCli !== expectedCli || resolvedCli !== installedCli) fail();
   const root = dirname(dirname(resolvedCli));
   const packageDocument = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-  if (packageDocument?.name !== "gbrain" || packageDocument?.version !== VERSION) fail();
-  return root;
+  if (packageDocument?.name !== "gbrain" || !operationVersionAllowed(packageDocument?.version, operation)) fail();
+  return { root, version: packageDocument.version };
 }
 
 function validateRequest(value: unknown): Request {
@@ -177,12 +177,12 @@ function localCloneAttested(status: Record<string, unknown>): boolean {
 async function main(): Promise<void> {
   if (realpathSync(process.execPath) !== realpathSync("/opt/homebrew/bin/bun")) fail();
   assertSafeEnvironment(process.env);
-  const root = moduleRoot();
   const raw = await Bun.stdin.text();
   if (raw.length === 0 || raw.length > 8192) fail();
   const request = validateRequest(JSON.parse(raw));
+  const { root, version } = moduleRoot(request.operation);
   if (request.operation === "version") {
-    process.stdout.write(`gbrain ${VERSION}`);
+    process.stdout.write(`gbrain ${version}`);
     return;
   }
 
@@ -243,7 +243,7 @@ async function main(): Promise<void> {
           ? await engine.getUnverifiedExtractionPageIds(pageIds)
           : new Set<number>();
         for (const row of results) {
-          if (unverified.has(row.page_id)) row.unverified = true;
+          if (extractionIsUnverified(unverified, row.page_id)) row.unverified = true;
         }
         assertSnapshot();
         process.stdout.write(JSON.stringify(results));

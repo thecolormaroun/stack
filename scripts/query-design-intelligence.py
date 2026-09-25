@@ -63,7 +63,7 @@ EXPECTED_BUN_CLI = Path("/opt/homebrew/Cellar/bun/1.3.14/bin/bun")
 DEFAULT_GBRAIN_CONFIG = ACCOUNT_HOME / ".gbrain" / "config.json"
 PINNED_OPERATION_HELPER = ROOT / "scripts" / "gbrain-pinned-operation.ts"
 LIVE_EGRESS_CONTRACT = "gbrain-keyword-fts-no-provider-v1"
-SUPPORTED_LIVE_CLI_VERSIONS = frozenset({"0.42.67.0"})
+SUPPORTED_LIVE_CLI_VERSIONS = frozenset({"0.42.67.0", "0.48.2.0"})
 ALLOWED_LOCATOR_SCOPES = frozenset({"bookmarks/", "bookmark-"})
 ALLOWED_LOCAL_POSTGRES_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 ALLOWED_LOCAL_POSTGRES_PORTS = frozenset({5432})
@@ -118,7 +118,7 @@ def _trusted_gbrain_cli(path: str | Path) -> str | None:
         or not os.access(resolved, os.X_OK)
         or not isinstance(package, dict)
         or package.get("name") != "gbrain"
-        or package.get("version") != "0.42.67.0"
+        or package.get("version") not in SUPPORTED_LIVE_CLI_VERSIONS
     ):
         return None
     return str(resolved)
@@ -1127,7 +1127,13 @@ class CliGBrainTransport:
         parsed_fresh_at = _parse_time(fresh_at)
         assert parsed_fresh_at is not None
         try:
-            helper_digest = hashlib.sha256(PINNED_OPERATION_HELPER.read_bytes()).hexdigest()
+            helper_digest = digest({
+                name: hashlib.sha256(PINNED_OPERATION_HELPER.with_name(name).read_bytes()).hexdigest()
+                for name in (
+                    "gbrain-pinned-operation.ts", "gbrain-pinned-environment.mjs",
+                    "gbrain-read-contract.mjs",
+                )
+            })
         except OSError:
             return None, "failed", "keyword-adapter-unavailable"
         attestation = {

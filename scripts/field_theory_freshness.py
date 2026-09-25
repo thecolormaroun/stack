@@ -444,7 +444,7 @@ def _database_path(source: Mapping[str, Any]) -> Path | None:
     return path
 
 
-def preflight_source(source: Mapping[str, Any]) -> dict[str, Any]:
+def preflight_source(source: Mapping[str, Any], *, now: datetime | None = None) -> dict[str, Any]:
     """Run the receipt gate for a live SQLite Field Theory source.
 
     Fixture/item sources and non-SQLite exports remain available to focused
@@ -468,7 +468,7 @@ def preflight_source(source: Mapping[str, Any]) -> dict[str, Any]:
         receipt_path = _configured_receipt_path(source)
     except ValueError as exc:
         return _failure(str(exc))
-    return verify_receipt(receipt_path, database_path)
+    return verify_receipt(receipt_path, database_path, now=now)
 
 
 def preflight_sources(document: Mapping[str, Any]) -> dict[str, Any]:

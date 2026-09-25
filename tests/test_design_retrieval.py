@@ -539,6 +539,33 @@ class DesignRetrievalTests(unittest.TestCase):
             )
         self.assertEqual([], calls)
 
+    def test_new_read_version_still_requires_an_exact_owner_grant(self):
+        package = self.query.EXPECTED_GBRAIN_CLI.parents[1] / "package.json"
+        package.write_text(json.dumps({"name": "gbrain", "version": "0.48.2.0"}))
+        for granted in (False, True):
+            with self.subTest(granted=granted):
+                if granted:
+                    grant = json.loads(self.grant.read_text())
+                    grant["allowed_cli_versions"] = ["0.48.2.0"]
+                    self.grant.write_text(json.dumps(grant))
+                calls = []
+                live = self.query.CliGBrainTransport(
+                    cli_path=self.approved_cli,
+                    runner=self.live_runner(calls, version="gbrain 0.48.2.0"), live=True,
+                )
+                response = self.query.retrieve(
+                    self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=live,
+                )
+                if not granted:
+                    self.assertEqual("failed", response["status"])
+                    self.assertEqual("cli-version-unsupported", response["reason_code"])
+                    self.assertEqual(["version"], [call["operation"] for call in calls])
+                else:
+                    self.assertEqual("degraded", response["status"])
+                    self.assertGreater(response["result_count"], 0)
+                    self.assertTrue(all(call["source"] == "x-bookmarks" for call in calls))
+                    self.assertEqual(0, response["safety"]["provider_calls"])
+
     def test_live_version_and_command_allowlists_fail_closed(self):
         calls = []
         live = self.query.CliGBrainTransport(

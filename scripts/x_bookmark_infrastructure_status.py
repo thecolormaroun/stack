@@ -379,7 +379,7 @@ def _field_theory_summary(document: Mapping[str, Any], now: datetime) -> dict[st
             "source": {"row_count": None, "max_source_timestamp": None},
             "media": {"status": "unavailable", "reason": "source_not_configured"},
         }
-    preflight = FRESHNESS.preflight_source(source)
+    preflight = FRESHNESS.preflight_source(source, now=now)
     result: dict[str, Any] = {
         "status": "healthy" if preflight.get("ok") else "blocked",
         "reason": _safe_status(preflight.get("reason"), default="field_theory_preflight_failed"),

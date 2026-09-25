@@ -33,7 +33,13 @@ screenshot, and response stay outside the public Stack checkout.
 
 The live transport permits only GBrain `--version`, `sources_status`, and
 keyword `search` under `GBRAIN_SOURCE=x-bookmarks`; exact command and payload
-shapes are allowlisted. Version `0.42.67.0` is the audited live contract.
+shapes are allowlisted. Read compatibility is explicitly limited to `0.42.67.0`
+and `0.48.2.0`, and still requires the owner's exact version-bound source grant.
+Adding read compatibility does not expand import support. The helper binds the
+launcher to the resolved global package entrypoint, including an installed
+bootstrap symlink, rather than trusting a directory-name suffix. Extraction
+status handling distinguishes the older set of unverified IDs from the newer
+map of status records; mere presence in that map is not a quarantine flag.
 Search runs twice against one attested index and retains only the stable
 intersection before canonical ordering. Exact evidence, author, date, folder, and URL
 matches; lexical task terms; GBrain text results; and available image results

@@ -1,7 +1,10 @@
 """Execute the compatibility boundary without a database or private config."""
 import json
+import importlib.util
+import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -98,6 +101,33 @@ def run_javascript(assertions):
 
 
 class GBrainReadContractTests(unittest.TestCase):
+    @unittest.skipUnless(os.environ.get("STACK_TEST_GBRAIN_PACKAGE"), "opt-in installed-package contract test")
+    def test_installed_package_source_status_and_keyword_quarantine(self):
+        self.assertTrue(Path("/usr/bin/sandbox-exec").is_file(), "network-denied sandbox is required")
+        package = Path(os.environ["STACK_TEST_GBRAIN_PACKAGE"]).resolve(strict=True)
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory).resolve() / "owner"
+            result = subprocess.run(
+                ["/usr/bin/sandbox-exec", "-p", "(version 1)(allow default)(deny network*)",
+                 "/opt/homebrew/bin/bun", "--no-env-file",
+                 str(ROOT / "tests/fixtures/design-retrieval/installed-runtime-probe.ts"),
+                 str(package), str(ROOT / "scripts/gbrain-pinned-operation.ts")],
+                cwd=directory, env={"HOME": str(home), "PATH": "/opt/homebrew/bin:/usr/bin:/bin"},
+                capture_output=True, text=True, timeout=90,
+            )
+            self.assertEqual(result.returncode, 0, "isolated installed-runtime probe failed")
+            payload = json.loads(result.stdout.splitlines()[-1])
+            self.assertIs(payload["ok"], True)
+            spec = importlib.util.spec_from_file_location("stack_contract_query", ROOT / "scripts/query-design-intelligence.py")
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[spec.name] = module
+            try:
+                spec.loader.exec_module(module)
+                accepted = [row["slug"] for row in payload["rows"] if module._gbrain_candidate(row) is not None]
+                self.assertEqual(accepted, ["bookmarks/verified"])
+            finally:
+                sys.modules.pop(spec.name, None)
+
     @unittest.skipUnless(Path("/opt/homebrew/bin/bun").is_file(), "requires the pinned macOS Bun launcher")
     def test_real_helper_accepts_anchored_bootstrap_but_not_redirects(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -305,7 +305,7 @@ class DesignRetrievalTests(unittest.TestCase):
     def live_runner(self, calls, *, status=None, results=None, version="gbrain 0.42.67.0"):
         def runner(argv, **kwargs):
             self.assertEqual([str(self.query.DEFAULT_BUN_CLI.resolve(strict=True)), "--no-env-file"], argv[0:2])
-            self.assertEqual(str(ROOT / "scripts"), kwargs["cwd"])
+            self.assertEqual(str(self.query.PINNED_OPERATION_HELPER.parent), kwargs["cwd"])
             if argv[2].endswith("gbrain-pinned-operation.ts"):
                 operation = json.loads(kwargs["input"])["operation"]
                 if operation == "keyword":
@@ -324,7 +324,7 @@ class DesignRetrievalTests(unittest.TestCase):
             if operation == "sources_status":
                 return SimpleNamespace(returncode=0, stdout=json.dumps(status or self.live_status()), stderr="")
             if operation == "keyword_search":
-                self.assertEqual(str(ROOT / "scripts"), kwargs["cwd"])
+                self.assertEqual(str(self.query.PINNED_OPERATION_HELPER.parent), kwargs["cwd"])
                 self.assertRegex(kwargs["env"]["GBRAIN_CONFIG_SHA256"], r"^[a-f0-9]{64}$")
                 payload = json.loads(kwargs["input"])
                 self.assertEqual({"limit", "operation", "query", "schema_version", "source"}, set(payload))
@@ -718,6 +718,37 @@ class DesignRetrievalTests(unittest.TestCase):
         self.assertRegex(response["index"]["model_versions"][0], r"^gbrain-cli:0\.42\.67\.0:stack-keyword:[a-f0-9]{16}$")
         self.assertTrue(response["safety"]["target_attested"])
         self.assertTrue(response["safety"]["source_scope_enforced"])
+
+    def test_each_helper_dependency_changes_the_retrieval_fingerprint(self):
+        helper_directory = self.root.resolve() / "helper-copies"
+        helper_directory.mkdir()
+        names = ("gbrain-pinned-operation.ts", "gbrain-pinned-environment.mjs", "gbrain-read-contract.mjs")
+        for name in names:
+            shutil.copyfile(ROOT / "scripts" / name, helper_directory / name)
+
+        def fingerprint():
+            transport = self.query.CliGBrainTransport(
+                cli_path=self.approved_cli, runner=self.live_runner([]), live=True,
+            )
+            response = self.query.retrieve(
+                self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=transport,
+            )
+            self.assertEqual(1, response["result_count"])
+            self.assertEqual(1, len(response["index"]["model_versions"]))
+            return response["index"]["model_versions"][0]
+
+        with mock.patch.object(self.query, "PINNED_OPERATION_HELPER", helper_directory / names[0]):
+            baseline = fingerprint()
+            for name in names:
+                with self.subTest(dependency=name):
+                    path = helper_directory / name
+                    original = path.read_bytes()
+                    try:
+                        path.write_bytes(original + b"\n// fingerprint regression probe\n")
+                        self.assertNotEqual(baseline, fingerprint())
+                    finally:
+                        path.write_bytes(original)
+                    self.assertEqual(baseline, fingerprint())
 
     def test_live_source_attestation_failures_are_visible_and_stop_search(self):
         cases = {

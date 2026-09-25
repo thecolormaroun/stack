@@ -299,7 +299,7 @@ def _safe_stage_metadata(value: Any) -> dict[str, Any]:
     return result or {"state": "unknown"}
 
 
-def _receipt_metadata(receipt_path: Path) -> dict[str, Any]:
+def _receipt_metadata(receipt_path: Path, *, now: datetime) -> dict[str, Any]:
     try:
         receipt, details, error = FRESHNESS._read_private_receipt(receipt_path)
     except (AttributeError, OSError):
@@ -315,7 +315,7 @@ def _receipt_metadata(receipt_path: Path) -> dict[str, Any]:
         "media": _safe_media_metadata(receipt.get("media")),
         "stages": _safe_stage_metadata(receipt.get("stages")),
     }
-    age = _now().timestamp() - details.st_mtime
+    age = now.timestamp() - details.st_mtime
     if age >= 0:
         result["age_seconds"] = int(age)
     return result
@@ -390,7 +390,7 @@ def _field_theory_summary(document: Mapping[str, Any], now: datetime) -> dict[st
     except (AttributeError, ValueError):
         database_path = None
         receipt_path = None
-    result["receipt"] = _receipt_metadata(receipt_path) if receipt_path else {"present": False, "reason": "receipt_path_invalid"}
+    result["receipt"] = _receipt_metadata(receipt_path, now=now) if receipt_path else {"present": False, "reason": "receipt_path_invalid"}
     binding: Mapping[str, Any] | None = None
     if database_path is not None:
         try:
@@ -420,7 +420,7 @@ def _field_theory_summary(document: Mapping[str, Any], now: datetime) -> dict[st
     return result
 
 
-def _latest_receipt(receipts_root: Path, phase: str) -> dict[str, Any]:
+def _latest_receipt(receipts_root: Path, phase: str, *, now: datetime) -> dict[str, Any]:
     if not receipts_root.exists():
         return {"status": "not_observed", "reason": "receipts_directory_missing"}
     try:
@@ -446,7 +446,6 @@ def _latest_receipt(receipts_root: Path, phase: str) -> dict[str, Any]:
     payload, error, _ = _read_json(path)
     if error or payload is None:
         return {"status": "invalid", "reason": error or "receipt_malformed"}
-    now = _now()
     age = now.timestamp() - details.st_mtime
     result: dict[str, Any] = {
         "status": "observed",
@@ -463,10 +462,10 @@ def _latest_receipt(receipts_root: Path, phase: str) -> dict[str, Any]:
     return result
 
 
-def _stack_receipts(state_root: Path) -> dict[str, Any]:
+def _stack_receipts(state_root: Path, *, now: datetime) -> dict[str, Any]:
     return {
-        "collection": _latest_receipt(state_root / "receipts", "collection"),
-        "curation": _latest_receipt(state_root / "receipts", "curation"),
+        "collection": _latest_receipt(state_root / "receipts", "collection", now=now),
+        "curation": _latest_receipt(state_root / "receipts", "curation", now=now),
     }
 
 
@@ -695,7 +694,7 @@ def status_report(*, now: datetime | None = None) -> dict[str, Any]:
         document = {}
     state_root = _state_root()
     field_theory = _field_theory_summary(document, reference)
-    receipts = _stack_receipts(state_root)
+    receipts = _stack_receipts(state_root, now=reference)
     scheduler = _scheduler_summary()
     daily_schedule = scheduler.get("daily_field_theory") if isinstance(scheduler, Mapping) else {}
     cron_schedule = scheduler.get("hermes_bookmark_jobs") if isinstance(scheduler, Mapping) else {}

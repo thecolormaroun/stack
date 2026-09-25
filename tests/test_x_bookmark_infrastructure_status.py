@@ -189,6 +189,8 @@ class BookmarkInfrastructureStatusTests(unittest.TestCase):
                 encoding="utf-8",
             )
             path.chmod(0o600)
+            receipt_time = datetime(2026, 8, 30, 2, 0, tzinfo=timezone.utc).timestamp()
+            os.utime(path, (receipt_time, receipt_time))
 
     def write_scheduler_files(self, *, duplicate: bool = False, drifted: bool = False) -> None:
         jobs = [
@@ -235,6 +237,8 @@ class BookmarkInfrastructureStatusTests(unittest.TestCase):
         report = self.report()
         encoded = json.dumps(report)
         self.assertEqual("healthy", report["status"])
+        self.assertEqual(1800, report["field_theory"]["receipt"]["age_seconds"])
+        self.assertEqual(1800, report["field_theory"]["receipt"]["verified_age_seconds"])
         self.assertEqual(2, report["field_theory"]["source"]["row_count"])
         self.assertEqual("2026-08-30T02:00:00+00:00", report["field_theory"]["source"]["max_source_timestamp"])
         self.assertEqual(1, report["field_theory"]["media"]["bookmarks_with_media"])
@@ -248,6 +252,8 @@ class BookmarkInfrastructureStatusTests(unittest.TestCase):
         self.assertTrue(report["scheduler"]["daily_field_theory"]["gbrain_lane_excluded"])
         self.assertTrue(report["stack_receipts"]["collection"]["complete"])
         self.assertTrue(report["stack_receipts"]["curation"]["complete"])
+        self.assertEqual(3600, report["stack_receipts"]["collection"]["age_seconds"])
+        self.assertEqual(3600, report["stack_receipts"]["curation"]["age_seconds"])
         self.assertFalse(report["safety"]["bookmark_bodies_included"])
         self.assertNotIn("private body", encoded)
         self.assertNotIn("another private body", encoded)

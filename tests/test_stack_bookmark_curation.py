@@ -30,7 +30,10 @@ def test_collection_uses_a_receipt_and_releases_its_own_lock(tmp_path):
     state = tmp_path / "state"
     sources = tmp_path / "sources.json"
     sources.write_text('{"sources": []}')
-    env = {**os.environ, "STACK_BOOKMARK_STATE_ROOT": str(state), "STACK_BOOKMARK_SOURCES": str(sources)}
+    pycache = tmp_path / "pycache"
+    env = {**os.environ, "STACK_BOOKMARK_STATE_ROOT": str(state), "STACK_BOOKMARK_SOURCES": str(sources),
+           "PYTHONPYCACHEPREFIX": str(pycache)}
+    env.pop("PYTHONDONTWRITEBYTECODE", None)
     result = subprocess.run([str(RUNNER), "collection"], cwd=ROOT, env=env, text=True, capture_output=True)
     assert result.returncode == 0, result.stderr
     receipts = list((state / "receipts").glob("collection-*.json"))
@@ -39,6 +42,7 @@ def test_collection_uses_a_receipt_and_releases_its_own_lock(tmp_path):
     assert receipt["mode"] == "dry-run"
     assert receipt["receipt_type"] == "collection"
     assert not (state / "collection.lock").exists()
+    assert not pycache.exists(), "scheduled collection must not write Python bytecode"
 
 
 def test_collection_and_curation_locks_are_separate(tmp_path):

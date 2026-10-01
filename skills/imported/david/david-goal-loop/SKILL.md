@@ -1,21 +1,16 @@
 ---
 name: david-goal-loop
-description: 'Namespaced import of David Ondrej agent skills: Explain and write effective
-  instructions for the `/goal` feature — the persistent self-checking agent loop (plan
-  → act → test → review → iterate), available in agents like Codex, Claude Code, and
-  Hermes Agent. Use when the user mentions `/goal`, "goal loop", "Ralph loop", wants
-  to kick off a long-running autonomous agent run, asks how to write a goal prompt,
-  or wants a one-paragraph goal instruction drafted.. Use via $david-goal-loop when
-  this upstream workflow is needed inside Maroun''s Stack or Hermes-safe operating
-  loop.'
+description: Explain and write effective instructions for the `/goal` feature — the persistent self-checking agent loop (plan → act → test → review → iterate), available in agents like Codex, Claude Code, and Hermes Agent. Use when the user mentions `/goal`, "goal loop", "Ralph loop", wants to kick off a long-running autonomous agent run, asks how to write a goal prompt, or wants a one-paragraph goal instruction drafted.
 ---
+
 ## Stack Import
 
-- Invoke this imported skill as `$david-goal-loop`.
+- Invoke this curated import as `$david-goal-loop`.
 - Upstream name: `goal-loop`.
+- Upstream author: David Ondrej.
+- Exact upstream commit: `69c3ae5228eb146724fd23dac3d43eab5805bcc3`.
 - Source metadata and license notice: [references/source.md](references/source.md).
-- For broad routing, Hermes/Mookie safety boundaries, or verification choice, start with `$agent-operating-stack` and then use this skill as the focused workflow.
-
+- New skills, deletions, and license changes remain review-gated.
 
 # Agent `/goal` Loop
 
@@ -62,7 +57,7 @@ Plus: tell the agent what to read first, ask it to work in checkpoints with a sh
 
 ## Writing a goal (the core deliverable)
 
-When the user wants a quick `/goal` instruction, produce a structured markdown block with one line per contract item (proper newlines, not flowing prose). **Do not prefix the output with `/goal`** — the user adds the slash command himself in the composer. Emit only the contract body. Template:
+When the user wants a quick `/goal` instruction, produce a structured markdown block with one line per contract item (proper newlines, not flowing prose). **Do not prefix the output with `/goal`** — the user adds the slash command themselves in the composer. Emit only the contract body. Template:
 
 ```
 **Objective:** <one-sentence objective>

@@ -1,4 +1,2 @@
-interface:
-  display_name: "David Teach"
-  short_description: "Teach the user a new skill or concept, within this workspace."
-  default_prompt: "Use $david-teach to teach the user a new skill or concept, within this workspace."
+policy:
+  allow_implicit_invocation: false

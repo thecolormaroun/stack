@@ -1,21 +1,17 @@
 ---
 name: david-level-up
-description: 'Namespaced import of David Ondrej agent skills: Gauge the user''s technical
-  + product knowledge through 7 adaptive questions, log verbatim answers with honest
-  ratings, and grow a learning plan from the gaps found. Use when the user says "level
-  up", "level-up session", "quiz me", "gauge my knowledge", or wants a new assessment
-  round. Differentiator: this finds and maps gaps; the `teach` skill delivers lessons
-  on them.. Use via $david-level-up when this upstream workflow is needed inside Maroun''s
-  Stack or Hermes-safe operating loop.'
+description: 'Gauge the user''s technical + product knowledge through 7 adaptive questions, log verbatim answers with honest ratings, and grow a learning plan from the gaps found. Use when the user says "level up", "level-up session", "quiz me", "gauge my knowledge", or wants a new assessment round. Differentiator: this finds and maps gaps; the `teach` skill delivers lessons on them.'
 disable-model-invocation: true
 ---
+
 ## Stack Import
 
-- Invoke this imported skill as `$david-level-up`.
+- Invoke this curated import as `$david-level-up`.
 - Upstream name: `level-up`.
+- Upstream author: David Ondrej.
+- Exact upstream commit: `69c3ae5228eb146724fd23dac3d43eab5805bcc3`.
 - Source metadata and license notice: [references/source.md](references/source.md).
-- For broad routing, Hermes/Mookie safety boundaries, or verification choice, start with `$agent-operating-stack` and then use this skill as the focused workflow.
-
+- New skills, deletions, and license changes remain review-gated.
 
 # Level Up
 
@@ -23,7 +19,7 @@ Run a 7-question adaptive assessment to map what the user knows and doesn't, rel
 
 ## Files (repo-relative)
 
-- `notes/learning/david-knowledge.md` — verbatim Q&A pairs + ratings, one section per question, rounds appended.
+- `notes/learning/user-knowledge.md` — verbatim Q&A pairs + ratings, one section per question, rounds appended.
 - `notes/learning/LEARNING-PLAN.md` — one concise bullet per genuine gap found.
 
 State-check first: read both files in full if they exist. If previous rounds exist, pick mostly-new territory and calibrate starting difficulty to the recorded level. If missing, create the folder and both files (plan starts as just a header).
@@ -36,15 +32,19 @@ State-check first: read both files in full if they exist. If previous rounds exi
 - Anchor questions in the current project's real stack and features. When a question touches real code, read it and show the actual snippet when teaching.
 - Cover different territory across rounds (e.g. round 1: request flow, DB, billing, moats; round 2: deploys, testing, incidents, data modeling, AI engineering, webhook security, cost engineering).
 
+## Feedback Principle
+
+Stanford tested two ways of giving feedback to students. Group one got standard comments. Group two got the same comments with one added sentence: "I'm giving you these comments because I have very high expectations and I know you can reach them." Group two improved at four times the rate as group one, despite having the same correction.
+
 ## After every single answer
 
 1. Rate honestly 1-10. No flattery — the user wants calibration, not comfort.
 2. Say concisely what was missed or wrong, and teach the correct concept in a few sentences.
-3. Immediately save the verbatim answer + rating + gap notes to `david-knowledge.md`.
+3. Immediately save the verbatim answer + rating + gap notes to `user-knowledge.md`.
 4. If a genuine gap surfaced, append one concise bullet to `LEARNING-PLAN.md`. Skip minor misses.
 5. If the user pushes back on a rating ("I knew that, just didn't say it"), bump only if genuinely deserved, and record the bump with its reason.
-6. When the user says he has since learned a plan item, mark its bullet: strikethrough + `✓ learned YYYY-MM-DD`.
+6. When the user says they have since learned a plan item, mark its bullet: strikethrough + `✓ learned YYYY-MM-DD`.
 
 ## After question 7
 
-Append a final summary to `david-knowledge.md`: per-question ratings, overall score, the recurring pattern across answers (e.g. "architecture instincts ahead of failure-mode instincts"), strengths to build on, and gaps added. Give the user the same summary in chat, concise.
+Append a final summary to `user-knowledge.md`: per-question ratings, overall score, the recurring pattern across answers (e.g. "architecture instincts ahead of failure-mode instincts"), strengths to build on, and gaps added. Give the user the same summary in chat, concise.

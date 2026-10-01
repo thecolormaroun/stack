@@ -1,26 +1,18 @@
 ---
 name: emil-design-eng
 description: This skill encodes Emil Kowalski's philosophy on UI polish, component design, animation decisions, and the invisible details that make software feel great.
-license: Source wrapper for https://github.com/emilkowalski/skill; upstream GitHub repo currently has no explicit license.
-metadata:
-  source: https://github.com/emilkowalski/skill
-  source_site: https://emilkowal.ski/skill
-  upstream_skill: skills/emil-design-eng
-  upstream_commit: e695d13cb298db0f46d5ef05be2ad13fa12908a6
 ---
 
+## Stack Import
+
+- Invoke this curated import as `$emil-design-eng`.
+- Upstream name: `emil-design-eng`.
+- Upstream author: Emil Kowalski.
+- Exact upstream commit: `d23d7f88a2e21c9e4b1418c7abe420f5c1052ba7`.
+- Source metadata and license notice: [references/source.json](references/source.json).
+- New skills, deletions, and license changes remain review-gated.
+
 # Design Engineering
-
-## Source Boundary
-
-- Upstream repo: https://github.com/emilkowalski/skill
-- Upstream site: https://emilkowal.ski/skill
-- Upstream skill path: `skills/emil-design-eng`
-- Upstream commit: `e695d13cb298db0f46d5ef05be2ad13fa12908a6`
-- Upstream GitHub license: none reported as of 2026-06-24.
-- Stack source metadata: [references/source.json](references/source.json).
-
-Because the upstream repo has no explicit license, keep this as an attributed Stack reference and review licensing before publishing or relicensing the source text outside this repo.
 
 ## Initial Response
 

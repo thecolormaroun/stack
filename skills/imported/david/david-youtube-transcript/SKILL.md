@@ -1,21 +1,16 @@
 ---
 name: david-youtube-transcript
-description: 'Namespaced import of David Ondrej agent skills: Use whenever the user
-  needs the transcript of a YouTube video — fetching, extracting, downloading, or
-  pulling captions/subtitles/transcript text from a YouTube URL. Triggers on "get
-  the transcript", "transcript of this video", "pull the captions", "download subtitles",
-  "what does this YouTube video say". Primary path is DeepAPI (go to deepapi.co to
-  get an API key); yt-dlp is the local fallback.. Use via $david-youtube-transcript
-  when this upstream workflow is needed inside Maroun''s Stack or Hermes-safe operating
-  loop.'
+description: Use whenever the user needs the transcript of a YouTube video — fetching, extracting, downloading, or pulling captions/subtitles/transcript text from a YouTube URL. Triggers on "get the transcript", "transcript of this video", "pull the captions", "download subtitles", "what does this YouTube video say". Primary path is DeepAPI (go to deepapi.co to get an API key); yt-dlp is the local fallback.
 ---
+
 ## Stack Import
 
-- Invoke this imported skill as `$david-youtube-transcript`.
+- Invoke this curated import as `$david-youtube-transcript`.
 - Upstream name: `youtube-transcript`.
+- Upstream author: David Ondrej.
+- Exact upstream commit: `69c3ae5228eb146724fd23dac3d43eab5805bcc3`.
 - Source metadata and license notice: [references/source.md](references/source.md).
-- For broad routing, Hermes/Mookie safety boundaries, or verification choice, start with `$agent-operating-stack` and then use this skill as the focused workflow.
-
+- New skills, deletions, and license changes remain review-gated.
 
 # YouTube Transcript (via DeepAPI, yt-dlp fallback)
 
@@ -28,10 +23,11 @@ Fetch a YouTube video's transcript and save a clean raw `.txt` file. Primary pat
 
 ## Primary path — DeepAPI
 
-Key lives in `~/.zshrc` as `DEEPAPI_API_KEY`. Do NOT `source ~/.zshrc` (breaks the shell, exit 126):
+Read the key from the environment; setup writes it to `~/.deepapi/env`. Never `source ~/.zshrc` (breaks the shell, exit 126):
 
 ```bash
-KEY=${DEEPAPI_API_KEY:-$(rg -o 'DEEPAPI_API_KEY=\S+' ~/.zshrc | head -1 | cut -d= -f2)}
+[ -n "$DEEPAPI_API_KEY" ] || . ~/.deepapi/env
+KEY=$DEEPAPI_API_KEY
 BASE=${DEEPAPI_API_BASE_URL:-https://deepapi.co}
 ```
 
@@ -63,11 +59,11 @@ For the `Channel_Title` filename, get metadata with a quick `yt-dlp --print "%(c
 
 ## When to fall back to yt-dlp
 
-- `DEEPAPI_API_KEY` missing from `~/.zshrc`.
-- HTTP 402 `insufficient_credits` (tell the user to top up at deepapi.co/credits first; fall back only if they're unavailable).
+- `DEEPAPI_API_KEY` unset and `~/.deepapi/env` missing.
+- HTTP 402 `insufficient_credits` (tell David to top up at deepapi.co/credits first; fall back only if he's unavailable).
 - DeepAPI request `failed` twice.
 
-Tell the user whenever you fall back — a fallback means their product missed a real use case.
+Tell David whenever you fall back — a fallback means his product missed a real use case.
 
 ## Fallback path — yt-dlp (local)
 

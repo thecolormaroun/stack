@@ -1,20 +1,16 @@
 ---
 name: david-google-safe-browsing
-description: 'Namespaced import of David Ondrej agent skills: Prevent and fix Google
-  Safe Browsing "Dangerous site" flags. Use when launching a public web app, buying/picking
-  a domain, building a login or signup page, or when any site shows a red "Dangerous
-  site" / "Deceptive site" warning in Chrome, Brave, Safari, Firefox, or Edge. Triggers
-  on "dangerous site", "deceptive site", "site blocked", "safe browsing", "phishing
-  flag", "red warning screen".. Use via $david-google-safe-browsing when this upstream
-  workflow is needed inside Maroun''s Stack or Hermes-safe operating loop.'
+description: 'Prevent and fix Google Safe Browsing "Dangerous site" flags. Use when launching a public web app, buying/picking a domain, building a login or signup page, or when any site shows a red "Dangerous site" / "Deceptive site" warning in Chrome, Brave, Safari, Firefox, or Edge. Triggers on "dangerous site", "deceptive site", "site blocked", "safe browsing", "phishing flag", "red warning screen".'
 ---
+
 ## Stack Import
 
-- Invoke this imported skill as `$david-google-safe-browsing`.
+- Invoke this curated import as `$david-google-safe-browsing`.
 - Upstream name: `google-safe-browsing`.
+- Upstream author: David Ondrej.
+- Exact upstream commit: `69c3ae5228eb146724fd23dac3d43eab5805bcc3`.
 - Source metadata and license notice: [references/source.md](references/source.md).
-- For broad routing, Hermes/Mookie safety boundaries, or verification choice, start with `$agent-operating-stack` and then use this skill as the focused workflow.
-
+- New skills, deletions, and license changes remain review-gated.
 
 # Google Safe Browsing: Prevent and Fix
 
@@ -59,4 +55,4 @@ Human-readable version: `https://transparencyreport.google.com/safe-browsing/sea
 
 ## Worked example
 
-`example-tool.com`: internal team tool, domain contained "youtube", anonymous visitors were redirected straight to a "YouTube Alpha"-branded email+password form, plus a public waitlist form. Flagged as deceptive site; blocked in Brave/Chrome. Fix: deleted waitlist page, added neutral `/welcome` landing (ownership + non-affiliation notice), de-branded all logged-out pages, then Search Console review. Code was never the problem.
+`youtube-alpha.com` (2026-07): internal team tool, domain contained "youtube", anonymous visitors were redirected straight to a "YouTube Alpha"-branded email+password form, plus a public waitlist form. Flagged as deceptive site; blocked in Brave/Chrome. Fix: deleted waitlist page, added neutral `/welcome` landing (ownership + non-affiliation notice), de-branded all logged-out pages, then Search Console review. Code was never the problem.

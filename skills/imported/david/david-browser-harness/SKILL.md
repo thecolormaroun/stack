@@ -1,18 +1,16 @@
 ---
 name: david-browser-harness
-description: 'Namespaced import of David Ondrej agent skills: Direct browser control
-  via CDP. Use when the user wants to automate, scrape, test, or interact with web
-  pages. Connects to the user''s already-running Chrome.. Use via $david-browser-harness
-  when this upstream workflow is needed inside Maroun''s Stack or Hermes-safe operating
-  loop.'
+description: Direct browser control via CDP. Use when the user wants to automate, scrape, test, or interact with web pages. Connects to the user's already-running Chrome.
 ---
+
 ## Stack Import
 
-- Invoke this imported skill as `$david-browser-harness`.
+- Invoke this curated import as `$david-browser-harness`.
 - Upstream name: `browser-harness`.
+- Upstream author: David Ondrej.
+- Exact upstream commit: `69c3ae5228eb146724fd23dac3d43eab5805bcc3`.
 - Source metadata and license notice: [references/source.md](references/source.md).
-- For broad routing, Hermes/Mookie safety boundaries, or verification choice, start with `$agent-operating-stack` and then use this skill as the focused workflow.
-
+- New skills, deletions, and license changes remain review-gated.
 
 # browser-harness
 
@@ -26,24 +24,24 @@ Domain skills (community-contributed per-site playbooks under `agent-workspace/d
 
 ## Usage
 
-```bash
+bash
 browser-harness -c '
 new_tab("https://docs.browser-use.com")
 wait_for_load()
 print(page_info())
 '
-```
+
 
 - Invoke as browser-harness — it's on $PATH. No cd, no uv run.
 - First navigation is new_tab(url), not goto_url(url) — goto runs in the user's active tab and clobbers their work.
 
 ## Tool call shape
 
-```bash
+bash
 browser-harness -c '
 # any python. helpers pre-imported. daemon auto-starts.
 '
-```
+
 
 run.py calls ensure_daemon() before exec — you never start/stop manually unless you want to.
 
@@ -55,7 +53,7 @@ When supervising those sub-agents, after each check send the user one very short
 
 Claude Code cmux note: after Claude finishes, it may prefill a predicted next user message; that draft is Claude, not the user speaking.
 
-```bash
+bash
 browser-harness -c '
 start_remote_daemon("work")                               # default — clean browser, no profile
 # start_remote_daemon("work", profileName="my-work")      # reuse a cloud profile (already logged in)
@@ -68,7 +66,7 @@ BU_NAME=work browser-harness -c '
 new_tab("https://example.com")
 print(page_info())
 '
-```
+
 
 start_remote_daemon prints liveUrl and auto-opens it in the local browser (if a GUI is detected) so the user can watch along. Headless servers print only — share the URL with the user. The daemon PATCHes the cloud browser to stop on shutdown, which persists profile state. Running remote daemons bill until timeout.
 
@@ -130,7 +128,7 @@ Installed at `~/Developer/browser-harness` as editable `uv tool install -e .`. B
 browser-harness connects to the user's real browser with their active sessions — ideal for extracting content from login-walled sites where `web_extract` or Hermes's built-in `browser_navigate` fail (e.g. X/Twitter articles, LinkedIn, paywalled sites).
 
 **Pattern:**
-```bash
+bash
 browser-harness -c '
 new_tab("https://x.com/user/status/123456")
 wait_for_load()
@@ -145,7 +143,7 @@ with open("/tmp/extracted.txt", "w") as f:
     f.write(text)
 print("Written", len(text), "chars")
 '
-```
+
 
 - Write to a temp file to avoid shell escaping issues with large text
 - Use `time.sleep()` generously for JS-heavy SPAs (X, LinkedIn need 3-5s)
@@ -164,7 +162,7 @@ Installed at `~/Developer/browser-harness` as editable `uv tool install -e .`. B
 
 browser-harness connects to the user's real browser with active sessions — ideal for login-walled sites where `web_extract` or Hermes's built-in `browser_navigate` fail (X/Twitter articles, LinkedIn, paywalled sites).
 
-```bash
+bash
 browser-harness -c '
 new_tab("https://x.com/user/status/123456")
 wait_for_load()
@@ -179,7 +177,7 @@ with open("/tmp/extracted.txt", "w") as f:
     f.write(text)
 print("Written", len(text), "chars")
 '
-```
+
 
 - Write to a temp file to avoid shell escaping issues with large text
 - Use `time.sleep()` generously for JS-heavy SPAs (X, LinkedIn need 3-5s)

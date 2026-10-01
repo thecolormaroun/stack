@@ -1,19 +1,16 @@
 ---
 name: david-agent-self-scheduling
-description: 'Namespaced import of David Ondrej agent skills: Make an AI agent run
-  on a schedule, loop, or interval — cron, heartbeats, recurring autonomous checks.
-  Use for "run every N minutes", "schedule a task", "run on a loop", "heartbeat".
-  Covers external clocks (Claude Code, Codex, Pi) vs Hermes'' built-in scheduler..
-  Use via $david-agent-self-scheduling when this upstream workflow is needed inside
-  Maroun''s Stack or Hermes-safe operating loop.'
+description: Make an AI agent run on a schedule, loop, or interval — cron, heartbeats, recurring autonomous checks. Use for "run every N minutes", "schedule a task", "run on a loop", "heartbeat". Covers external clocks (Claude Code, Codex, Pi) vs Hermes' built-in scheduler.
 ---
+
 ## Stack Import
 
-- Invoke this imported skill as `$david-agent-self-scheduling`.
+- Invoke this curated import as `$david-agent-self-scheduling`.
 - Upstream name: `agent-self-scheduling`.
+- Upstream author: David Ondrej.
+- Exact upstream commit: `69c3ae5228eb146724fd23dac3d43eab5805bcc3`.
 - Source metadata and license notice: [references/source.md](references/source.md).
-- For broad routing, Hermes/Mookie safety boundaries, or verification choice, start with `$agent-operating-stack` and then use this skill as the focused workflow.
-
+- New skills, deletions, and license changes remain review-gated.
 
 # Agent Self-Scheduling
 
@@ -52,7 +49,7 @@ Pi has NO built-in scheduler/loop/heartbeat by design — external clock only (o
 
 cmux has no timer/watch/cron. Three ways to loop it: orchestrator-driven (`send` → `sleep` → `read-screen` on your own clock), a dumb while-sleep wrapper, or — preferred — event-driven via `cmux notify` + OSC terminal hooks, which is cheaper and more responsive than polling. `read-screen` is non-interruptive, safe to poll.
 
-If a loop checks another agent, send the user a one-line status each check: what the agent is doing, on track or not. (Claude Code may prefill a predicted next user message after finishing — that's Claude, not the user.)
+If a loop checks another agent, send David a one-line status each check: what the agent is doing, on track or not. (Claude Code may prefill a predicted next user message after finishing — that's Claude, not David.)
 
 ## Camp B — Hermes built-in scheduler
 
@@ -70,6 +67,12 @@ Hermes-unique: **zero-token mode** (run a script, deliver stdout verbatim — us
 ## Heartbeat pattern
 
 One fast recurring tick gates many slower per-task checks: the tick reads a task list + per-task `last_run` timestamps and only acts on tasks that are due. In Hermes use a recurring job (zero-token mode when nothing's due); in Camp A use a while-sleep loop. Define active-hours, and stay silent when nothing is due — no empty noise.
+
+A watchdog tick is just a command whose stdout is delivered verbatim — keep it to one cheap, unauthenticated call:
+
+```bash
+curl -s --max-time 10 https://deepapi.co/v1/health   # alert only on non-ok
+```
 
 ## Verify it fires (before reporting success)
 

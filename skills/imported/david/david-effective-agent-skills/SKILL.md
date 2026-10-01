@@ -1,21 +1,16 @@
 ---
 name: david-effective-agent-skills
-description: 'Namespaced import of David Ondrej agent skills: How to write effective
-  agent skills — what to do, what not to do, anatomy, progressive disclosure, design
-  patterns, anti-patterns, testing, security. Read this whenever a skill (Claude Skill,
-  Agent Skill, SKILL.md) is being created, edited, reviewed, or debugged. Use when
-  the user says "create a skill", "new skill", "update this skill", "improve a skill",
-  "why isn''t my skill triggering", or anything else involving authoring or editing
-  SKILL.md files.. Use via $david-effective-agent-skills when this upstream workflow
-  is needed inside Maroun''s Stack or Hermes-safe operating loop.'
+description: How to write effective agent skills — what to do, what not to do, anatomy, progressive disclosure, design patterns, anti-patterns, testing, security. Read this whenever a skill (Claude Skill, Agent Skill, SKILL.md) is being created, edited, reviewed, or debugged. Use when the user says "create a skill", "new skill", "update this skill", "improve a skill", "why isn't my skill triggering", or anything else involving authoring or editing SKILL.md files.
 ---
+
 ## Stack Import
 
-- Invoke this imported skill as `$david-effective-agent-skills`.
+- Invoke this curated import as `$david-effective-agent-skills`.
 - Upstream name: `effective-agent-skills`.
+- Upstream author: David Ondrej.
+- Exact upstream commit: `69c3ae5228eb146724fd23dac3d43eab5805bcc3`.
 - Source metadata and license notice: [references/source.md](references/source.md).
-- For broad routing, Hermes/Mookie safety boundaries, or verification choice, start with `$agent-operating-stack` and then use this skill as the focused workflow.
-
+- New skills, deletions, and license changes remain review-gated.
 
 # Agent Skills: A Complete Guide
 
@@ -35,7 +30,7 @@ my-skill/
 └── assets/           # Optional: templates, fonts, static files
 ```
 
-Skills are an open standard (agentskills.io), originally created by Anthropic and adopted by OpenAI Codex, Cursor, Gemini CLI, Microsoft Agent Framework, Google ADK, and 40+ other agent products. A skill written once works across all compatible agents.
+Skills are an open standard (agentskills.io), originally created by Anthropic and adopted by OpenAI Codex, Cursor, Gemini CLI, Microsoft Agent Framework, Google ADK, and 40+ other agent products. The core folder and `SKILL.md` format are portable, but optional behavior such as invocation control can be client-specific.
 
 ---
 
@@ -107,8 +102,18 @@ Frontmatter constraints:
 - Invalid YAML silently prevents loading
 - **Never put `: ` (colon + space) inside an unquoted `description`** — strict YAML parsers (e.g. Pi's) reject it as a nested mapping ("Nested mappings are not allowed in compact mappings"), even though lenient parsers (Claude Code) accept it. If the text needs a mid-sentence colon, single-quote the whole value and double any inner apostrophes: `description: 'Differentiator: finds gaps in David''s knowledge.'`
 
-Optional standard fields:
-- `disable-model-invocation: true` — stops the agent from auto-loading the skill based on the conversation; it can only be triggered manually (e.g. `/skill-name`). Now a standard Agent Skills spec field, so it works across spec-compliant clients (Claude Code, Copilot, etc.), not just Claude. Caveat: it prevents auto-invocation, but some clients (Claude Code, open bug) still inject the `description` into context, so it doesn't always save the discovery-level tokens. Use for manual-only utilities you don't want firing automatically.
+### Manual-only invocation is client-specific
+
+`disable-model-invocation: true` is **not** part of the core Agent Skills specification. It is a client extension supported by Claude Code and VS Code/Copilot. In those clients, put it in `SKILL.md` frontmatter to prevent automatic invocation while keeping explicit invocation available.
+
+OpenAI Codex uses a separate file at `agents/openai.yaml` inside the skill:
+
+```yaml
+policy:
+  allow_implicit_invocation: false
+```
+
+For a manual-only skill shared across Claude Code, VS Code/Copilot, and Codex, include both configurations. Never assume a client-specific frontmatter field works in every Agent Skills implementation; verify each target client's documentation and test implicit invocation in each runtime.
 
 ---
 

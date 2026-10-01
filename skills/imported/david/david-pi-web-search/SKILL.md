@@ -1,19 +1,16 @@
 ---
 name: david-pi-web-search
-description: 'Namespaced import of David Ondrej agent skills: ONLY for Pi Agents —
-  all other agents have their own web tools. How Pi accesses the web via the pi-web-access
-  package — search, fetch URLs/PDFs/YouTube/GitHub. Use whenever a Pi task needs current
-  info, docs, news, prices, or content from a specific URL.. Use via $david-pi-web-search
-  when this upstream workflow is needed inside Maroun''s Stack or Hermes-safe operating
-  loop.'
+description: ONLY for Pi Agents — all other agents have their own web tools. How Pi accesses the web via the pi-web-access package — search, fetch URLs/PDFs/YouTube/GitHub. Use whenever a Pi task needs current info, docs, news, prices, or content from a specific URL.
 ---
+
 ## Stack Import
 
-- Invoke this imported skill as `$david-pi-web-search`.
+- Invoke this curated import as `$david-pi-web-search`.
 - Upstream name: `pi-web-search`.
+- Upstream author: David Ondrej.
+- Exact upstream commit: `69c3ae5228eb146724fd23dac3d43eab5805bcc3`.
 - Source metadata and license notice: [references/source.md](references/source.md).
-- For broad routing, Hermes/Mookie safety boundaries, or verification choice, start with `$agent-operating-stack` and then use this skill as the focused workflow.
-
+- New skills, deletions, and license changes remain review-gated.
 
 # Web Search
 
@@ -23,9 +20,9 @@ The `pi-web-access` package is installed globally. Zero-config via Exa MCP (no A
 
 Every `web_search` call MUST include `workflow: "none"`. This skips the interactive browser curator popup (the user does not want it opening). No exceptions — single query or batched `queries`, always set `workflow: "none"`.
 
-```
+
 web_search({ queries: ["query 1", "query 2"], workflow: "none" })
-```
+
 
 ## Tools
 
@@ -50,16 +47,18 @@ Always use the `web_search` tool. These counts are HARD MINIMUMS — count your 
 
 A single batched `web_search` call counts each query in `queries[]` toward the total. If your first batch is under the minimum, fire another batch before synthesizing.
 
-## Fallback / alternative: DeepAPI web search
+## Ranked results with URLs — DeepAPI web search
 
-If the Exa → Perplexity → Gemini chain fails, or you need ranked results with URLs:
+`web_search` returns synthesized answers. When you need the ranked source list
+itself — URLs to cite, compare, or scrape — use DeepAPI instead. Also the path to
+take if the Exa → Perplexity → Gemini chain fails.
 
-```bash
-KEY=${DEEPAPI_API_KEY:-$(rg -o 'DEEPAPI_API_KEY=\S+' ~/.zshrc | head -1 | cut -d= -f2)}
+bash
+[ -n "$DEEPAPI_API_KEY" ] || . ~/.deepapi/env
 curl -s --max-time 60 "https://deepapi.co/v1/search/web" \
-  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $DEEPAPI_API_KEY" -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
   -d '{"query": "your search terms", "maxResults": 5, "maxCostUsd": "0.05"}'
-```
+
 
 Results are in `.output` (title, url, snippet per item). Query under 500 chars. Full details: `deepapi` skill.

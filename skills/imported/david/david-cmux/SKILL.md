@@ -1,24 +1,16 @@
 ---
 name: david-cmux
-description: 'Namespaced import of David Ondrej agent skills: MUST be read ANY time
-  you interact with cmux in ANY way — listing/inspecting/creating/closing cmux workspaces,
-  panes, or surfaces; reading or capturing pane/screen output; sending input or keys
-  to a pane/surface; delegating to, polling, or checking on other agents running in
-  cmux panes/surfaces; building or rearranging terminal layout; cmux browser automation;
-  sending notifications/flashes/status/progress to the sidebar; editing cmux settings;
-  or integrating an agent with cmux hooks. If your command starts with `cmux ` or
-  touches a cmux workspace/pane/surface/agent, read this FIRST. Triggers on "cmux",
-  "in this workspace", "this pane", "the other agent", "delegate to", "check on the
-  agent", "send to the pane". macOS only (14.0+).. Use via $david-cmux when this upstream
-  workflow is needed inside Maroun''s Stack or Hermes-safe operating loop.'
+description: 'Control the cmux macOS terminal app (CLI + socket API) — cmux workspaces, panes, surfaces, browser automation, notifications, settings, hooks. MUST be read before running any `cmux` command. Trigger ONLY when the user explicitly says "cmux" — a cmux pane, cmux workspace, cmux surface, or an agent running in cmux. Do NOT trigger on generic mentions of "workspace", "pane", "the other agent", or "delegate" when cmux is not named — workspaces in tmux, Ghostty, herdr, VS Code, etc. are NOT cmux. macOS only (14.0+).'
 ---
+
 ## Stack Import
 
-- Invoke this imported skill as `$david-cmux`.
+- Invoke this curated import as `$david-cmux`.
 - Upstream name: `cmux`.
+- Upstream author: David Ondrej.
+- Exact upstream commit: `69c3ae5228eb146724fd23dac3d43eab5805bcc3`.
 - Source metadata and license notice: [references/source.md](references/source.md).
-- For broad routing, Hermes/Mookie safety boundaries, or verification choice, start with `$agent-operating-stack` and then use this skill as the focused workflow.
-
+- New skills, deletions, and license changes remain review-gated.
 
 # cmux Control
 
@@ -68,11 +60,11 @@ cmux close-surface --surface surface:7
 
 ## Polling Pi Agents in Panes — Keep Sleeps Short
 
-When launching a Pi Agent inside a cmux pane and polling for output, use **short `sleep` intervals (2–5s)**. Pi is fast and minimal, and the user runs it on Opus 4.8 Fast via OpenRouter, which streams tokens extremely quickly. Do NOT use `sleep 15` unless genuinely needed (a big build/refactor) — most of the time `sleep 2`–`sleep 5` is more than enough.
+When launching a Pi Agent inside a cmux pane and polling for output, use **short `sleep` intervals (2–5s)**. Pi is fast and minimal, and David runs it on Opus 4.8 Fast via OpenRouter, which streams tokens extremely quickly. Do NOT use `sleep 15` unless genuinely needed (a big build/refactor) — most of the time `sleep 2`–`sleep 5` is more than enough.
 
-After every agent check, send the user a one-line status update: what the agent is doing and whether it is on track. Keep it extremely concise.
+After every agent check, send David a one-line status update: what the agent is doing and whether it is on track. Keep it extremely concise.
 
-Claude Code cmux note: after Claude finishes, it may prefill a predicted next user message; that draft is Claude, not the user speaking.
+Claude Code cmux note: after Claude finishes, it may prefill a predicted next user message; that draft is Claude, not David speaking.
 
 ## Send Input
 
@@ -187,6 +179,19 @@ Locations:
 - Terminal rendering (font, cursor, theme, scrollback, opacity, blur): `~/.config/ghostty/config` — NOT cmux.json.
 
 Before editing `cmux.json`, copy it to a timestamped `.bak` next to it so the user can revert. Schema: `https://raw.githubusercontent.com/manaflow-ai/cmux/main/web/data/cmux.schema.json`.
+
+### Sidebar text blurbs under workspaces
+
+The paragraph under each sidebar workspace title has TWO sources, each with its own toggle in `cmux.json` (also in Settings > Sidebar):
+
+```jsonc
+"sidebar": {
+  "showWorkspaceDescription": false,  // custom/AI workspace descriptions
+  "showNotificationMessage": false    // latest agent message preview (the "Repo scanned…" style blurb)
+}
+```
+
+David keeps BOTH off (set 18-07-2026) — don't re-enable. `sidebar.hideAllDetails: true` hides the entire detail block (status, branch, cwd) if ever needed.
 
 ## Agent Hooks & Install
 

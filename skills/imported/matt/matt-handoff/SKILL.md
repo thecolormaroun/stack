@@ -1,23 +1,22 @@
 ---
 name: matt-handoff
-description: 'Namespaced import of Matt Pocock engineering/productivity skills: Compact
-  the current conversation into a handoff document for another agent to pick up..
-  Use via $matt-handoff when this upstream workflow is needed inside Maroun''s Stack
-  or Hermes-safe operating loop.'
-argument-hint: What will the next session be used for?
+description: Compact the current conversation into a handoff document for another agent to pick up.
+argument-hint: "What will the next session be used for?"
 disable-model-invocation: true
 ---
+
 ## Stack Import
 
-- Invoke this imported skill as `$matt-handoff`.
+- Invoke this curated import as `$matt-handoff`.
 - Upstream name: `handoff`.
+- Upstream author: Matt Pocock.
+- Exact upstream commit: `5b15a47f2d7150f545fbcacbfe381787fc0230dc`.
 - Source metadata and license notice: [references/source.md](references/source.md).
-- For broad routing, Hermes/Mookie safety boundaries, or verification choice, start with `$agent-operating-stack` and then use this skill as the focused workflow.
-
+- New skills, deletions, and license changes remain review-gated.
 
 Write a handoff document summarising the current conversation so a fresh agent can continue the work. Save to the temporary directory of the user's OS - not the current workspace.
 
-Include a "suggested skills" section in the document, which suggests skills that the agent should invoke.
+Include a "suggested skills" section in the document, naming which skills the next agent should call the Skill tool for.
 
 Do not duplicate content already captured in other artifacts (specs, plans, ADRs, issues, commits, diffs). Reference them by path or URL instead.
 

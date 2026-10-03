@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import itertools
 import json
 import os
 import shutil
@@ -322,12 +323,14 @@ class DesignRetrievalTests(unittest.TestCase):
             if operation == "version":
                 return SimpleNamespace(returncode=0, stdout=version, stderr="")
             if operation == "sources_status":
+                self.assertEqual(version.removeprefix("gbrain "), json.loads(kwargs["input"])["expected_version"])
                 return SimpleNamespace(returncode=0, stdout=json.dumps(status or self.live_status()), stderr="")
             if operation == "keyword_search":
                 self.assertEqual(str(self.query.PINNED_OPERATION_HELPER.parent), kwargs["cwd"])
                 self.assertRegex(kwargs["env"]["GBRAIN_CONFIG_SHA256"], r"^[a-f0-9]{64}$")
                 payload = json.loads(kwargs["input"])
-                self.assertEqual({"limit", "operation", "query", "schema_version", "source"}, set(payload))
+                self.assertEqual({"limit", "operation", "query", "schema_version", "source", "expected_version"}, set(payload))
+                self.assertEqual(version.removeprefix("gbrain "), payload["expected_version"])
                 return SimpleNamespace(returncode=0, stdout=json.dumps(results if results is not None else [self.live_result()]), stderr="")
             return SimpleNamespace(returncode=1, stdout="", stderr="")
         return runner
@@ -541,17 +544,16 @@ class DesignRetrievalTests(unittest.TestCase):
 
     def test_new_read_version_still_requires_an_exact_owner_grant(self):
         package = self.query.EXPECTED_GBRAIN_CLI.parents[1] / "package.json"
-        package.write_text(json.dumps({"name": "gbrain", "version": "0.48.2.0"}))
-        for granted in (False, True):
-            with self.subTest(granted=granted):
-                if granted:
-                    grant = json.loads(self.grant.read_text())
-                    grant["allowed_cli_versions"] = ["0.48.2.0"]
-                    self.grant.write_text(json.dumps(grant))
+        original_grant = json.loads(self.grant.read_text())
+        for version, granted in itertools.product(("0.48.2.0", "0.59.0.0"), (False, True)):
+            with self.subTest(version=version, granted=granted):
+                package.write_text(json.dumps({"name": "gbrain", "version": version}))
+                grant = {**original_grant, "allowed_cli_versions": [version] if granted else ["0.42.67.0"]}
+                self.grant.write_text(json.dumps(grant))
                 calls = []
                 live = self.query.CliGBrainTransport(
                     cli_path=self.approved_cli,
-                    runner=self.live_runner(calls, version="gbrain 0.48.2.0"), live=True,
+                    runner=self.live_runner(calls, version=f"gbrain {version}"), live=True,
                 )
                 response = self.query.retrieve(
                     self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=live,
@@ -565,6 +567,31 @@ class DesignRetrievalTests(unittest.TestCase):
                     self.assertGreater(response["result_count"], 0)
                     self.assertTrue(all(call["source"] == "x-bookmarks" for call in calls))
                     self.assertEqual(0, response["safety"]["provider_calls"])
+
+    def test_package_swap_after_attestation_cannot_use_an_ungranted_read_version(self):
+        calls = []
+        base = self.live_runner(calls)
+        package = self.query.EXPECTED_GBRAIN_CLI.parents[1] / "package.json"
+        denied_versions = []
+
+        def swapped(argv, **kwargs):
+            request = json.loads(kwargs["input"])
+            if request["operation"] == "keyword":
+                actual = json.loads(package.read_text())["version"]
+                self.assertEqual(request["expected_version"], "0.42.67.0")
+                if actual != request["expected_version"]:
+                    denied_versions.append(actual)
+                    return SimpleNamespace(returncode=1, stdout="", stderr="")
+            result = base(argv, **kwargs)
+            if request["operation"] == "sources_status":
+                package.write_text(json.dumps({"name": "gbrain", "version": "0.59.0.0"}))
+            return result
+
+        live = self.query.CliGBrainTransport(cli_path=self.approved_cli, runner=swapped, live=True)
+        response = self.query.retrieve(self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=live)
+        self.assertEqual(response["status"], "failed")
+        self.assertEqual(denied_versions, ["0.59.0.0"])
+        self.assertNotIn("keyword_search", [call["operation"] for call in calls])
 
     def test_live_version_and_command_allowlists_fail_closed(self):
         calls = []

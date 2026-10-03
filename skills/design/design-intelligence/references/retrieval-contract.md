@@ -33,8 +33,12 @@ screenshot, and response stay outside the public Stack checkout.
 
 The live transport permits only GBrain `--version`, `sources_status`, and
 keyword `search` under `GBRAIN_SOURCE=x-bookmarks`; exact command and payload
-shapes are allowlisted. Read compatibility is explicitly limited to `0.42.67.0`
-and `0.48.2.0`, and still requires the owner's exact version-bound source grant.
+shapes are allowlisted. Read compatibility is explicitly limited to `0.42.67.0`,
+`0.48.2.0`, and `0.59.0.0`, and still requires the owner's exact version-bound
+source grant. Version `0.59.0.0` permits only PostgreSQL sessions with
+`default_transaction_read_only` enabled from connection startup and verified
+after connecting; PGLite is rejected before connection because opening it can
+write local state. Compatibility is not an active grant or a live canary.
 Adding read compatibility does not expand import support. The helper binds the
 launcher to the resolved global package entrypoint, including an installed
 bootstrap symlink, rather than trusting a directory-name suffix. Extraction

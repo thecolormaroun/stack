@@ -33,7 +33,7 @@ def check_real_helper_accepts_anchored_bootstrap_but_not_redirects(tmp_path):
     def invoke(operation):
         return subprocess.run(
             ["/opt/homebrew/bin/bun", "--no-env-file", str(ROOT / "scripts/gbrain-pinned-operation.ts")],
-            input=json.dumps({"schema_version": 1, "source": "x-bookmarks", **operation}),
+            input=json.dumps({"schema_version": 1, "source": "x-bookmarks", "expected_version": "0.48.2.0", **operation}),
             env=environment, text=True, capture_output=True, timeout=10,
         )
 
@@ -56,10 +56,12 @@ def check_read_versions_do_not_expand_import_or_unknown_operations():
     for (const operation of ['version', 'sources_status', 'keyword']) {
       assert.equal(operationVersionAllowed('0.42.67.0', operation), true);
       assert.equal(operationVersionAllowed('0.48.2.0', operation), true);
+      assert.equal(operationVersionAllowed('0.59.0.0', operation), true);
       assert.equal(operationVersionAllowed('0.48.3.0', operation), false);
     }
     assert.equal(operationVersionAllowed('0.42.67.0', 'import'), true);
     assert.equal(operationVersionAllowed('0.48.2.0', 'import'), false);
+    assert.equal(operationVersionAllowed('0.59.0.0', 'import'), false);
     assert.equal(operationVersionAllowed('0.48.2.0', 'reindex'), false);
     assert.equal(operationVersionAllowed(undefined, 'version'), false);
     """)
@@ -89,7 +91,7 @@ def run_javascript(assertions):
     module = (ROOT / "scripts/gbrain-read-contract.mjs").as_uri()
     program = (
         "import assert from 'node:assert/strict';\n"
-        f"import {{operationVersionAllowed, extractionIsUnverified}} from {json.dumps(module)};\n"
+        f"import {{operationVersionAllowed, extractionIsUnverified, readEngineConfig, assertReadOnlySession}} from {json.dumps(module)};\n"
         + assertions
     )
     result = subprocess.run(
@@ -98,6 +100,94 @@ def run_javascript(assertions):
         capture_output=True, text=True, timeout=10,
     )
     assert result.returncode == 0, "JavaScript read-contract assertions failed"
+
+
+def check_real_059_helper_scopes_reads_and_rejects_embedded_backend(tmp_path):
+    home = tmp_path.resolve() / "owner"
+    package = home / ".bun/install/global/node_modules/gbrain"
+    core = package / "src/core"
+    core.mkdir(parents=True)
+    cli = package / "src/cli.ts"
+    cli.write_text("export {};\n")
+    (package / "package.json").write_text(json.dumps({"name": "gbrain", "version": "0.59.0.0"}))
+    launcher = home / ".bun/bin/gbrain"
+    launcher.parent.mkdir(parents=True)
+    launcher.symlink_to(cli)
+    config_dir = home / ".gbrain"
+    config_dir.mkdir(mode=0o700)
+    embedded = config_dir / "fixture"
+    embedded.mkdir(mode=0o700)
+    (core / "config.ts").write_text("""
+        import {readFileSync} from 'node:fs';
+        export function loadConfig() {return JSON.parse(readFileSync(process.env.GBRAIN_HOME+'/.gbrain/config.json','utf8'));}
+        export function toEngineConfig(config) {return config;}
+    """)
+    (core / "engine-factory.ts").write_text("""
+        import assert from 'node:assert/strict';
+        import {writeFileSync} from 'node:fs';
+        export function createEngine(config) {
+          assert.equal(config.engine, 'postgres');
+          assert.equal(new URL(config.database_url).searchParams.get('default_transaction_read_only'), 'on');
+          return {
+            async connect() {writeFileSync(process.env.HOME+'/.gbrain/connected','synthetic');},
+            async executeRaw(query) {assert.equal(query, \"SELECT current_setting('default_transaction_read_only') AS read_only\"); return [{read_only:config.fixture_read_only}];},
+            async searchKeyword(query, options) {
+              writeFileSync(process.env.HOME+'/.gbrain/search-called','synthetic');
+              assert.equal(query,'geometry'); assert.equal(options.sourceId,'x-bookmarks');
+              return [{page_id:1,slug:'bookmarks/verified',source_id:'x-bookmarks'},
+                      {page_id:2,slug:'bookmarks/quarantined',source_id:'x-bookmarks'}];
+            },
+            async getUnverifiedExtractionPageIds(ids, options) {
+              assert.deepEqual(ids,[1,2]); assert.deepEqual(options,{sourceId:'x-bookmarks'});
+              return new Map([[1,{unverified:false}],[2,{unverified:true}]]);
+            },
+            async disconnect() {},
+          };
+        }
+    """)
+    (core / "sources-ops.ts").write_text("""
+        import assert from 'node:assert/strict';
+        export async function getSourceStatus(engine, source) {
+          assert.equal(source,'x-bookmarks');
+          return {id:source,page_count:2,last_sync_at:null,last_commit:null,archived:false,clone_state:'healthy'};
+        }
+    """)
+
+    def invoke(engine, operation, *, read_only="on"):
+        import hashlib
+        config = json.dumps({"engine": engine, "fixture_read_only": read_only, **(
+            {"database_url": "postgres://fixture@127.0.0.1:5432/gbrain_mookie"}
+            if engine == "postgres" else {"database_path": str(embedded)}
+        )})
+        config_path = config_dir / "config.json"
+        config_path.write_text(config)
+        config_path.chmod(0o600)
+        return subprocess.run(
+            ["/opt/homebrew/bin/bun", "--no-env-file", str(ROOT / "scripts/gbrain-pinned-operation.ts")],
+            input=json.dumps({"schema_version": 1, "source": "x-bookmarks", "expected_version": "0.59.0.0", **operation}),
+            env={"HOME": str(home), "PATH": "/opt/homebrew/bin:/usr/bin:/bin", "GBRAIN_SOURCE": "x-bookmarks",
+                 "GBRAIN_CLI_PATH": str(cli), "GBRAIN_CONFIG_SHA256": hashlib.sha256(config.encode()).hexdigest()},
+            text=True, capture_output=True, timeout=10,
+        )
+
+    denied_version = invoke("postgres", {"operation": "keyword", "query": "geometry", "limit": 2, "expected_version": "0.48.2.0"})
+    assert denied_version.returncode != 0 and denied_version.stdout == ""
+    assert not (config_dir / "connected").exists()
+    denied = invoke("pglite", {"operation": "keyword", "query": "geometry", "limit": 2})
+    assert denied.returncode != 0 and denied.stdout == ""
+    assert not (config_dir / "connected").exists()
+    writable = invoke("postgres", {"operation": "keyword", "query": "geometry", "limit": 2}, read_only="off")
+    assert writable.returncode != 0 and writable.stdout == ""
+    assert (config_dir / "connected").exists()
+    assert not (config_dir / "search-called").exists()
+    result = invoke("postgres", {"operation": "keyword", "query": "geometry", "limit": 2})
+    assert result.returncode == 0, "synthetic scoped helper failed"
+    rows = json.loads(result.stdout)
+    assert rows[0].get("unverified") is None and rows[1]["unverified"] is True
+    status = invoke("postgres", {"operation": "sources_status"})
+    assert status.returncode == 0, "synthetic source status failed"
+    assert json.loads(status.stdout)["clone_state"] == "healthy"
+    assert not list(config_dir.glob(".stack-config-*"))
 
 
 class GBrainReadContractTests(unittest.TestCase):
@@ -133,8 +223,32 @@ class GBrainReadContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             check_real_helper_accepts_anchored_bootstrap_but_not_redirects(Path(directory))
 
+    @unittest.skipUnless(Path("/opt/homebrew/bin/bun").is_file(), "requires the pinned macOS Bun launcher")
+    def test_real_059_helper_scopes_reads_and_rejects_embedded_backend(self):
+        with tempfile.TemporaryDirectory() as directory:
+            check_real_059_helper_scopes_reads_and_rejects_embedded_backend(Path(directory))
+
     def test_read_versions_do_not_expand_import_or_unknown_operations(self):
         check_read_versions_do_not_expand_import_or_unknown_operations()
 
     def test_status_records_distinguish_verified_pages_from_quarantine(self):
         check_status_records_distinguish_verified_pages_from_quarantine()
+
+    def test_read_backend_is_fenced_before_connect_and_not_applied_to_import(self):
+        run_javascript("""
+        const config = {engine: 'postgres', database_url: 'postgres://fixture@127.0.0.1:5432/gbrain_mookie'};
+        const copy = {...config};
+        for (const op of ['sources_status', 'keyword']) {
+          const guarded = readEngineConfig('0.59.0.0', op, config);
+          assert.equal(new URL(guarded.database_url).searchParams.get('default_transaction_read_only'), 'on');
+          assert.deepEqual(config, copy);
+          assert.throws(() => readEngineConfig('0.59.0.0', op, {engine:'pglite', database_path:'/fixture'}));
+          assert.throws(() => readEngineConfig('0.59.0.0', op, {...config, database_url:config.database_url+'?default_transaction_read_only=off'}));
+        }
+        assert.equal(readEngineConfig('0.42.67.0', 'import', config), config);
+        assert.throws(() => readEngineConfig('0.59.0.0', 'import', config));
+        assertReadOnlySession([{read_only:'on'}]);
+        for (const rows of [null, [], [{read_only:'off'}], [{read_only:true}], [{read_only:'on'}, {read_only:'on'}]]) {
+          assert.throws(() => assertReadOnlySession(rows));
+        }
+        """)

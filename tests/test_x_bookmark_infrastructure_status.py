@@ -231,7 +231,7 @@ class BookmarkInfrastructureStatusTests(unittest.TestCase):
             return STATUS.status_report(now=datetime(2026, 8, 30, 3, 0, tzinfo=timezone.utc))
 
     def test_healthy_report_is_redacted_and_reports_binding_media_scheduler_and_receipts(self) -> None:
-        self.write_refresh_receipt(generated_at=datetime(2026, 8, 30, 2, 30, tzinfo=timezone.utc))
+        self.write_refresh_receipt()
         self.write_stack_receipts()
         self.write_scheduler_files()
         report = self.report()

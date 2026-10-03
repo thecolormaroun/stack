@@ -30,7 +30,10 @@ def test_collection_uses_a_receipt_and_releases_its_own_lock(tmp_path):
     state = tmp_path / "state"
     sources = tmp_path / "sources.json"
     sources.write_text('{"sources": []}')
-    env = {**os.environ, "STACK_BOOKMARK_STATE_ROOT": str(state), "STACK_BOOKMARK_SOURCES": str(sources)}
+    pycache = tmp_path / "pycache"
+    env = {**os.environ, "STACK_BOOKMARK_STATE_ROOT": str(state), "STACK_BOOKMARK_SOURCES": str(sources),
+           "PYTHONPYCACHEPREFIX": str(pycache)}
+    env.pop("PYTHONDONTWRITEBYTECODE", None)
     result = subprocess.run([str(RUNNER), "collection"], cwd=ROOT, env=env, text=True, capture_output=True)
     assert result.returncode == 0, result.stderr
     receipts = list((state / "receipts").glob("collection-*.json"))
@@ -39,6 +42,7 @@ def test_collection_uses_a_receipt_and_releases_its_own_lock(tmp_path):
     assert receipt["mode"] == "dry-run"
     assert receipt["receipt_type"] == "collection"
     assert not (state / "collection.lock").exists()
+    assert not pycache.exists(), "scheduled collection must not write Python bytecode"
 
 
 def test_collection_and_curation_locks_are_separate(tmp_path):
@@ -120,6 +124,43 @@ def test_failed_callback_leaves_partial_receipt_and_candidates_unmarked(tmp_path
     remaining = subprocess.run(["python3", str(ROOT / "scripts/materialize-bookmark-candidates.py"), "--ledger", str(state / "bookmark-intake.sqlite")], cwd=ROOT, text=True, capture_output=True)
     assert remaining.returncode == 0
     assert [row["intake_id"] for row in json.loads(remaining.stdout)] == [intake_id]
+
+
+def test_legacy_hermes_disposition_timestamp_does_not_requeue_bookmark(tmp_path):
+    state = tmp_path / "state"
+    inbox = tmp_path / "hermes.sqlite"
+    intake_id = "intake_AbCdEf0123456789_NoEcho"
+    con = sqlite3.connect(inbox)
+    con.execute("CREATE TABLE links (intake_id TEXT, original_url TEXT, canonical_url TEXT, updated_at INTEGER)")
+    con.execute("INSERT INTO links VALUES (?, ?, ?, ?)",
+                (intake_id, "https://example.com/design", "https://example.com/design", 1))
+    con.commit(); con.close()
+    sources = tmp_path / "sources.json"
+    sources.write_text(json.dumps({"sources": [{"id": "hermes-links", "adapter": "hermes_link_inbox", "db_env": "STACK_TEST_HERMES_DB"}]}))
+    catalog = tmp_path / "catalog.json"; catalog.write_text('{"capabilities": []}')
+    env = {**os.environ, "STACK_BOOKMARK_STATE_ROOT": str(state), "STACK_BOOKMARK_SOURCES": str(sources),
+           "STACK_TEST_HERMES_DB": str(inbox), "STACK_CAPABILITY_CATALOG": str(catalog)}
+    result = subprocess.run([str(RUNNER), "collection", "--manual", "--apply"], cwd=ROOT, env=env, text=True, capture_output=True)
+    assert result.returncode == 0, result.stderr
+    ledger = state / "bookmark-intake.sqlite"
+    con = sqlite3.connect(ledger)
+    con.execute("UPDATE observations SET source_revision = '1', raw_json = ?, content_digest = 'legacy'",
+                (json.dumps({"intake_id": intake_id, "original_url": "https://example.com/design",
+                             "canonical_url": "https://example.com/design", "updated_at": 1}),))
+    con.commit(); con.close()
+    result = subprocess.run([str(RUNNER), "curation", "--manual", "--apply"], cwd=ROOT, env=env, text=True, capture_output=True)
+    assert result.returncode == 0, result.stderr
+    first = sorted((state / "receipts").glob("curation-*.json"))[-1]
+    assert len(json.loads(first.read_text())["candidates"]) == 1
+
+    con = sqlite3.connect(inbox)
+    con.execute("UPDATE links SET updated_at = 2 WHERE intake_id = ?", (intake_id,))
+    con.commit(); con.close()
+    for phase in ("collection", "curation"):
+        result = subprocess.run([str(RUNNER), phase, "--manual", "--apply"], cwd=ROOT, env=env, text=True, capture_output=True)
+        assert result.returncode == 0, result.stderr
+    latest = sorted((state / "receipts").glob("curation-*.json"))[-1]
+    assert json.loads(latest.read_text())["candidates"] == []
 
 
 def test_installer_is_dry_run_without_enablement(tmp_path):

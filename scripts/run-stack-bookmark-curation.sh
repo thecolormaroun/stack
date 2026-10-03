@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Run one Stack collection or curation phase.  This script never publishes.
 set -euo pipefail
+# The scheduled weekly loop requires an artifact-free source checkout. Python
+# imports in either phase must not leave ignored __pycache__ files behind.
+export PYTHONDONTWRITEBYTECODE=1
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 mode="${1:-}"

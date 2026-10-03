@@ -100,11 +100,14 @@ def hermes_link_inbox_items(source: dict) -> tuple[list[dict], str | None]:
                 "WHERE intake_id IS NOT NULL AND intake_id != ''"
             )
             items = []
-            for intake_id, original_url, canonical, updated_at in rows:
+            for intake_id, original_url, canonical, _updated_at in rows:
                 if not isinstance(intake_id, str) or not INTAKE_ID_RE.fullmatch(intake_id):
                     return [], "adapter_invalid_response"
+                # Hermes updates this timestamp when curation writes a
+                # disposition. That is not new bookmark evidence and must not
+                # feed the same candidate back into the next collection.
                 item = item_from({"intake_id": intake_id, "original_url": original_url,
-                                  "canonical_url": canonical, "updated_at": updated_at}, source["id"])
+                                  "canonical_url": canonical}, source["id"])
                 if item:
                     items.append(item)
             return dedupe(items), None
@@ -341,6 +344,26 @@ def safe_ledger(path: Path) -> sqlite3.Connection:
     return connection
 
 
+def already_observed_hermes_link(
+    connection: sqlite3.Connection, source_id: str, item: dict, policy_digest: str
+) -> bool:
+    """Treat legacy disposition timestamps as the same link observation."""
+    rows = connection.execute(
+        "SELECT raw_json FROM observations WHERE source_id=? AND canonical=? AND policy_digest=?",
+        (source_id, item["canonical"], policy_digest),
+    )
+    for (raw_json,) in rows:
+        try:
+            previous = json.loads(raw_json)
+        except (TypeError, json.JSONDecodeError):
+            continue
+        if isinstance(previous, dict):
+            previous.pop("updated_at", None)
+            if previous == item["raw"]:
+                return True
+    return False
+
+
 def apply_source(connection: sqlite3.Connection, source: dict, items: list[dict], policy_digest: str, run_id: str, fail_after: int | None) -> tuple[int, int]:
     cursor = digest([{k: i[k] for k in ("canonical", "revision")} for i in items])
     added = changed = 0
@@ -349,12 +372,15 @@ def apply_source(connection: sqlite3.Connection, source: dict, items: list[dict]
             content_digest = digest(item["raw"])
             exists = connection.execute("SELECT 1 FROM canonical_items WHERE canonical=?", (item["canonical"],)).fetchone()
             connection.execute("INSERT OR IGNORE INTO canonical_items VALUES (?, ?, ?)", (item["canonical"], item.get("intake_id", opaque_id(item["canonical"])), now()))
-            before = connection.total_changes
-            connection.execute("""INSERT OR IGNORE INTO observations (source_id, canonical, source_revision, content_digest, policy_digest, observed_at, run_id, raw_json)
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?)""", (source["id"], item["canonical"], item["revision"], content_digest, policy_digest, now(), run_id, json.dumps(item["raw"], default=str)))
-            if connection.total_changes > before:
-                added += 1
-                changed += 0 if exists else 1
+            if source.get("adapter") != "hermes_link_inbox" or not already_observed_hermes_link(
+                connection, source["id"], item, policy_digest
+            ):
+                before = connection.total_changes
+                connection.execute("""INSERT OR IGNORE INTO observations (source_id, canonical, source_revision, content_digest, policy_digest, observed_at, run_id, raw_json)
+                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)""", (source["id"], item["canonical"], item["revision"], content_digest, policy_digest, now(), run_id, json.dumps(item["raw"], default=str)))
+                if connection.total_changes > before:
+                    added += 1
+                    changed += 0 if exists else 1
             if fail_after is not None and index >= fail_after:
                 raise RuntimeError("injected crash before cursor commit")
         connection.execute("INSERT INTO source_cursors VALUES (?, ?, ?, ?) ON CONFLICT(source_id) DO UPDATE SET cursor_digest=excluded.cursor_digest, updated_at=excluded.updated_at, run_id=excluded.run_id", (source["id"], cursor, now(), run_id))

@@ -43,7 +43,7 @@ class WeeklyIntelligenceAutomationPromptTests(unittest.TestCase):
             hashlib.sha256(canonical).hexdigest(),
             self.config["scheduler"]["prompt_digest"],
         )
-        self.assertEqual("gpt-5.6-sol", self.config["scheduler"]["model"])
+        self.assertEqual("gpt-6-sol", self.config["scheduler"]["model"])
         self.assertEqual("high", self.config["scheduler"]["reasoning_effort"])
 
 

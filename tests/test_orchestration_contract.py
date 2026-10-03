@@ -55,6 +55,16 @@ class OrchestrationContractTests(unittest.TestCase):
         self.assertEqual(child["lease_owner"], "new")
         self.assertEqual(len(self.store.snapshot("run-1")["children"]), 1)
 
+    def test_renewal_requires_live_owner_and_prevents_stale_claim(self) -> None:
+        self.assertTrue(self.store.claim_child("run-1", "child-1", "collector", lease_seconds=900, now=100))
+        self.assertTrue(self.store.renew_child_lease("run-1", "child-1", "collector", lease_seconds=900, now=800))
+        self.assertFalse(self.store.renew_child_lease("run-1", "child-1", "other", lease_seconds=900, now=900))
+        self.assertFalse(self.store.claim_child("run-1", "child-1", "other", lease_seconds=900, now=1001))
+        self.assertFalse(self.store.renew_child_lease("run-1", "child-1", "collector", lease_seconds=900, now=1701))
+        self.assertTrue(self.store.claim_child("run-1", "child-1", "replacement", lease_seconds=900, now=1701))
+        self.assertFalse(self.store.renew_child_lease("run-1", "child-1", "collector", lease_seconds=900, now=1702))
+        self.assertEqual(self.store.snapshot("run-1")["children"][0]["lease_owner"], "replacement")
+
     def test_completed_child_is_idempotent_and_cannot_be_reclaimed(self) -> None:
         self.assertTrue(self.store.claim_child("run-1", "child-1", "worker"))
         self.store.checkpoint("run-1", "child-1", "worker", "docs/plan.md")

@@ -427,7 +427,7 @@ def load_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
         or scheduler.get("local_time") != "09:00"
         or scheduler.get("timezone") != "America/Los_Angeles"
         or scheduler.get("rrule") != "FREQ=WEEKLY;BYDAY=SA;BYHOUR=9;BYMINUTE=0"
-        or scheduler.get("model") != "gpt-5.6-sol"
+        or scheduler.get("model") != "gpt-6-sol"
         or scheduler.get("reasoning_effort") != "high"
         or scheduler.get("execution_environment") != "local"
         or scheduler.get("prompt_path") != "config/weekly-intelligence-automation-prompt.md"

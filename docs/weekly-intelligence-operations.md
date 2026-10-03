@@ -65,7 +65,7 @@ the automation's exact interpreter invocation is part of the contract. A wrong r
 rejected before even a Git subprocess can run; a concurrent upstream advance
 fails closed as a stale checkout for the next scheduled retry.
 
-The active task uses `gpt-5.6-sol` at high reasoning. Deterministic collection
+The active task uses `gpt-6-sol` at high reasoning. Deterministic collection
 still runs first. Model work occurs only when material evidence exists. Every
 independently material candidate may reach evaluation and is processed
 sequentially with a fresh quota preflight for each model/reviewer wave.

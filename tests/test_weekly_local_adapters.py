@@ -238,6 +238,28 @@ class WeeklyLocalAdapterTests(unittest.TestCase):
         snapshot = self.assert_artifact("source_intake", result)
         self.assertEqual("partial", snapshot["completeness_state"])
 
+    def test_legacy_snapshot_ledger_remains_readable_after_content_identity_upgrade(self) -> None:
+        corpus = load_module("weekly_legacy_corpus_fixture", ROOT / "scripts" / "bookmark_private_corpus.py")
+        snapshot, records = corpus.reconcile_pages(self.source_export(), {"schema_version": 1, "network": "deny"})
+        for index, record in enumerate(records):
+            public, legacy = corpus.normalize_observation(record["row"], record["source_id"], snapshot["snapshot_id"],
+                evidence_identity_contract="source-revision-v1")
+            public["derivation"].pop("evidence_identity_contract")
+            snapshot["observations"][index] = public
+            records[index] = legacy
+        ledger = self.root / "inputs" / "legacy.sqlite3"
+        corpus.store_owner_records(ledger, records)
+        legacy_bytes = ledger.read_bytes()
+        snapshot_path = self.write_json("inputs/legacy-snapshot.json", snapshot)
+        adapter = self.adapters.LocalPreparationAdapters(self.snapshot_config(snapshot_path, ledger), self.state_dir)
+        self.assertEqual(adapter("design_packet", self.context("design_packet"))["status"], "prepared")
+        self.assertEqual(ledger.read_bytes(), legacy_bytes)
+        # An unrecognized contract must never silently select a weaker ID.
+        snapshot["observations"][0]["derivation"]["evidence_identity_contract"] = "unknown"
+        snapshot_path = self.write_json("inputs/legacy-snapshot.json", snapshot)
+        adapter = self.adapters.LocalPreparationAdapters(self.snapshot_config(snapshot_path, ledger), self.state_dir)
+        self.assertEqual(adapter("design_packet", self.context("design_packet"))["reason_code"], "source_ledger_mismatch")
+
     def test_missing_retrieval_prerequisite_stops_after_two_real_artifacts(self) -> None:
         source = self.write_json("inputs/source.json", self.source_export())
         adapter = self.adapter(source)

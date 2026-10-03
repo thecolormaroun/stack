@@ -61,7 +61,7 @@ class WeeklyAutomaticPromotionContractTests(unittest.TestCase):
     def test_strong_model_and_uncapped_automatic_promotion_are_active(self) -> None:
         config = WEEKLY.load_config()
 
-        self.assertEqual("gpt-5.6-sol", config["scheduler"]["model"])
+        self.assertEqual("gpt-6-sol", config["scheduler"]["model"])
         self.assertEqual("high", config["scheduler"]["reasoning_effort"])
         self.assertTrue(config["analysis_budget"]["authorized"])
         self.assertEqual("concurrent_model_contexts", config["analysis_budget"]["unit"])

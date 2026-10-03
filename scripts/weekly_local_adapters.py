@@ -547,10 +547,15 @@ class LocalPreparationAdapters:
             raw_records = [raw_by_evidence[evidence_id] for evidence_id in evidence_ids]
             for observation, raw in zip(observations, raw_records):
                 try:
+                    # Sealed snapshots retain their original evidence IDs;
+                    # absence of this additive v2 marker denotes legacy v1.
+                    derivation = observation.get("derivation", {})
+                    identity_contract = derivation.get("evidence_identity_contract", "source-revision-v1")
                     normalized, _record = self._corpus.normalize_observation(
                         raw,
                         str(observation.get("source_id", snapshot.get("source_id", "field-theory"))),
                         str(snapshot.get("snapshot_id", "sealed-snapshot")),
+                        evidence_identity_contract=identity_contract,
                     )
                 except Exception:
                     raise LocalAdapterError("source_ledger_mismatch") from None

@@ -813,6 +813,7 @@ def run_evaluation(
     *,
     command_runner: Callable[..., Any] = subprocess.run,
     lease_seconds: int = LEASE_SECONDS,
+    keepalive: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
     manifest = load_manifest(manifest_path, reviewed_manifest_sha256)
     output_root = _prepare_output(output_dir or (DEFAULT_OUTPUT / manifest["run_id"]))
@@ -880,6 +881,11 @@ def run_evaluation(
             raise EvidenceError("workflow_child_lease_unavailable")
 
         def ensure_lease() -> None:
+            if keepalive is not None:
+                try:
+                    keepalive()
+                except Exception:
+                    raise EvidenceError("parent_workflow_lease_lost") from None
             if _helper_digests() != manifest["helper_digests"]:
                 raise EvidenceError("execution_helper_drift")
             if not store.renew_child_lease(manifest["run_id"], "browser-evidence", lease_owner, lease_seconds=lease_seconds):

@@ -207,6 +207,55 @@ class WeeklyIntelligenceTests(unittest.TestCase):
         self.assertTrue(all(stage["status"] == "reused" for stage in third["stages"]))
         self.assertFalse(second["publication"]["promotion_approved"])
 
+    def test_long_adapter_renews_outer_lease_and_prevents_reclaim(self) -> None:
+        clock = [0.0]
+        competitors = []
+        def run(stage: str, context: dict) -> dict:
+            if stage == "candidate_evaluation":
+                for _ in range(4):
+                    clock[0] += 400
+                    context["renew_lease"]()
+                    competing = WEEKLY.workflow_store_module().WorkflowStore(self.state / "runs.sqlite3")
+                    try:
+                        competitors.append(competing.claim_child(context["run_id"], stage, "competitor", now=self.now + clock[0]))
+                    finally:
+                        competing.close()
+            return {"status": "prepared"}
+        coordinator = WEEKLY.WeeklyIntelligenceCoordinator(state_dir=self.state, adapters=run, now=self.now)
+        with mock.patch.object(WEEKLY.time, "monotonic", side_effect=lambda: clock[0]):
+            receipt = coordinator.run(**self.inputs)
+        self.assertEqual("prepared", receipt["terminal_state"])
+        self.assertEqual([False] * 4, competitors)
+
+    def test_adapter_that_loses_lease_cannot_checkpoint_success(self) -> None:
+        clock = [0.0]
+        def run(stage: str, context: dict) -> dict:
+            if stage == "candidate_evaluation":
+                clock[0] += 1000
+                competing = WEEKLY.workflow_store_module().WorkflowStore(self.state / "runs.sqlite3")
+                try:
+                    self.assertTrue(competing.claim_child(context["run_id"], stage, "competitor", now=self.now + clock[0]))
+                finally:
+                    competing.close()
+            return {"status": "prepared"}
+        coordinator = WEEKLY.WeeklyIntelligenceCoordinator(state_dir=self.state, adapters=run, now=self.now)
+        with mock.patch.object(WEEKLY.time, "monotonic", side_effect=lambda: clock[0]):
+            receipt = coordinator.run(**self.inputs)
+        self.assertEqual("weekly_stage_lease_lost", receipt["reason_code"])
+        self.assertNotEqual("completed", receipt["stages"][3]["status"])
+
+    def test_expected_evidence_wait_does_not_open_circuit(self) -> None:
+        def pending(stage: str, context: dict) -> dict:
+            return {"status": "blocked", "reason_code": "candidate_evaluation_results_pending", "retry_class": "transient"} if stage == "candidate_evaluation" else {"status": "prepared"}
+        coordinator = WEEKLY.WeeklyIntelligenceCoordinator(state_dir=self.state, adapters=pending, now=self.now)
+        first = coordinator.run(**self.inputs)
+        for attempt in range(3):
+            receipt = coordinator.run(**self.inputs, run_id=first["run_id"], resume=True, now=self.now + attempt + 1)
+            self.assertEqual(0, receipt["circuit"]["strike_count"])
+        coordinator.adapters = self.successful_adapter([])
+        supplied_scores = coordinator.run(**{**self.inputs, "eval_config": {"profile": "scores-arrived"}}, now=self.now + 10)
+        self.assertEqual("prepared", supplied_scores["terminal_state"])
+
     def test_tampered_stage_artifact_is_not_a_reusable_checkpoint(self) -> None:
         coordinator = self.coordinator()
         first = coordinator.run(**self.inputs)

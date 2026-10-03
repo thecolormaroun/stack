@@ -152,6 +152,26 @@ private-source HTML is rejected. The checked-in
 browser-smoke fixtures exercise the collector without private content; they
 are not frozen quality-evaluation or human-usefulness evidence.
 
+The weekly local adapter can opt into this collector with a reviewed manifest
+and candidate/materialization digest bindings. It verifies all frozen split
+cases before execution and retains collector output under a canonical digest
+that is independent of weekly run IDs and score-result files. Each campaign
+links the state-relative receipt path and canonical receipt digest. Candidate
+workflow, overflow, page-error, or incomplete-observation evidence blocks
+immediately; a baseline workflow failure may remain comparison evidence when
+candidate workflow, overflow, and page-error observations report no failure.
+Those measurements remain render-binding-unverified. Both the inner collector
+lease and outer campaign lease stay owner-checked, and completed variants resume
+without replay.
+Missing or partial score results remain retryable without opening a failure
+circuit. The collector has no reviewed producer that binds rendered HTML assets
+to the candidate packet, so collected candidate measurements remain explicitly
+render-binding-unverified. Complete receipt-bound scores stop at
+`candidate_evaluation_render_binding_unavailable`; they do not reach the
+evaluator. This wiring is disabled in the live configuration until a real
+reviewed harness is supplied. It does not manufacture fixtures, scores,
+reviewer identity, human task feedback, or a passing candidate.
+
 ```sh
 python3 scripts/materialize-capability-change.py --help
 python3 scripts/evaluate-design-intelligence-candidate.py --help

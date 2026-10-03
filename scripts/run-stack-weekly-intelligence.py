@@ -1543,6 +1543,11 @@ class WeeklyIntelligenceCoordinator:
             raise WeeklyIntelligenceError("self_issued_scheduler_evidence_rejected")
         if now is not None:
             self.now = float(now)
+        lease_started = time.monotonic()
+        lease_epoch = self.now
+        def lease_now() -> float:
+            return lease_epoch + time.monotonic() - lease_started
+
         self._prepare_state()
         _, input_digests, input_fp, stage_fps, data = self._make_inputs(
             inputs,
@@ -1726,7 +1731,7 @@ class WeeklyIntelligenceCoordinator:
                     )
                     break
                 lease_owner = _safe_id(
-                    f"{self.owner_id}-{actual_run_id}-{stage_id}",
+                    f"{self.owner_id}-{actual_run_id}-{stage_id}-{os.urandom(8).hex()}",
                     "lease",
                 )
                 if not store.claim_child(
@@ -1734,7 +1739,7 @@ class WeeklyIntelligenceCoordinator:
                     stage_id,
                     lease_owner,
                     lease_seconds=int(self.config["state"]["lease_seconds"]),
-                    now=self.now,
+                    now=lease_now(),
                 ):
                     lease_lost = True
                     stage_records.append(
@@ -1750,6 +1755,11 @@ class WeeklyIntelligenceCoordinator:
                 prior = previous_stages.get(stage_id)
                 result = None
                 try:
+                    def renew_lease(stage_id: str = stage_id, lease_owner: str = lease_owner) -> None:
+                        if not store.renew_child_lease(actual_run_id, stage_id, lease_owner,
+                                lease_seconds=int(self.config["state"]["lease_seconds"]), now=lease_now()):
+                            raise StageFailure("weekly_stage_lease_lost", "transient")
+
                     if (
                         prior
                         and prior.get("status") in {"completed", "reused"}
@@ -1778,12 +1788,16 @@ class WeeklyIntelligenceCoordinator:
                             "maintenance": maintenance,
                             "provider_egress": "deny",
                             "analysis_budget": self.config["analysis_budget"],
+                            # Ephemeral callback, never fingerprinted or persisted.
+                            "renew_lease": renew_lease,
                         }
+                        renew_lease()
                         result = _invoke_adapter(
                             _adapter_for(self.adapters, stage_id),
                             stage_id,
                             context,
                         )
+                        renew_lease()
                         output_digest, artifact_path = _sanitize_adapter_result(
                             stage_id,
                             actual_run_id,
@@ -1851,6 +1865,7 @@ class WeeklyIntelligenceCoordinator:
                     if stage_status == "completed" and isinstance(result, Mapping) and result.get("artifact_path") is not None and persisted_digest != output_digest:
                         raise WeeklyIntelligenceError("stage_artifact_digest_mismatch")
                     output_digest = persisted_digest
+                    renew_lease()
                     store.checkpoint(
                         actual_run_id,
                         stage_id,

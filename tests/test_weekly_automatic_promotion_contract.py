@@ -171,6 +171,25 @@ class WeeklyAutomaticPromotionContractTests(unittest.TestCase):
             set(lineage["dependentRequired"]["campaign_run_id"]),
         )
 
+    def test_digest_checklist_does_not_limit_skill_candidate_count(self) -> None:
+        checklist = (
+            ROOT / "skills/design/design-intelligence/eval/checklist.md"
+        ).read_text(encoding="utf-8")
+
+        output_c = next(
+            (line for line in checklist.splitlines() if line.startswith("- [ ] Output C ")),
+            "",
+        )
+        for phrase in (
+            "every independently material",
+            "evaluated sequentially",
+            "all promotion gates preserved",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, output_c)
+        self.assertNotRegex(output_c, r"(?:at most|up to|no more than)\s+\d+")
+        self.assertIn("at most 3 Zettelkasten candidates", checklist)
+
     def test_coordinator_prepares_the_automatic_tail_without_manual_queue(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             state = Path(temporary)

@@ -19,7 +19,7 @@ description: Completion checklist for weekly digest and skill promotion runs.
 
 - [ ] Output A includes 3-5 findings with source links and apply-this notes.
 - [ ] Output B includes at most 3 Zettelkasten candidates and uses wikilinks.
-- [ ] Output C includes at most 3 Studio/CDO skill candidates.
+- [ ] Output C accounts for every independently material Studio/CDO skill candidate; unrelated candidates are evaluated sequentially with all promotion gates preserved.
 - [ ] No digest claim says a file was saved unless the file exists.
 - [ ] Failures are visible instead of hidden.
 

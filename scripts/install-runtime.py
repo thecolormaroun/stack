@@ -312,7 +312,9 @@ def run_verifier(target: dict[str, Any], stage: Path) -> dict[str, Any]:
             stderr=subprocess.DEVNULL,
             start_new_session=True,
         )
-        process_group = os.getpgid(process.pid)
+        # start_new_session makes the child its group leader; a fast exit must
+        # not require a lookup after that process has already disappeared.
+        process_group = process.pid
         try:
             return_code = process.wait(timeout=VERIFIER_TIMEOUT_SECONDS)
         except subprocess.TimeoutExpired as error:

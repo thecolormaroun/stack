@@ -40,20 +40,23 @@ def private(path: Path, content: bytes) -> Path:
     return path
 
 
-def events(html: str, *, tool: bool = False, multiple: bool = False) -> bytes:
+def events(html: str, *, tool: bool = False, multiple: bool = False, commentary: bool = False) -> bytes:
     rows = [{"type": "thread.started", "thread_id": "synthetic-thread"}, {"type": "turn.started"}]
     if tool:
-        rows.append({"type": "item.completed", "item": {"type": "command_execution", "command": "pwd"}})
-    rows.append({"type": "item.completed", "item": {"type": "agent_message", "text": json.dumps({"html": html})}})
+        rows.append({"type": "item.completed", "item": {"id": "tool_0", "type": "command_execution", "command": "pwd"}})
+    if commentary:
+        rows.append({"type": "item.completed", "item": {"id": "comment_0", "type": "agent_message", "text": "I will prepare a public static layout."}})
+    rows.append({"type": "item.completed", "item": {"id": "message_0", "type": "agent_message", "text": json.dumps({"html": html})}})
     if multiple:
-        rows.append({"type": "item.completed", "item": {"type": "agent_message", "text": json.dumps({"html": html})}})
+        rows.append({"type": "item.completed", "item": {"id": "message_1", "type": "agent_message", "text": json.dumps({"html": html})}})
     rows.append({"type": "turn.completed", "usage": {"input_tokens": 10, "output_tokens": 20}})
     return b"\n".join(json.dumps(row).encode() for row in rows) + b"\n"
 
 
 class FakeCodex:
-    def __init__(self, *, auth: bytes = b"Logged in using ChatGPT\n", bad: bytes | None = None):
+    def __init__(self, *, auth: bytes = b"Logged in using ChatGPT\n", bad: bytes | None = None, commentary: bool = False):
         self.auth, self.bad = auth, bad
+        self.commentary = commentary
         self.calls: list[tuple[list[str], bytes | None, dict[str, str]]] = []
 
     def __call__(self, argv, **kwargs):
@@ -63,7 +66,10 @@ class FakeCodex:
         if self.bad is not None:
             return subprocess.CompletedProcess(argv, 0, self.bad, b"secret stderr must stay hidden")
         body = "candidate" if b"New synthetic rule." in kwargs["input"] else "baseline"
-        return subprocess.CompletedProcess(argv, 0, events(f"<!doctype html><html><head></head><body><h1>{body}</h1></body></html>"), b"")
+        html = f"<!doctype html><html><head></head><body><h1>{body}</h1></body></html>"
+        if "--output-last-message" in argv:
+            Path(argv[argv.index("--output-last-message") + 1]).write_bytes(json.dumps({"html": html}).encode())
+        return subprocess.CompletedProcess(argv, 0, events(html, commentary=self.commentary), b"")
 
     @property
     def provider_calls(self):
@@ -431,6 +437,195 @@ class DesignIntelligenceGenerationTests(unittest.TestCase):
         with self.assertRaises(GEN.GenerationError) as caught:
             GEN._parse_events(events(html, multiple=True))
         self.assertEqual("multiple_agent_messages", caught.exception.reason)
+
+    def test_last_message_correlation_allows_plain_commentary_only(self) -> None:
+        html = "<html><head></head><body>Public</body></html>"
+        final = json.dumps({"html": html}).encode()
+        guarded, usage, original_digest = GEN._parse_events(events(html, commentary=True), last_message=final)
+        self.assertEqual(GEN._validate_html(html), guarded)
+        self.assertEqual(sha(html.encode()), original_digest)
+        self.assertEqual(20, usage["output_tokens"])
+        with self.assertRaises(GEN.GenerationError):
+            GEN._parse_events(events(html, commentary=True))
+
+    def test_last_message_correlation_rejects_ambiguity_and_event_failures(self) -> None:
+        html = "<html><head></head><body>Public</body></html>"
+        final = json.dumps({"html": html}).encode()
+        rows = [json.loads(line) for line in events(html, commentary=True).splitlines()]
+        bad_streams = [events(html, multiple=True), events(html, tool=True), events(html) + b'{"type":"turn.started"}\n']
+        duplicate = [dict(row) for row in rows]
+        duplicate[2] = {"type": "item.completed", "item": {"id": "message_0", "type": "agent_message", "text": "Public commentary."}}
+        bad_streams.append(b"\n".join(json.dumps(row).encode() for row in duplicate))
+        for kind in ("item.started", "item.updated"):
+            malformed = [*rows[:2], {"type": kind, "item": {"id": "start_0", "type": "agent_message", "text": "Public"}}, *rows[2:]]
+            bad_streams.append(b"\n".join(json.dumps(row).encode() for row in malformed))
+        for stream in bad_streams:
+            with self.subTest(stream_size=len(stream)), self.assertRaises(GEN.GenerationError):
+                GEN._parse_events(stream, last_message=final)
+        for mismatch in (b"", b"Public commentary.", final + b"\n", json.dumps({"html": html}, separators=(",", ":")).encode()):
+            with self.subTest(size=len(mismatch)), self.assertRaises(GEN.GenerationError):
+                GEN._parse_events(events(html), last_message=mismatch)
+
+    def test_correlated_provider_outputs_resume_without_raw_files(self) -> None:
+        runner = FakeCodex(commentary=True)
+        receipt = self.execute(runner)
+        self.assertEqual(receipt, self.execute(runner))
+        self.assertEqual(2, len(runner.provider_calls))
+        for output in receipt["outputs"]:
+            self.assertEqual("last_message_correlated", output["response_selection"]["method"])
+            self.assertRegex(output["response_selection"]["message_sha256"], r"^[0-9a-f]{64}$")
+        for argv, _, _ in runner.provider_calls:
+            self.assertIn("--output-last-message", argv)
+            self.assertFalse(Path(argv[argv.index("--output-last-message") + 1]).exists())
+
+    def test_last_message_rejects_distinct_earlier_structured_messages(self) -> None:
+        html = "<html><head></head><body>Public</body></html>"
+        final = json.dumps({"html": html}).encode()
+        for earlier in ({"html": html.replace("Public", "Earlier")}, {"message": "earlier"},
+                        ["commentary"], "structured commentary", 7, True, None):
+            rows = [json.loads(line) for line in events(html, commentary=True).splitlines()]
+            rows[2]["item"]["text"] = json.dumps(earlier)
+            stream = b"\n".join(json.dumps(row).encode() for row in rows)
+            with self.subTest(earlier_type=type(earlier).__name__), self.assertRaises(GEN.GenerationError) as caught:
+                GEN._parse_events(stream, last_message=final)
+            self.assertEqual("provider_tool_or_output_rejected", caught.exception.code)
+            self.assertEqual("multiple_agent_messages", caught.exception.reason)
+
+    def test_saved_selection_metadata_requires_exact_method_and_digests(self) -> None:
+        runner = FakeCodex()
+        receipt = self.execute(runner)
+        binding = self.prepare()["binding"]
+        store = GEN._store.WorkflowStore(self.output / "workflow.sqlite3")
+        try:
+            snapshot = store.snapshot(receipt["run_id"])
+        finally:
+            store.close()
+        baseline_path = self.output / "artifacts/baseline-receipt.json"
+        final_path = self.output / "run-receipt.json"
+        baseline_bytes, final_bytes = baseline_path.read_bytes(), final_path.read_bytes()
+        valid = receipt["outputs"][0]["response_selection"]
+        invalid = (None, {}, valid | {"method": "final_channel"},
+                   valid | {"message_sha256": "not-a-digest"},
+                   valid | {"event_stream_sha256": 1}, valid | {"unexpected": True})
+        try:
+            for selection in invalid:
+                item = json.loads(baseline_bytes)
+                item["response_selection"] = selection
+                private(baseline_path, GEN._json_bytes(item))
+                final = json.loads(final_bytes)
+                final["outputs"][0] = item
+                private(final_path, GEN._json_bytes(final))
+                copied = json.loads(json.dumps(snapshot))
+                rows = [json.loads(row) for row in copied["children"][0]["checkpoints"]]
+                for row in rows:
+                    if row["kind"] == "variant_output" and row["variant"] == "baseline":
+                        row["sha256"] = sha(baseline_path.read_bytes())
+                    elif row["kind"] == "final":
+                        row["sha256"] = sha(final_path.read_bytes())
+                copied["children"][0]["checkpoints"] = [json.dumps(row) for row in rows]
+                with self.subTest(selection=selection), self.assertRaisesRegex(GEN.GenerationError, "variant_receipt_tampered"):
+                    GEN._validate_saved(copied, self.output, binding)
+        finally:
+            private(baseline_path, baseline_bytes)
+            private(final_path, final_bytes)
+        self.assertEqual(receipt, self.execute(runner))
+        self.assertEqual(2, len(runner.provider_calls))
+
+    def test_correlated_provider_rejects_replaced_linked_and_unwritten_files(self) -> None:
+        class UnsafeLastMessage(FakeCodex):
+            def __init__(self, mutation):
+                super().__init__()
+                self.mutation = mutation
+
+            def __call__(self, argv, **kwargs):
+                result = super().__call__(argv, **kwargs)
+                if "--output-last-message" in argv:
+                    self.mutation(Path(argv[argv.index("--output-last-message") + 1]))
+                return result
+
+        def replace_file(path):
+            replacement = path.with_name("replacement.json")
+            private(replacement, path.read_bytes())
+            replacement.replace(path)
+
+        def symlink_file(path):
+            target = path.with_name("target.json")
+            private(target, path.read_bytes())
+            path.unlink()
+            path.symlink_to(target)
+
+        def hardlink_file(path):
+            os.link(path, path.with_name("alias.json"))
+
+        for mutation in (replace_file, symlink_file, hardlink_file, lambda p: p.chmod(0o644),
+                         lambda p: p.unlink(), lambda p: p.write_bytes(b""),
+                         lambda p: p.write_bytes(b"x" * (GEN.MAX_JSONL + 1))):
+            with tempfile.TemporaryDirectory(dir=self.root) as output, self.subTest(mutation=mutation.__name__):
+                runner = UnsafeLastMessage(mutation)
+                with self.assertRaises(GEN.GenerationError):
+                    GEN.execute_generation(self.manifest_path, self.save_manifest(), self.repo, Path(output), runner=runner)
+                self.assertEqual(1, len(runner.provider_calls))
+                with self.assertRaisesRegex(GEN.GenerationError, "attempt_started_reconciliation_required"):
+                    GEN.execute_generation(self.manifest_path, self.save_manifest(), self.repo, Path(output), runner=runner)
+                self.assertEqual(1, len(runner.provider_calls))
+
+    def test_last_message_read_does_not_confuse_access_time_with_mutation(self) -> None:
+        class OldAccessTime(FakeCodex):
+            def __call__(self, argv, **kwargs):
+                result = super().__call__(argv, **kwargs)
+                if "--output-last-message" in argv:
+                    path = Path(argv[argv.index("--output-last-message") + 1])
+                    os.utime(path, ns=(1, path.stat().st_mtime_ns))
+                return result
+
+        self.assertEqual("generated_quarantined", self.execute(OldAccessTime())["status"])
+
+    def test_real_process_last_message_is_correlated_without_a_model(self) -> None:
+        html = "<html><head></head><body>Public</body></html>"
+        context = self.prepare()
+        stream = events(html, commentary=True)
+        message = json.dumps({"html": html}).encode()
+        script = ("import pathlib,sys; sys.stdin.buffer.read(); "
+                  f"pathlib.Path(sys.argv[1]).write_bytes({message!r}); "
+                  f"sys.stdout.buffer.write({stream!r})")
+
+        def argv_for_local_process(executable, model, schema, cwd, last_message):
+            return [sys.executable, "-c", script, str(last_message)]
+
+        with patch.object(GEN, "_codex_argv", side_effect=argv_for_local_process):
+            guarded, usage, original_digest, selection = GEN._invoke_codex(
+                context, "baseline", self.root / "schema.json", self.root,
+                subprocess.run, lambda: None,
+            )
+        self.assertEqual(GEN._validate_html(html), guarded)
+        self.assertEqual(sha(html.encode()), original_digest)
+        self.assertEqual(sha(stream), selection["event_stream_sha256"])
+        self.assertEqual(sha(message), selection["message_sha256"])
+        self.assertEqual(20, usage["output_tokens"])
+
+    def test_last_message_changed_during_read_is_rejected(self) -> None:
+        directory = self.root / "last-message-read"
+        directory.mkdir(mode=0o700)
+        path = private(directory / "last-message.json", b'{"html":"public"}')
+        expected = path.stat()
+        descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        actual_read = os.read
+        changed = []
+
+        def changing_read(fd, amount):
+            chunk = actual_read(fd, amount)
+            if chunk and not changed:
+                os.utime(path, ns=(expected.st_atime_ns, expected.st_mtime_ns + 1))
+                changed.append(True)
+            return chunk
+
+        try:
+            with patch.object(GEN.os, "read", side_effect=changing_read):
+                with self.assertRaisesRegex(GEN.GenerationError, "provider_last_message_invalid"):
+                    GEN._read_last_message(descriptor, expected)
+        finally:
+            os.close(descriptor)
+        self.assertEqual([True], changed)
 
     def test_receipts_separate_provider_and_guarded_html_digests(self) -> None:
         runner = FakeCodex()

@@ -43,7 +43,8 @@ MAX_JSONL = 1_000_000
 MAX_HTML = 64_000
 MAX_PROMPT = 256_000
 LEASE_SECONDS = 900
-POLICY_REVISION = "public-synthetic-codex-html-v2"
+POLICY_REVISION = "public-synthetic-codex-html-v3"
+RESPONSE_SELECTION_METHOD = "last_message_correlated"
 HTML_POLICY_REVISION = "static-network-denied-html-v1"
 HTML_CSP = "default-src 'none'; script-src 'none'; connect-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; object-src 'none'"
 HTML_CSP_META = '<meta http-equiv="Content-Security-Policy" content="' + HTML_CSP + '">'
@@ -433,13 +434,18 @@ def _validate_html(html: Any) -> bytes:
     return data
 
 
-def _parse_events(stdout: bytes) -> tuple[bytes, dict[str, int] | None, str]:
+def _parse_events(stdout: bytes, *, last_message: bytes | None = None) -> tuple[bytes, dict[str, int] | None, str]:
     if not isinstance(stdout, bytes) or not stdout or len(stdout) > MAX_JSONL:
         raise GenerationError("provider_events_invalid")
     thread = started = completed = False
     output: bytes | None = None
     provider_html_sha256: str | None = None
     usage: dict[str, int] | None = None
+    messages: list[bytes] = []
+    message_texts: set[bytes] = set()
+    item_ids: set[str] = set()
+    if last_message is not None and (not isinstance(last_message, bytes) or not last_message or len(last_message) > MAX_JSONL):
+        raise GenerationError("provider_last_message_invalid")
     for line in stdout.splitlines():
         if len(line) > MAX_JSONL or not line.strip():
             raise GenerationError("provider_events_invalid")
@@ -457,11 +463,31 @@ def _parse_events(stdout: bytes) -> tuple[bytes, dict[str, int] | None, str]:
             if not isinstance(item, dict):
                 raise GenerationError("provider_events_invalid")
             item_type = item.get("type")
+            if last_message is not None:
+                identifier = item.get("id")
+                if not isinstance(identifier, str) or not SAFE_ID.fullmatch(identifier) or identifier in item_ids:
+                    raise GenerationError("provider_events_invalid")
+                item_ids.add(identifier)
             if item_type == "reasoning":
+                if last_message is not None and (kind != "item.completed" or not isinstance(item.get("text"), str)):
+                    raise GenerationError("provider_tool_or_output_rejected", reason="unknown_event_or_order")
                 continue  # Reasoning is deliberately neither persisted nor returned.
             if item_type in TOOL_ITEM_TYPES or item_type == "error":
                 raise GenerationError("provider_tool_or_output_rejected", reason=(
                     "provider_item_error" if item_type == "error" else "tool_item"))
+            if last_message is not None:
+                if kind != "item.completed" or item_type != "agent_message" or not isinstance(item.get("text"), str):
+                    raise GenerationError("provider_tool_or_output_rejected", reason=(
+                        "invalid_agent_message_lifecycle" if item_type == "agent_message" else "unknown_item"))
+                try:
+                    text = item["text"].encode("utf-8")
+                except UnicodeError:
+                    raise GenerationError("provider_output_invalid") from None
+                if text in message_texts:
+                    raise GenerationError("provider_tool_or_output_rejected", reason="multiple_agent_messages")
+                message_texts.add(text)
+                messages.append(text)
+                continue
             if kind == "item.started" and item_type == "agent_message" and output is None:
                 continue
             if kind != "item.completed" or item_type != "agent_message" or output is not None or not isinstance(item.get("text"), str):
@@ -473,7 +499,7 @@ def _parse_events(stdout: bytes) -> tuple[bytes, dict[str, int] | None, str]:
             _object(message, {"html"}, "provider_output_invalid")
             output = _validate_html(message["html"])
             provider_html_sha256 = _sha(message["html"].encode("utf-8"))
-        elif kind == "turn.completed" and started and not completed and output is not None:
+        elif kind == "turn.completed" and started and not completed and (output is not None or messages):
             completed = True
             value = event.get("usage")
             if value is not None:
@@ -482,6 +508,19 @@ def _parse_events(stdout: bytes) -> tuple[bytes, dict[str, int] | None, str]:
                 usage = {key: value[key] for key in ("input_tokens", "cached_input_tokens", "output_tokens") if key in value}
         else:
             raise GenerationError("provider_tool_or_output_rejected", reason="unknown_event_or_order")
+    if last_message is not None and thread and started and completed and messages:
+        if messages[-1] != last_message:
+            raise GenerationError("provider_last_message_mismatch")
+        for commentary in messages[:-1]:
+            try:
+                json.loads(commentary)
+            except (UnicodeError, ValueError):
+                continue  # Only ordinary non-JSON commentary may precede the selected response.
+            raise GenerationError("provider_tool_or_output_rejected", reason="multiple_agent_messages")
+        message = _load_json(last_message, "provider_output_invalid")
+        _object(message, {"html"}, "provider_output_invalid")
+        output = _validate_html(message["html"])
+        provider_html_sha256 = _sha(message["html"].encode("utf-8"))
     if not thread or not started or not completed or output is None or provider_html_sha256 is None:
         raise GenerationError("provider_events_incomplete")
     return output, usage, provider_html_sha256
@@ -497,10 +536,10 @@ DISABLED_FEATURES = (
 )
 
 
-def _codex_argv(executable: Path, model: Mapping[str, str], schema: Path, cwd: Path) -> list[str]:
+def _codex_argv(executable: Path, model: Mapping[str, str], schema: Path, cwd: Path, last_message: Path) -> list[str]:
     argv = [str(executable), "exec", "--ignore-user-config", "--ignore-rules", "--ephemeral",
             "--skip-git-repo-check", "--strict-config", "--sandbox", "read-only", "--json",
-            "--output-schema", str(schema), "--cd", str(cwd), "--model", model["name"],
+            "--output-schema", str(schema), "--output-last-message", str(last_message), "--cd", str(cwd), "--model", model["name"],
             "--enable", "skip_host_skill_discovery"]
     for feature in DISABLED_FEATURES:
         argv += ["--disable", feature]
@@ -624,18 +663,69 @@ def _auth_chatgpt(executable: Path, cwd: Path, runner: Callable[..., Any], ensur
         raise GenerationError("chatgpt_auth_required")
 
 
+def _read_last_message(directory_fd: int, expected: os.stat_result) -> bytes:
+    descriptor = os.open("last-message.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory_fd)
+    try:
+        before = os.fstat(descriptor)
+        if (not stat.S_ISREG(before.st_mode) or before.st_uid != os.getuid()
+                or stat.S_IMODE(before.st_mode) != 0o600 or before.st_nlink != 1
+                or (before.st_dev, before.st_ino) != (expected.st_dev, expected.st_ino)
+                or not 0 < before.st_size <= MAX_JSONL):
+            raise GenerationError("provider_last_message_invalid")
+        chunks = bytearray()
+        while len(chunks) <= MAX_JSONL:
+            chunk = os.read(descriptor, min(65536, MAX_JSONL + 1 - len(chunks)))
+            if not chunk:
+                break
+            chunks.extend(chunk)
+        after = os.fstat(descriptor)
+        current = os.stat("last-message.json", dir_fd=directory_fd, follow_symlinks=False)
+        stable_fields = ("st_dev", "st_ino", "st_mode", "st_uid", "st_nlink", "st_size", "st_mtime_ns", "st_ctime_ns")
+        if (any(getattr(before, key) != getattr(after, key) for key in stable_fields)
+                or (current.st_dev, current.st_ino) != (after.st_dev, after.st_ino)
+                or len(chunks) != before.st_size or len(chunks) > MAX_JSONL):
+            raise GenerationError("provider_last_message_invalid")
+        return bytes(chunks)
+    finally:
+        os.close(descriptor)
+
+
 def _invoke_codex(context: Mapping[str, Any], variant: str, schema: Path, cwd: Path,
-                  runner: Callable[..., Any], ensure_lease: Callable[[], None]) -> tuple[bytes, dict[str, int] | None, str]:
-    prompt = context["prompts"][variant].encode("utf-8")
-    argv = _codex_argv(context["executable"], context["manifest"]["model"], schema, cwd)
-    ensure_lease()
-    result = _call_runner(runner, argv, prompt=prompt, cwd=cwd, timeout=240, ensure_lease=ensure_lease)
-    if result.returncode != 0:
-        raise GenerationError("provider_nonzero_exit")
-    stdout = result.stdout
-    if isinstance(stdout, str):
-        stdout = stdout.encode("utf-8")
-    return _parse_events(stdout)
+                  runner: Callable[..., Any], ensure_lease: Callable[[], None]) -> tuple[bytes, dict[str, int] | None, str, dict[str, str]]:
+    directory_fd = None
+    try:
+        directory_fd = os.open(cwd, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        directory = os.fstat(directory_fd)
+        if (directory.st_uid != os.getuid() or stat.S_IMODE(directory.st_mode) != 0o700):
+            raise GenerationError("provider_last_message_invalid")
+        descriptor = os.open("last-message.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                             0o600, dir_fd=directory_fd)
+        try:
+            expected = os.fstat(descriptor)
+        finally:
+            os.close(descriptor)
+        prompt = context["prompts"][variant].encode("utf-8")
+        argv = _codex_argv(context["executable"], context["manifest"]["model"], schema, cwd, cwd / "last-message.json")
+        ensure_lease()
+        result = _call_runner(runner, argv, prompt=prompt, cwd=cwd, timeout=240, ensure_lease=ensure_lease)
+        if result.returncode != 0:
+            raise GenerationError("provider_nonzero_exit")
+        path_info = cwd.lstat()
+        if (path_info.st_dev, path_info.st_ino) != (directory.st_dev, directory.st_ino):
+            raise GenerationError("provider_last_message_invalid")
+        last_message = _read_last_message(directory_fd, expected)
+        stdout = result.stdout
+        if isinstance(stdout, str):
+            stdout = stdout.encode("utf-8")
+        html, usage, provider_digest = _parse_events(stdout, last_message=last_message)
+        return html, usage, provider_digest, {"method": RESPONSE_SELECTION_METHOD,
+                                            "message_sha256": _sha(last_message),
+                                            "event_stream_sha256": _sha(stdout)}
+    except OSError:
+        raise GenerationError("provider_last_message_unavailable") from None
+    finally:
+        if directory_fd is not None:
+            os.close(directory_fd)
 
 
 def _checkpoint_rows(snapshot: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -698,7 +788,13 @@ def _validate_saved(snapshot: Mapping[str, Any], output_root: Path,
             if _collector._verify_private_file(receipt_path, output_root) != row["sha256"]:
                 raise GenerationError("variant_receipt_tampered")
             item = _private_json(receipt_path, output_root)
-            if (set(item) != {"schema_version", "run_id", "variant", "prompt_sha256", "html_sha256", "provider_html_sha256", "html_policy_revision", "requested_model", "observed_model", "usage", "status"}
+            selection = item.get("response_selection")
+            if (not isinstance(selection, dict) or set(selection) != {"method", "message_sha256", "event_stream_sha256"}
+                    or selection["method"] != RESPONSE_SELECTION_METHOD
+                    or any(not isinstance(selection[key], str) or not HEX64.fullmatch(selection[key])
+                           for key in ("message_sha256", "event_stream_sha256"))):
+                raise GenerationError("variant_receipt_tampered")
+            if (set(item) != {"schema_version", "run_id", "variant", "prompt_sha256", "html_sha256", "provider_html_sha256", "html_policy_revision", "response_selection", "requested_model", "observed_model", "usage", "status"}
                     or item["schema_version"] != 1 or item["run_id"] != binding["run_id"]
                     or item["variant"] != variant or item["prompt_sha256"] != binding["prompt_sha256"][variant]
                     or item["requested_model"] != binding["model"] or item["observed_model"] is not None
@@ -840,7 +936,7 @@ def execute_generation(manifest_path: Path, reviewed_manifest_sha256: str, repos
                         _auth_chatgpt(context["executable"], scratch, runner, ensure_lease)
                         checkpoint({"kind": "attempt_started", "variant": variant,
                                     "prompt_sha256": context["binding"]["prompt_sha256"][variant]})
-                        html, usage, provider_html_sha256 = _invoke_codex(context, variant, output_root / "html-output-schema.json",
+                        html, usage, provider_html_sha256, response_selection = _invoke_codex(context, variant, output_root / "html-output-schema.json",
                                                     scratch, runner, ensure_lease)
                     current = prepare_generation(manifest_path, reviewed_manifest_sha256, repository)
                     if current["binding"] != context["binding"]:
@@ -851,6 +947,7 @@ def execute_generation(manifest_path: Path, reviewed_manifest_sha256: str, repos
                             "prompt_sha256": context["binding"]["prompt_sha256"][variant],
                             "html_sha256": html_digest, "requested_model": context["manifest"]["model"],
                             "provider_html_sha256": provider_html_sha256, "html_policy_revision": HTML_POLICY_REVISION,
+                            "response_selection": response_selection,
                             "observed_model": None, "usage": usage, "status": "generated_quarantined"}
                     receipt_digest = _collector._write_new_private(output_root / "artifacts" / f"{variant}-receipt.json", output_root, _json_bytes(item))
                     checkpoint({"kind": "variant_output", "variant": variant, "sha256": receipt_digest})

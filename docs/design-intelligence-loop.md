@@ -120,7 +120,22 @@ Per-fixture regressions cannot be averaged away.
 
 Synthetic evidence can prove code paths but cannot promote a candidate. A
 missing `STACK_DESIGN_EVAL_ROOT` is `blocked-eval`; unstable scores or rubric
-disagreement reject the candidate. Passing evaluation is necessary but not
+disagreement remain review-only. Feedback labelled `real`, `user`, `human`, or
+`task`, or carrying caller-supplied `real: true`, `verified`, `reviewed_by`,
+`reviewer`, or `receipt_sha256` metadata, is an unverified claim, not
+authenticated task use. The evaluator has no registered trusted feedback
+producer: positive scores with such claims stay `human_review_required`, with
+zero verified real-feedback count and a failed task-feedback gate. When those
+claims are the only review blocker,
+`provide-independently-bound-task-feedback` is the next gate; instability or
+rubric disagreement retain the `human-review` gate. This does not create a
+recurring approval queue or substitute human taste approval for candidate-bound
+feedback. Weak scores, hard failures and
+holdout regressions still reject. A future feedback producer needs its own
+reviewed trust contract and exact candidate, fixture, task and artifact
+bindings; adding metadata to result JSON cannot register one.
+
+Passing evaluation is necessary but not
 sufficient: the automatic tail also requires the full repository tests, a
 fresh independent `ship` review, green pull-request checks, merge verification,
 and atomic runtime publication with discovery and rollback receipts.

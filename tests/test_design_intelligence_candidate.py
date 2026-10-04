@@ -234,24 +234,66 @@ class DesignIntelligenceCandidateTests(unittest.TestCase):
         self.assertEqual(len(identities), len({failure["failure_id"] for failure in failures}))
 
     def test_unstable_scores_or_rubric_usefulness_disagreement_requires_human(self) -> None:
-        unstable = self.evaluate(result_paths=self.results(candidate_by_rep=[0.4, 0.6, 0.5]))
+        unstable = self.evaluate(result_paths=self.results(candidate_by_rep=[0.50, 0.56, 0.62]))
         self.assertEqual("human_review_required", unstable["status"])
         self.assertIn("unstable_scores", unstable["reason_codes"])
+        self.assertTrue(unstable["gates"]["development_wins"])
+        self.assertTrue(unstable["gates"]["weighted_aggregate_improvement"])
+        self.assertEqual("human-review", unstable["next_gate"])
         disagreement = self.evaluate(result_paths=self.results(disagreement=(0.9, 0.5)))
         self.assertEqual("human_review_required", disagreement["status"])
         self.assertIn("rubric_usefulness_disagreement", disagreement["reason_codes"])
+        self.assertEqual("human-review", disagreement["next_gate"])
 
-    def test_passing_candidate_stops_at_approval_and_remains_quarantined_and_idempotent(self) -> None:
+    def test_passing_scores_with_claimed_real_feedback_remain_quarantined_and_idempotent(self) -> None:
         results = self.results()
         first = self.evaluate(result_paths=results)
         second = self.evaluate(result_paths=results)
-        self.assertEqual("awaiting_approval", first["status"])
+        self.assertEqual("human_review_required", first["status"])
+        self.assertIn("unverified_task_usefulness_feedback", first["reason_codes"])
+        self.assertEqual(0, first["metrics"]["real_task_usefulness_feedback_count"])
+        self.assertGreater(first["metrics"]["unverified_task_usefulness_feedback_count"], 0)
+        self.assertFalse(first["metrics"]["synthetic_only"])
+        self.assertFalse(first["gates"]["task_usefulness_feedback"])
+        self.assertEqual("provide-independently-bound-task-feedback", first["next_gate"])
         self.assertEqual(first, second)
         self.assertFalse(first["activation"]["active_pointer"])
         self.assertFalse(first["activation"]["install"])
         self.assertFalse(first["activation"]["publish"])
         self.assertFalse(first["activation"]["draft_pr"])
         self.assertFalse(first["quarantine"]["retrieval_truth"])
+
+    def test_self_labelled_real_feedback_cannot_authenticate_itself(self) -> None:
+        claims = [
+            {"kind": kind} for kind in ("real", "user", "human", "task", "task-use", "task_use")
+        ] + [
+            {"real": True}, {"is_real": True}, {"source": "human"}, {"type": "task"},
+            {"kind": "real", "verified": True, "reviewed_by": "owner", "receipt_sha256": "a" * 64},
+        ]
+        for claim in claims:
+            with self.subTest(claim=claim):
+                self.assertEqual("unverified", EVALUATOR._feedback_kind(claim))
+        self.assertEqual("synthetic", EVALUATOR._feedback_kind({"synthetic": True, "real": True}))
+        self.assertEqual("synthetic", EVALUATOR._feedback_kind({"is_synthetic": True, "kind": "human"}))
+
+    def test_metadata_only_feedback_claims_remain_unverified(self) -> None:
+        claims = [
+            {"verified": True}, {"reviewed_by": "owner"}, {"reviewer": "owner"},
+            {"receipt_sha256": "a" * 64},
+        ]
+        for claim in claims:
+            with self.subTest(claim=claim):
+                feedback = dict(claim, text="Positive feedback claim.")
+                self.assertEqual("unverified", EVALUATOR._feedback_kind(feedback))
+                receipt = self.evaluate(result_paths=self.results(feedback=feedback))
+                self.assertEqual("human_review_required", receipt["status"])
+                self.assertIn("unverified_task_usefulness_feedback", receipt["reason_codes"])
+                self.assertEqual(0, receipt["metrics"]["real_task_usefulness_feedback_count"])
+                self.assertGreater(receipt["metrics"]["unverified_task_usefulness_feedback_count"], 0)
+                self.assertFalse(receipt["gates"]["task_usefulness_feedback"])
+                self.assertEqual("provide-independently-bound-task-feedback", receipt["next_gate"])
+        self.assertEqual("synthetic", EVALUATOR._feedback_kind({"kind": "synthetic", "reviewed_by": "owner"}))
+        self.assertEqual("synthetic", EVALUATOR._feedback_kind({"synthetic": True, "verified": True}))
 
     def test_aggregate_only_scores_cannot_bypass_dimension_regression_checks(self) -> None:
         results = self.results()
@@ -286,8 +328,41 @@ class DesignIntelligenceCandidateTests(unittest.TestCase):
         synthetic = self.evaluate(result_paths=self.results(feedback={"kind": "synthetic", "text": "fixture simulation"}))
         self.assertEqual("human_review_required", synthetic["status"])
         self.assertIn("missing_real_task_usefulness_feedback", synthetic["reason_codes"])
+        self.assertTrue(synthetic["metrics"]["synthetic_only"])
+        unknown = self.evaluate(result_paths=self.results(feedback="Unattributed feedback note"))
+        self.assertEqual("human_review_required", unknown["status"])
+        self.assertIn("missing_real_task_usefulness_feedback", unknown["reason_codes"])
+        self.assertFalse(unknown["metrics"]["synthetic_only"])
         no_feedback = self.evaluate(result_paths=self.results(feedback=[]))
         self.assertEqual("blocked-eval", no_feedback["status"])
+        self.assertIn("missing_task_usefulness_feedback", no_feedback["reason_codes"])
+        self.assertFalse(no_feedback["metrics"]["synthetic_only"])
+
+    def test_unverified_feedback_does_not_replace_weak_score_rejection(self) -> None:
+        for inputs in (
+            {"improvement": 0.01},
+            {"candidate_by_rep": [0.4, 0.6, 0.5]},
+            {"improvement": 0.01, "disagreement": (0.9, 0.5)},
+        ):
+            with self.subTest(inputs=inputs):
+                weak = self.evaluate(result_paths=self.results(**inputs))
+                self.assertEqual("rejected", weak["status"])
+                self.assertIn("insufficient_development_wins", weak["reason_codes"])
+                self.assertEqual("revise-or-discard-candidate", weak["next_gate"])
+
+    def test_weighted_improvement_only_rejection(self) -> None:
+        original_threshold = self.profile["minimum_weighted_aggregate_improvement"]
+        self.profile["minimum_weighted_aggregate_improvement"] = 0.07
+        try:
+            weighted_only = self.evaluate(result_paths=self.results(improvement=0.06))
+        finally:
+            self.profile["minimum_weighted_aggregate_improvement"] = original_threshold
+
+        self.assertTrue(weighted_only["gates"]["development_wins"])
+        self.assertFalse(weighted_only["gates"]["weighted_aggregate_improvement"])
+        self.assertEqual("rejected", weighted_only["status"])
+        self.assertIn("insufficient_weighted_improvement", weighted_only["reason_codes"])
+        self.assertNotIn("insufficient_development_wins", weighted_only["reason_codes"])
 
     def test_per_fixture_dimension_regression_cannot_be_averaged_away(self) -> None:
         dimensions = dict(DIMS)

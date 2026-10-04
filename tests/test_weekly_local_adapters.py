@@ -401,7 +401,7 @@ class WeeklyLocalAdapterTests(unittest.TestCase):
                 self.assertEqual("candidate_evaluation_inputs_incomplete", result["reason_code"])
                 self.assertFalse(self.artifact("candidate_evaluation").exists())
 
-    def test_existing_candidate_harness_runs_the_real_evaluator_and_stops_at_approval(self) -> None:
+    def test_existing_candidate_harness_does_not_accept_claimed_real_feedback(self) -> None:
         helper_module = load_module("weekly_local_adapter_evaluation_fixture", EVALUATION_HELPER)
         fixture = helper_module.DesignIntelligenceCandidateTests("runTest")
         fixture.setUp()
@@ -422,9 +422,12 @@ class WeeklyLocalAdapterTests(unittest.TestCase):
             "results": {name: str(path) for name, path in results.items()},
         }
         result = self.adapter(source, evaluation=evaluation)("candidate_evaluation", self.context("candidate_evaluation"))
-        self.assertEqual("prepared", result["status"])
+        self.assertEqual("blocked", result["status"])
+        self.assertEqual("candidate_evaluation_human_review_required", result["reason_code"])
         receipt = self.assert_artifact("candidate_evaluation", result)
-        self.assertEqual("awaiting_approval", receipt["status"])
+        self.assertEqual("human_review_required", receipt["status"])
+        self.assertIn("unverified_task_usefulness_feedback", receipt["reason_codes"])
+        self.assertEqual(0, receipt["metrics"]["real_task_usefulness_feedback_count"])
         self.assertFalse(receipt["activation"]["publish"])
         self.assertFalse(receipt["activation"]["install"])
 

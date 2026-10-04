@@ -70,6 +70,34 @@ The output directory contains an owner-only WorkflowStore database, immutable ru
 
 The model receives only the public synthetic task text, viewport, and exact selected instruction bytes, target first and other paths sorted. Source lineage, rationale, local paths, receipt metadata, variant names, expected outcomes, and bookmarks are omitted from the constructed stdin prompt. Markdown references and includes inside instruction text are **not followed or verified as a closure**. The Codex host may inject other instructions or expose tools despite requested CLI settings; `tool_isolation` is recorded as `requested_not_attested`, `provider_prompt_closure` as `unverified`, and observed model identity as `null` unless an authoritative runtime record is added later. The raw stdin SHA and requested model are bound; they do not prove the complete provider prompt or model actually used.
 
+## Prepare offline collector inputs
+
+After an exact generation run has produced its final receipt, the static preparation mode can write collector inputs without calling a provider or launching a browser. Pass the original generation inputs and output directory, plus the independently reviewed raw SHA-256 of `run-receipt.json` and a separate collection output directory:
+
+```sh
+python3 scripts/generate-design-intelligence-artifacts.py \
+  --manifest /absolute/owner/generation.json \
+  --reviewed-manifest-sha256 <raw-manifest-sha256> \
+  --repository /absolute/stack-checkout \
+  --output-dir /absolute/owner/generation-run \
+  --generation-receipt-sha256 <raw-run-receipt-sha256> \
+  --collection-dir /absolute/owner/collection-inputs \
+  --browser-executable /opt/homebrew/bin/agent-browser \
+  --prepare-collection
+```
+
+The browser executable must use one of the collector's existing allowlisted paths. `/opt/homebrew/bin/agent-browser` is the default. Preparation resolves and hashes the selected executable through the collector manifest validator, but does not launch it.
+
+The generation output root and its existing `artifacts/` directory must already be owner-owned `0700` directories. Preparation revalidates the reconstructed generation binding, its semantic equality with `run-binding.json`, the baseline and candidate receipts, their guarded HTML hashes and policy, equality between both output records and the final receipt, and the independently pinned raw final-receipt bytes. The four variant files must be present with no extra artifacts. It does not open or repair `workflow.sqlite3`, inspect checkpoints, reconcile a lease, or write anywhere in the generation output. A missing final receipt, an uncertain attempt without that receipt, or any mismatch stops before collection outputs are created. Because the final receipt may be written just before its final workflow checkpoint, `collection-binding.json` records `generation_workflow_status` as `unverified`.
+
+The owner-only collection directory contains exactly these preparation files:
+
+- `task.txt`: the generation task text encoded as UTF-8, with no added newline.
+- `collector-manifest.json`: one collector-schema case with the original case ID and viewport, absolute baseline/candidate HTML paths and saved digests, and no assets or primary workflow.
+- `collection-binding.json`: an informational provenance sidecar with the raw final-receipt pin, reconstructed binding digest, current raw variant-receipt digests, collector/helper/browser digests, and input digests.
+
+Repeated preparation is idempotent when the existing bytes match; mismatched files, foreign entries, unsafe permissions, symlinks, and paths overlapping the generation output, repository, or private inputs are rejected. An interrupted private write removes only its own temporary file; matching completed files remain available for retry in the same directory. Collector validation or browser/helper drift after the first two writes leaves partial inputs, not a successful sidecar, and a later matching retry can complete them. The sidecar is not consumed by the collector or weekly promotion adapter. It records static-layout-only inputs, `not_evaluated`, pending human usefulness, null observed model, unverified provider-prompt closure, requested-but-unattested tool isolation, and prohibited promotion/publication. Preparing collector inputs is not workflow completion, provenance attestation, a quality result, or promotion evidence.
+
 The returned HTML must be UTF-8, at most 64 KB after guarding, and static. Scripts, event handlers, HTML comments, SVG, MathML, forms, frames, external assets, and ambiguous content before the explicit `head` are rejected. All HTML comments are excluded because Python and browser parsers can disagree on malformed comment boundaries, hiding active markup from a validator. Immediately after that opening `head`, the producer inserts this policy before any model-authored resource:
 
 ```text

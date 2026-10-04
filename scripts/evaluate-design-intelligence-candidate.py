@@ -506,19 +506,20 @@ def _write_idempotent(path: Path, data: bytes) -> None:
     temporary = path.parent / f".{path.name}.{os.getpid()}.tmp"
     descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     try:
-        offset = 0
-        while offset < len(data):
-            offset += os.write(descriptor, data[offset:])
-        os.fsync(descriptor)
-        os.fchmod(descriptor, 0o600)
-    finally:
-        os.close(descriptor)
-    try:
-        os.link(temporary, path)
-    except FileExistsError:
-        info = path.stat()
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600 or path.read_bytes() != data:
-            raise DesignEvaluationError("existing evaluation receipt differs from deterministic rerun")
+        try:
+            offset = 0
+            while offset < len(data):
+                offset += os.write(descriptor, data[offset:])
+            os.fsync(descriptor)
+            os.fchmod(descriptor, 0o600)
+        finally:
+            os.close(descriptor)
+        try:
+            os.link(temporary, path)
+        except FileExistsError:
+            info = path.stat()
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600 or path.read_bytes() != data:
+                raise DesignEvaluationError("existing evaluation receipt differs from deterministic rerun")
     finally:
         try:
             temporary.unlink()

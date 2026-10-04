@@ -37,6 +37,7 @@ CODEX_COMMAND = Path("/opt/homebrew/bin/codex")
 CODEX_LAUNCHER = Path("/opt/homebrew/lib/node_modules/@openai/codex/bin/codex.js")
 CODEX_NATIVE = Path("/opt/homebrew/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex")
 NODE_COMMAND = Path("/opt/homebrew/bin/node")
+DEFAULT_COLLECTION_BROWSER = Path("/opt/homebrew/bin/agent-browser")
 SENSITIVE_TEXT = re.compile(r"/(?:Users|home|private|var)/|\b(?:api[_ -]?key|access[_ -]?token|secret|password|credential|patient|medical|diagnosis|ssn)\b|[\w.+-]+@[\w.-]+\.[a-z]{2,}", re.I)
 MAX_MANIFEST = 1_000_000
 MAX_JSONL = 1_000_000
@@ -759,6 +760,62 @@ def _private_json(path: Path, output_root: Path) -> dict[str, Any]:
     return _load_json(path.read_bytes(), "owner_local_artifact_invalid")
 
 
+def _validate_saved_variant(output_root: Path, binding: Mapping[str, Any], variant: str,
+                           *, expected_receipt_sha256: str | None = None) -> tuple[dict[str, Any], str]:
+    if variant not in {"baseline", "candidate"}:
+        raise GenerationError("variant_receipt_tampered")
+    receipt_path = output_root / "artifacts" / f"{variant}-receipt.json"
+    html_path = output_root / "artifacts" / f"{variant}.html"
+    receipt_sha256 = _collector._verify_private_file(receipt_path, output_root)
+    if expected_receipt_sha256 is not None and receipt_sha256 != expected_receipt_sha256:
+        raise GenerationError("variant_receipt_tampered")
+    item = _private_json(receipt_path, output_root)
+    selection = item.get("response_selection")
+    if (not isinstance(selection, dict) or set(selection) != {"method", "message_sha256", "event_stream_sha256"}
+            or selection["method"] != RESPONSE_SELECTION_METHOD
+            or any(not isinstance(selection[key], str) or not HEX64.fullmatch(selection[key])
+                   for key in ("message_sha256", "event_stream_sha256"))):
+        raise GenerationError("variant_receipt_tampered")
+    if (set(item) != {"schema_version", "run_id", "variant", "prompt_sha256", "html_sha256", "provider_html_sha256", "html_policy_revision", "response_selection", "requested_model", "observed_model", "usage", "status"}
+            or item["schema_version"] != 1 or item["run_id"] != binding["run_id"]
+            or item["variant"] != variant or item["prompt_sha256"] != binding["prompt_sha256"][variant]
+            or item["requested_model"] != binding["model"] or item["observed_model"] is not None
+            or not isinstance(item["provider_html_sha256"], str) or not HEX64.fullmatch(item["provider_html_sha256"])
+            or item["html_policy_revision"] != HTML_POLICY_REVISION
+            or item["status"] != "generated_quarantined"
+            or _collector._verify_private_file(html_path, output_root) != item["html_sha256"]):
+        raise GenerationError("variant_receipt_tampered")
+    html_bytes = html_path.read_bytes()
+    try:
+        if _validate_html(html_bytes.decode("utf-8")) != html_bytes:
+            raise GenerationError("variant_html_policy_mismatch")
+    except UnicodeError:
+        raise GenerationError("variant_html_policy_mismatch") from None
+    return item, receipt_sha256
+
+
+def _validate_saved_final(output_root: Path, binding: Mapping[str, Any],
+                          outputs: Mapping[str, Mapping[str, Any]], *,
+                          expected_receipt_sha256: str | None = None,
+                          digest_error: str = "final_receipt_tampered") -> tuple[dict[str, Any], str]:
+    receipt_path = output_root / "run-receipt.json"
+    receipt_sha256 = _collector._verify_private_file(receipt_path, output_root)
+    if expected_receipt_sha256 is not None and receipt_sha256 != expected_receipt_sha256:
+        raise GenerationError(digest_error)
+    final = _private_json(receipt_path, output_root)
+    if (set(final) != {"schema_version", "run_id", "status", "binding_sha256", "outputs", "evaluation_status", "tool_isolation", "provider_prompt_closure", "activation"}
+            or final["schema_version"] != 1 or final["run_id"] != binding["run_id"]
+            or final["binding_sha256"] != _sha(_json_bytes(binding))
+            or final["outputs"] != [outputs["baseline"], outputs["candidate"]]
+            or final["status"] != "generated_quarantined"
+            or final["evaluation_status"] != "not_evaluated"
+            or final["tool_isolation"] != "requested_not_attested"
+            or final["provider_prompt_closure"] != "unverified"
+            or final["activation"] != {"active_pointer": False, "install": False, "publish": False, "promotion": False}):
+        raise GenerationError("final_receipt_tampered")
+    return final, receipt_sha256
+
+
 def _validate_saved(snapshot: Mapping[str, Any], output_root: Path,
                     binding: Mapping[str, Any]) -> tuple[dict[str, dict[str, Any]], dict[str, Any] | None, bool]:
     rows = _checkpoint_rows(snapshot)
@@ -783,45 +840,15 @@ def _validate_saved(snapshot: Mapping[str, Any], output_root: Path,
             variant = row["variant"]
             if variant not in started or variant in outputs or final is not None:
                 raise GenerationError("workflow_checkpoint_invalid")
-            receipt_path = output_root / "artifacts" / f"{variant}-receipt.json"
-            html_path = output_root / "artifacts" / f"{variant}.html"
-            if _collector._verify_private_file(receipt_path, output_root) != row["sha256"]:
-                raise GenerationError("variant_receipt_tampered")
-            item = _private_json(receipt_path, output_root)
-            selection = item.get("response_selection")
-            if (not isinstance(selection, dict) or set(selection) != {"method", "message_sha256", "event_stream_sha256"}
-                    or selection["method"] != RESPONSE_SELECTION_METHOD
-                    or any(not isinstance(selection[key], str) or not HEX64.fullmatch(selection[key])
-                           for key in ("message_sha256", "event_stream_sha256"))):
-                raise GenerationError("variant_receipt_tampered")
-            if (set(item) != {"schema_version", "run_id", "variant", "prompt_sha256", "html_sha256", "provider_html_sha256", "html_policy_revision", "response_selection", "requested_model", "observed_model", "usage", "status"}
-                    or item["schema_version"] != 1 or item["run_id"] != binding["run_id"]
-                    or item["variant"] != variant or item["prompt_sha256"] != binding["prompt_sha256"][variant]
-                    or item["requested_model"] != binding["model"] or item["observed_model"] is not None
-                    or not isinstance(item["provider_html_sha256"], str) or not HEX64.fullmatch(item["provider_html_sha256"])
-                    or item["html_policy_revision"] != HTML_POLICY_REVISION
-                    or item["status"] != "generated_quarantined"
-                    or _collector._verify_private_file(html_path, output_root) != item["html_sha256"]):
-                raise GenerationError("variant_receipt_tampered")
-            html_bytes = html_path.read_bytes()
-            if _validate_html(html_bytes.decode("utf-8")) != html_bytes:
-                raise GenerationError("variant_html_policy_mismatch")
+            item, _ = _validate_saved_variant(output_root, binding, variant,
+                                              expected_receipt_sha256=row["sha256"])
             outputs[variant] = item
             allowed.add("artifacts")
         elif kind == "final":
-            if final is not None or set(outputs) != {"baseline", "candidate"} or _collector._verify_private_file(output_root / "run-receipt.json", output_root) != row["sha256"]:
+            if final is not None or set(outputs) != {"baseline", "candidate"}:
                 raise GenerationError("final_receipt_tampered")
-            final = _private_json(output_root / "run-receipt.json", output_root)
-            if (set(final) != {"schema_version", "run_id", "status", "binding_sha256", "outputs", "evaluation_status", "tool_isolation", "provider_prompt_closure", "activation"}
-                    or final["schema_version"] != 1 or final["run_id"] != binding["run_id"]
-                    or final["binding_sha256"] != _sha(_json_bytes(binding))
-                    or final["outputs"] != [outputs["baseline"], outputs["candidate"]]
-                    or final["status"] != "generated_quarantined"
-                    or final["evaluation_status"] != "not_evaluated"
-                    or final["tool_isolation"] != "requested_not_attested"
-                    or final["provider_prompt_closure"] != "unverified"
-                    or final["activation"] != {"active_pointer": False, "install": False, "publish": False, "promotion": False}):
-                raise GenerationError("final_receipt_tampered")
+            final, _ = _validate_saved_final(output_root, binding, outputs,
+                                             expected_receipt_sha256=row["sha256"])
     if rows and not bound:
         raise GenerationError("run_binding_missing")
     if started - set(outputs):
@@ -841,6 +868,256 @@ def _validate_saved(snapshot: Mapping[str, Any], output_root: Path,
         if not artifact_dir.is_dir() or artifact_dir.is_symlink() or {item.name for item in artifact_dir.iterdir()} != expected:
             raise GenerationError("foreign_owner_local_artifact")
     return outputs, final, bound
+
+
+def _require_private_directory(path: Path, code: str) -> Path:
+    path = Path(path)
+    try:
+        if not path.is_absolute():
+            raise GenerationError(code)
+        current = Path(path.anchor)
+        for component in path.parts[1:]:
+            current = current / component
+            if current.is_symlink() and current not in {Path("/tmp"), Path("/var"), Path("/private")}:
+                raise GenerationError(code)
+        details = path.lstat()
+        if (not stat.S_ISDIR(details.st_mode) or details.st_uid != os.getuid()
+                or stat.S_IMODE(details.st_mode) != 0o700):
+            raise GenerationError(code)
+        return path.resolve(strict=True)
+    except GenerationError:
+        raise
+    except OSError:
+        raise GenerationError(code) from None
+
+
+def _require_private_artifact(path: Path, code: str) -> None:
+    try:
+        details = path.lstat()
+        if (not stat.S_ISREG(details.st_mode) or details.st_uid != os.getuid()
+                or stat.S_IMODE(details.st_mode) != 0o600):
+            raise GenerationError(code)
+    except GenerationError:
+        raise
+    except OSError:
+        raise GenerationError(code) from None
+
+
+def _validate_generation_tree(output_root: Path) -> None:
+    """Check existing output directories and names without opening workflow state."""
+    root = _require_private_directory(output_root, "generation_output_invalid")
+    artifacts = _require_private_directory(root / "artifacts", "generation_artifacts_missing")
+    try:
+        names = {path.name for path in root.iterdir()}
+    except OSError:
+        raise GenerationError("generation_output_invalid") from None
+    required = {"run-binding.json", "html-output-schema.json", "run-receipt.json", "artifacts"}
+    allowed = required | {"workflow.sqlite3", "workflow.sqlite3-wal", "workflow.sqlite3-shm", ".execution.lock"}
+    if "run-receipt.json" not in names:
+        raise GenerationError("generation_final_receipt_missing")
+    if not required <= names:
+        raise GenerationError("generation_outputs_incomplete")
+    if names - allowed:
+        raise GenerationError("foreign_owner_local_artifact")
+    for name in names - {"artifacts"}:
+        _require_private_artifact(root / name, "generation_output_invalid")
+    try:
+        artifact_names = {path.name for path in artifacts.iterdir()}
+    except OSError:
+        raise GenerationError("generation_artifacts_invalid") from None
+    expected = {"baseline.html", "candidate.html", "baseline-receipt.json", "candidate-receipt.json"}
+    if artifact_names != expected:
+        raise GenerationError("generation_artifacts_incomplete")
+    for name in artifact_names:
+        _require_private_artifact(artifacts / name, "generation_artifacts_invalid")
+
+
+def _paths_overlap(first: Path, second: Path) -> bool:
+    return first == second or first in second.parents or second in first.parents
+
+
+def _collection_target(path: Path, context: Mapping[str, Any], generation_root: Path) -> Path:
+    requested = Path(path).expanduser()
+    if not requested.is_absolute() or ".." in requested.parts:
+        raise GenerationError("collection_directory_invalid")
+    current = Path(requested.anchor)
+    for component in requested.parts[1:]:
+        current = current / component
+        if current.is_symlink() and current not in {Path("/tmp"), Path("/var"), Path("/private")}:
+            raise GenerationError("collection_directory_invalid")
+    resolved = Path(os.path.abspath(requested)).resolve(strict=False)
+    protected = [context["repository"], generation_root]
+    for input_path in context["input_paths"]:
+        protected.extend((input_path, input_path.parent))
+    if any(_paths_overlap(resolved, item.resolve(strict=False)) for item in protected):
+        raise GenerationError("collection_output_overlaps_input_or_repository")
+    return resolved
+
+
+def _validate_collection_browser(browser_executable: Path) -> tuple[Path, str]:
+    executable = Path(browser_executable)
+    if (not executable.is_absolute()
+            or str(executable) not in _collector.ALLOWED_BROWSER_EXECUTABLES):
+        raise GenerationError("browser_executable_not_allowlisted")
+    try:
+        if not executable.is_file() or not os.access(executable, os.X_OK):
+            raise GenerationError("browser_executable_unavailable")
+        resolved = executable.resolve(strict=True)
+        if not resolved.is_file() or not os.access(resolved, os.X_OK):
+            raise GenerationError("browser_executable_unavailable")
+        return resolved, _sha(resolved.read_bytes())
+    except GenerationError:
+        raise
+    except OSError:
+        raise GenerationError("browser_executable_unavailable") from None
+
+
+def _check_collection_directory(output_root: Path, expected: Mapping[str, bytes]) -> None:
+    try:
+        names = {path.name for path in output_root.iterdir()}
+    except OSError:
+        raise GenerationError("collection_output_invalid") from None
+    if names - set(expected):
+        raise GenerationError("foreign_collection_artifact")
+    for name in names:
+        path = output_root / name
+        _require_private_artifact(path, "collection_output_invalid")
+        if name in expected and path.read_bytes() != expected[name]:
+            raise GenerationError("collection_output_mismatch")
+
+
+def prepare_collection(manifest_path: Path, reviewed_manifest_sha256: str, repository: Path,
+                       output_dir: Path, *, generation_receipt_sha256: str,
+                       collection_dir: Path,
+                       browser_executable: Path = DEFAULT_COLLECTION_BROWSER) -> dict[str, Any]:
+    """Prepare static collector inputs from a separately pinned finished generation receipt."""
+    if not isinstance(generation_receipt_sha256, str) or not HEX64.fullmatch(generation_receipt_sha256):
+        raise GenerationError("generation_receipt_digest_required")
+    context = prepare_generation(manifest_path, reviewed_manifest_sha256, repository)
+    generation_root = _require_private_directory(Path(output_dir), "generation_output_invalid")
+    if _paths_overlap(generation_root, context["repository"]) or any(
+        _paths_overlap(generation_root, path.parent) for path in context["input_paths"]
+    ):
+        raise GenerationError("generation_output_overlaps_input_or_repository")
+    _validate_generation_tree(generation_root)
+    browser_path, browser_digest = _validate_collection_browser(browser_executable)
+    requested_collection_dir = _collection_target(Path(collection_dir), context, generation_root)
+
+    binding_path = generation_root / "run-binding.json"
+    if _private_json(binding_path, generation_root) != context["binding"]:
+        raise GenerationError("run_binding_tampered_or_drifted")
+    if _private_json(generation_root / "html-output-schema.json", generation_root) != OUTPUT_SCHEMA:
+        raise GenerationError("output_schema_tampered")
+    outputs: dict[str, dict[str, Any]] = {}
+    for variant in ("baseline", "candidate"):
+        item, _ = _validate_saved_variant(generation_root, context["binding"], variant)
+        outputs[variant] = item
+    final_receipt, receipt_sha256 = _validate_saved_final(
+        generation_root, context["binding"], outputs,
+        expected_receipt_sha256=generation_receipt_sha256,
+        digest_error="generation_receipt_pin_mismatch",
+    )
+    variant_receipt_sha256: dict[str, str] = {}
+    for index, variant in enumerate(("baseline", "candidate")):
+        receipt_path = generation_root / "artifacts" / f"{variant}-receipt.json"
+        raw_variant_receipt = receipt_path.read_bytes()
+        variant_receipt_sha256[variant] = _collector._verify_private_file(receipt_path, generation_root)
+        if raw_variant_receipt != _json_bytes(final_receipt["outputs"][index]):
+            raise GenerationError("variant_receipt_tampered")
+
+    task_bytes = context["manifest"]["task"]["text"].encode("utf-8")
+    task_path = requested_collection_dir / "task.txt"
+    collector_manifest = {
+        "schema_version": 1,
+        "run_id": context["manifest"]["run_id"],
+        "content_scope": "synthetic_non_private",
+        "offline_asset_policy": _collector.OFFLINE_POLICY,
+        "browser": {"executable": str(Path(browser_executable)), "arguments": []},
+        "cases": [{
+            "case_id": context["manifest"]["task"]["case_id"],
+            "task_asset": {"path": str(task_path), "sha256": _sha(task_bytes)},
+            "viewport": dict(context["manifest"]["task"]["viewport"]),
+            "variants": {
+                variant: {"html": {
+                    "path": str(generation_root / "artifacts" / f"{variant}.html"),
+                    "sha256": outputs[variant]["html_sha256"],
+                }}
+                for variant in ("baseline", "candidate")
+            },
+        }],
+    }
+    manifest_bytes = _json_bytes(collector_manifest)
+    try:
+        collector_digest = _sha(Path(_collector.__file__).read_bytes())
+        collector_helper_digests = _collector._helper_digests()
+    except Exception:
+        raise GenerationError("collection_helper_unavailable") from None
+    sidecar = {
+        "schema_version": 1,
+        "status": "collection_inputs_prepared",
+        "generation_workflow_status": "unverified",
+        "generation_run_id": context["manifest"]["run_id"],
+        "generation_receipt_sha256": receipt_sha256,
+        "generation_binding_sha256": _sha(_json_bytes(context["binding"])),
+        "generation_variant_receipt_sha256": variant_receipt_sha256,
+        "collector_manifest_sha256": _sha(manifest_bytes),
+        "collector_sha256": collector_digest,
+        "collector_helper_sha256": collector_helper_digests,
+        "generation_helper_sha256": context["binding"]["helper_sha256"],
+        "browser_executable": str(browser_path),
+        "browser_sha256": browser_digest,
+        "input_sha256": {
+            "task": _sha(task_bytes),
+            "baseline_html": outputs["baseline"]["html_sha256"],
+            "candidate_html": outputs["candidate"]["html_sha256"],
+        },
+        "static_layout_only": True,
+        "evaluation_status": "not_evaluated",
+        "human_task_usefulness": "pending",
+        "observed_model": None,
+        "provider_prompt_closure": "unverified",
+        "tool_isolation": "requested_not_attested",
+        "provenance_attestation": "unverified",
+        "promotion_status": "prohibited",
+        "publication_status": "prohibited",
+    }
+    sidecar_bytes = _json_bytes(sidecar)
+    expected_files = {
+        "task.txt": task_bytes,
+        "collector-manifest.json": manifest_bytes,
+        "collection-binding.json": sidecar_bytes,
+    }
+    try:
+        output_root = _collector._prepare_output(requested_collection_dir)
+    except Exception:
+        raise GenerationError("collection_output_invalid") from None
+    if output_root != requested_collection_dir:
+        raise GenerationError("collection_directory_invalid")
+    _check_collection_directory(output_root, expected_files)
+    try:
+        _collector._write_new_private(output_root / "task.txt", output_root, task_bytes)
+        _collector._write_new_private(output_root / "collector-manifest.json", output_root, manifest_bytes)
+        validated_manifest = _collector.load_manifest(
+            output_root / "collector-manifest.json", _sha(manifest_bytes)
+        )
+    except Exception:
+        raise GenerationError("collection_manifest_invalid") from None
+    if (validated_manifest["browser_digest"] != browser_digest
+            or validated_manifest["browser_executable"] != browser_path):
+        # The digest is recomputed by the collector itself from the resolved executable.
+        raise GenerationError("browser_executable_drift")
+    try:
+        if (validated_manifest["collector_digest"] != collector_digest
+                or validated_manifest["helper_digests"] != collector_helper_digests):
+            raise GenerationError("collection_helper_drift")
+        _collector._write_new_private(output_root / "collection-binding.json", output_root, sidecar_bytes)
+    except GenerationError:
+        raise
+    except Exception:
+        raise GenerationError("collection_output_invalid") from None
+    return {"status": "collection_inputs_prepared", "run_id": context["manifest"]["run_id"],
+            "generation_receipt_sha256": receipt_sha256, "collector_manifest_sha256": _sha(manifest_bytes),
+            "browser_sha256": validated_manifest["browser_digest"]}
 
 
 def execute_generation(manifest_path: Path, reviewed_manifest_sha256: str, repository: Path,
@@ -992,16 +1269,38 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--reviewed-manifest-sha256", required=True)
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--collection-dir", type=Path)
+    parser.add_argument("--generation-receipt-sha256")
+    parser.add_argument("--browser-executable", type=Path)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--prepare", "--dry-run", action="store_true")
     mode.add_argument("--execute", action="store_true")
+    mode.add_argument("--prepare-collection", action="store_true")
     args = parser.parse_args(argv)
     try:
+        if not args.prepare_collection and (args.collection_dir is not None
+                                            or args.generation_receipt_sha256 is not None
+                                            or args.browser_executable is not None):
+            raise GenerationError("collection_arguments_require_prepare_collection")
         if args.prepare:
             result = prepare_generation(args.manifest, args.reviewed_manifest_sha256, args.repository)
             print(json.dumps({"status": "prepared_public_synthetic", "run_id": result["manifest"]["run_id"],
                               "manifest_sha256": args.reviewed_manifest_sha256,
                               "prompt_sha256": result["binding"]["prompt_sha256"], "provider_calls": 0}, sort_keys=True))
+        elif args.prepare_collection:
+            if args.collection_dir is None or args.generation_receipt_sha256 is None:
+                raise GenerationError("collection_arguments_required")
+            receipt = prepare_collection(
+                args.manifest, args.reviewed_manifest_sha256, args.repository, args.output_dir,
+                generation_receipt_sha256=args.generation_receipt_sha256,
+                collection_dir=args.collection_dir,
+                browser_executable=args.browser_executable or DEFAULT_COLLECTION_BROWSER,
+            )
+            print(json.dumps({"status": receipt["status"], "run_id": receipt["run_id"],
+                              "generation_receipt_sha256": receipt["generation_receipt_sha256"],
+                              "collector_manifest_sha256": receipt["collector_manifest_sha256"],
+                              "browser_sha256": receipt["browser_sha256"],
+                              "provider_calls": 0, "browser_launches": 0}, sort_keys=True))
         else:
             receipt = execute_generation(args.manifest, args.reviewed_manifest_sha256,
                                          args.repository, args.output_dir)

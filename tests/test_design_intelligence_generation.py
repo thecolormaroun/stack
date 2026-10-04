@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import signal
@@ -175,6 +176,32 @@ class DesignIntelligenceGenerationTests(unittest.TestCase):
 
     def execute(self, runner):
         return GEN.execute_generation(self.manifest_path, self.save_manifest(), self.repo, self.output, runner=runner)
+
+    def make_browser(self, name: str = "agent-browser") -> Path:
+        browser = self.root / name
+        browser.write_bytes(b"synthetic allowlisted browser executable\n")
+        browser.chmod(0o700)
+        return browser
+
+    def prepare_collection_inputs(self, collection_dir: Path, browser: Path, *,
+                                  generation_receipt_sha256: str | None = None,
+                                  allow_browser: bool = True) -> dict:
+        if generation_receipt_sha256 is None:
+            generation_receipt_sha256 = sha((self.output / "run-receipt.json").read_bytes())
+        allowlist = set(GEN._collector.ALLOWED_BROWSER_EXECUTABLES)
+        if allow_browser:
+            allowlist.add(str(browser))
+        with patch.object(GEN._collector, "ALLOWED_BROWSER_EXECUTABLES", allowlist):
+            with patch.object(GEN._store, "WorkflowStore", side_effect=AssertionError("WorkflowStore must not be opened")):
+                return GEN.prepare_collection(
+                    self.manifest_path,
+                    sha(self.manifest_path.read_bytes()),
+                    self.repo,
+                    self.output,
+                    generation_receipt_sha256=generation_receipt_sha256,
+                    collection_dir=collection_dir,
+                    browser_executable=browser,
+                )
 
     def test_exact_byte_conditioning_and_unrelated_dirty_preserved(self) -> None:
         (self.repo / "do-not-read.md").write_text("User-owned unrelated file.\n")
@@ -731,6 +758,348 @@ class DesignIntelligenceGenerationTests(unittest.TestCase):
                 GEN._call_runner(subprocess.run, [sys.executable, "-c", "import time; time.sleep(5)"],
                                  prompt=b"public", cwd=self.root, timeout=300, ensure_lease=renew)
         self.assertEqual(2, len(renewals))
+
+    def test_prepare_collection_reuses_verified_generation_without_opening_store(self) -> None:
+        runner = FakeCodex()
+        receipt = self.execute(runner)
+        generation_receipt_path = self.output / "run-receipt.json"
+        generation_receipt_sha256 = sha(generation_receipt_path.read_bytes())
+        collection_dir = self.root / "collection-inputs"
+        browser = self.make_browser()
+        def saved_state(path: Path):
+            details = path.stat()
+            return (details.st_uid, details.st_mode, details.st_mtime_ns, details.st_ctime_ns,
+                    None if path.is_dir() else path.read_bytes())
+
+        def generation_state():
+            return {path.relative_to(self.output).as_posix(): saved_state(path)
+                    for path in (self.output, *self.output.rglob("*"))}
+
+        generation_before = generation_state()
+        inputs = (self.manifest_path, self.packet_path, self.receipt_path, self.patch_path)
+        input_before = {path: saved_state(path) for path in inputs}
+        repository_status = subprocess.check_output(
+            ["git", "-C", str(self.repo), "status", "--porcelain=v1", "--untracked-files=all"]
+        )
+        allowlist = set(GEN._collector.ALLOWED_BROWSER_EXECUTABLES) | {str(browser)}
+        with patch.object(GEN._collector, "ALLOWED_BROWSER_EXECUTABLES", allowlist):
+            with patch.object(GEN._store, "WorkflowStore", side_effect=AssertionError("WorkflowStore must not be opened")):
+                result = GEN.prepare_collection(
+                    self.manifest_path,
+                    sha(self.manifest_path.read_bytes()),
+                    self.repo,
+                    self.output,
+                    generation_receipt_sha256=generation_receipt_sha256,
+                    collection_dir=collection_dir,
+                    browser_executable=browser,
+                )
+                collection_bytes = {path.name: path.read_bytes() for path in collection_dir.iterdir()}
+                result_again = GEN.prepare_collection(
+                    self.manifest_path,
+                    sha(self.manifest_path.read_bytes()),
+                    self.repo,
+                    self.output,
+                    generation_receipt_sha256=generation_receipt_sha256,
+                    collection_dir=collection_dir,
+                    browser_executable=browser,
+                )
+                self.assertEqual(result, result_again)
+                self.assertEqual(collection_bytes,
+                                 {path.name: path.read_bytes() for path in collection_dir.iterdir()})
+            manifest_path = collection_dir / "collector-manifest.json"
+            raw_manifest = manifest_path.read_bytes()
+            collected = GEN._collector.load_manifest(manifest_path, sha(raw_manifest))
+
+        self.assertEqual("collection_inputs_prepared", result["status"])
+        self.assertEqual(2, len(runner.provider_calls))
+        self.assertEqual("Build a public synthetic dashboard.", (collection_dir / "task.txt").read_bytes().decode())
+        self.assertEqual({"task.txt", "collector-manifest.json", "collection-binding.json"},
+                         {path.name for path in collection_dir.iterdir()})
+        self.assertEqual(self.manifest["run_id"], collected["run_id"])
+        self.assertEqual("case-one", collected["cases"][0]["case_id"])
+        self.assertEqual([], collected["cases"][0]["primary_workflow"])
+        self.assertEqual({"html"}, set(json.loads(raw_manifest)["cases"][0]["variants"]["baseline"]))
+        self.assertEqual(sha(browser.read_bytes()), collected["browser_digest"])
+        sidecar = json.loads((collection_dir / "collection-binding.json").read_bytes())
+        self.assertEqual("collection_inputs_prepared", sidecar["status"])
+        self.assertEqual("unverified", sidecar["generation_workflow_status"])
+        self.assertEqual("not_evaluated", sidecar["evaluation_status"])
+        self.assertTrue(sidecar["static_layout_only"])
+        self.assertEqual("pending", sidecar["human_task_usefulness"])
+        self.assertIsNone(sidecar["observed_model"])
+        self.assertEqual("unverified", sidecar["provider_prompt_closure"])
+        self.assertEqual("requested_not_attested", sidecar["tool_isolation"])
+        self.assertEqual("unverified", sidecar["provenance_attestation"])
+        self.assertEqual("prohibited", sidecar["promotion_status"])
+        self.assertEqual("prohibited", sidecar["publication_status"])
+        self.assertEqual(generation_receipt_sha256, sidecar["generation_receipt_sha256"])
+        self.assertEqual({"baseline", "candidate"}, set(sidecar["generation_variant_receipt_sha256"]))
+        for path in collection_dir.iterdir():
+            self.assertEqual(0o600, path.stat().st_mode & 0o777)
+        self.assertEqual(generation_before, generation_state())
+        self.assertEqual(input_before, {path: saved_state(path) for path in inputs})
+        self.assertEqual(repository_status, subprocess.check_output(
+            ["git", "-C", str(self.repo), "status", "--porcelain=v1", "--untracked-files=all"]
+        ))
+
+    def test_collection_write_interruptions_clean_up_and_retry_same_directory(self) -> None:
+        runner = FakeCodex()
+        self.execute(runner)
+        browser = self.make_browser()
+        for operation, failure_call in (("write", 1), ("fsync", 2), ("fchmod", 3), ("link", 2)):
+            collection_dir = self.root / f"interrupted-{operation}"
+            real_operation = getattr(os, operation)
+            calls = 0
+
+            def interrupted(*args, **kwargs):
+                nonlocal calls
+                calls += 1
+                if calls == failure_call:
+                    raise OSError("synthetic interrupted private write")
+                return real_operation(*args, **kwargs)
+
+            with self.subTest(operation=operation):
+                with patch.object(GEN._collector._eval.os, operation, side_effect=interrupted):
+                    with self.assertRaises(GEN.GenerationError):
+                        self.prepare_collection_inputs(collection_dir, browser)
+                self.assertFalse(any(path.name.endswith(".tmp") for path in collection_dir.iterdir()))
+                result = self.prepare_collection_inputs(collection_dir, browser)
+                self.assertEqual("collection_inputs_prepared", result["status"])
+                self.assertEqual({"task.txt", "collector-manifest.json", "collection-binding.json"},
+                                 {path.name for path in collection_dir.iterdir()})
+        self.assertEqual(2, len(runner.provider_calls))
+
+    def test_collection_post_write_validation_failure_retries_partial_inputs(self) -> None:
+        runner = FakeCodex()
+        self.execute(runner)
+        browser = self.make_browser()
+        real_load = GEN._collector.load_manifest
+        for failure in ("manifest", "browser", "helpers"):
+            collection_dir = self.root / f"post-write-{failure}"
+
+            def interrupted(*args, **kwargs):
+                if failure == "manifest":
+                    raise GEN._collector.EvidenceError("synthetic validation failure")
+                validated = real_load(*args, **kwargs)
+                if failure == "browser":
+                    validated["browser_digest"] = "0" * 64
+                else:
+                    validated["helper_digests"] = {"synthetic-drift": "0" * 64}
+                return validated
+
+            with self.subTest(failure=failure):
+                with patch.object(GEN._collector, "load_manifest", side_effect=interrupted):
+                    with self.assertRaises(GEN.GenerationError):
+                        self.prepare_collection_inputs(collection_dir, browser)
+                partial = {path.name: path.read_bytes() for path in collection_dir.iterdir()}
+                self.assertEqual({"task.txt", "collector-manifest.json"}, set(partial))
+                result = self.prepare_collection_inputs(collection_dir, browser)
+                self.assertEqual("collection_inputs_prepared", result["status"])
+                self.assertEqual(partial, {name: (collection_dir / name).read_bytes() for name in partial})
+        self.assertEqual(2, len(runner.provider_calls))
+
+    def test_collection_rehashed_html_still_requires_static_guarded_policy(self) -> None:
+        runner = FakeCodex()
+        self.execute(runner)
+        browser = self.make_browser()
+        html_path = self.output / "artifacts/baseline.html"
+        variant_path = self.output / "artifacts/baseline-receipt.json"
+        final_path = self.output / "run-receipt.json"
+        originals = {path: path.read_bytes() for path in (html_path, variant_path, final_path)}
+        cases = ((b"<html><head></head><body><script>1</script></body></html>", "html_unsafe"),
+                 (b"<html><head></head><body>Safe but missing guard</body></html>",
+                  "variant_html_policy_mismatch"))
+        for index, (html, expected) in enumerate(cases):
+            collection_dir = self.root / f"rehashed-policy-{index}"
+            try:
+                item = json.loads(originals[variant_path])
+                item["html_sha256"] = sha(html)
+                final = json.loads(originals[final_path])
+                final["outputs"][0] = item
+                private(html_path, html)
+                private(variant_path, GEN._json_bytes(item))
+                private(final_path, GEN._json_bytes(final))
+                with self.subTest(policy=expected), self.assertRaisesRegex(GEN.GenerationError, expected):
+                    self.prepare_collection_inputs(collection_dir, browser)
+                self.assertFalse(collection_dir.exists())
+            finally:
+                for path, payload in originals.items():
+                    private(path, payload)
+        self.assertEqual(2, len(runner.provider_calls))
+
+    def test_collection_rejects_raw_pin_binding_variant_and_html_tampering(self) -> None:
+        runner = FakeCodex()
+        self.execute(runner)
+        binding_path = self.output / "run-binding.json"
+        final_path = self.output / "run-receipt.json"
+        variant_path = self.output / "artifacts/baseline-receipt.json"
+        html_path = self.output / "artifacts/baseline.html"
+        originals = {path: path.read_bytes() for path in (binding_path, final_path, variant_path, html_path)}
+        browser = self.make_browser()
+        cases = (
+            ("raw-pin", None, "generation_receipt_pin_mismatch", "0" * 64),
+            ("binding", binding_path, "run_binding_tampered_or_drifted", None),
+            ("variant-receipt", variant_path, "variant_receipt_tampered", None),
+            ("guarded-html", html_path, "variant_receipt_tampered", None),
+            ("final-semantics", final_path, "final_receipt_tampered", None),
+        )
+        for index, (name, path, expected, supplied_pin) in enumerate(cases):
+            collection_dir = self.root / f"collection-tamper-{index}"
+            try:
+                if path == binding_path:
+                    private(path, b'{"tampered":true}')
+                elif path == variant_path:
+                    item = json.loads(path.read_bytes())
+                    item["prompt_sha256"] = "0" * 64
+                    private(path, GEN._json_bytes(item))
+                elif path == html_path:
+                    private(path, b"<html><head></head><body>tampered</body></html>")
+                elif path == final_path:
+                    item = json.loads(path.read_bytes())
+                    item["status"] = "tampered"
+                    private(path, GEN._json_bytes(item))
+                pin = supplied_pin
+                with self.subTest(case=name), self.assertRaisesRegex(GEN.GenerationError, expected):
+                    self.prepare_collection_inputs(collection_dir, browser,
+                                                   generation_receipt_sha256=pin)
+            finally:
+                if path is not None:
+                    private(path, originals[path])
+            self.assertFalse(collection_dir.exists())
+        self.assertEqual(2, len(runner.provider_calls))
+
+    def test_collection_rejects_unsafe_scopes_paths_permissions_and_foreign_outputs(self) -> None:
+        runner = FakeCodex()
+        self.execute(runner)
+        browser = self.make_browser()
+        artifacts = self.output / "artifacts"
+        symlink_target = self.root / "symlink-target"
+        symlink_parent = self.root / "symlink-parent"
+        symlink_parent.symlink_to(symlink_target, target_is_directory=True)
+        unapproved_browser = self.root / "unapproved-browser"
+        cases = (
+            ("relative-path", Path("relative-collection-inputs"), browser, True, "collection_directory_invalid"),
+            ("generation-overlap", self.output / "nested", browser, True, "collection_output_overlaps_input_or_repository"),
+            ("inputs-overlap", self.inputs / "nested", browser, True, "collection_output_overlaps_input_or_repository"),
+            ("symlink-parent", symlink_parent / "collection", browser, True, "collection_directory_invalid"),
+            ("unapproved-browser", self.root / "bad-browser-inputs", unapproved_browser, False, "browser_executable_not_allowlisted"),
+        )
+        for name, collection_dir, selected_browser, allow_browser, expected in cases:
+            with self.subTest(case=name), self.assertRaisesRegex(GEN.GenerationError, expected):
+                self.prepare_collection_inputs(collection_dir, selected_browser, allow_browser=allow_browser)
+            self.assertFalse(collection_dir.exists())
+        self.assertFalse(symlink_target.exists())
+
+        root_entries = {path.name for path in self.root.iterdir()}
+        with self.assertRaisesRegex(GEN.GenerationError, "collection_output_overlaps_input_or_repository"):
+            self.prepare_collection_inputs(self.root, browser)
+        self.assertEqual(root_entries, {path.name for path in self.root.iterdir()})
+
+        bad_permissions = self.root / "bad-permissions"
+        bad_permissions.mkdir(mode=0o755)
+        bad_permissions.chmod(0o755)
+        with self.assertRaisesRegex(GEN.GenerationError, "collection_output_invalid"):
+            self.prepare_collection_inputs(bad_permissions, browser)
+        self.assertEqual([], list(bad_permissions.iterdir()))
+
+        foreign = self.root / "foreign-collection"
+        foreign.mkdir(mode=0o700)
+        foreign_file = private(foreign / "foreign.txt", b"keep this foreign input\n")
+        with self.assertRaisesRegex(GEN.GenerationError, "foreign_collection_artifact"):
+            self.prepare_collection_inputs(foreign, browser)
+        self.assertEqual({"foreign.txt"}, {path.name for path in foreign.iterdir()})
+        self.assertEqual(b"keep this foreign input\n", foreign_file.read_bytes())
+
+        mismatched = self.root / "mismatched-collection"
+        mismatched.mkdir(mode=0o700)
+        task_file = private(mismatched / "task.txt", b"different task\n")
+        with self.assertRaisesRegex(GEN.GenerationError, "collection_output_mismatch"):
+            self.prepare_collection_inputs(mismatched, browser)
+        self.assertEqual({"task.txt"}, {path.name for path in mismatched.iterdir()})
+        self.assertEqual(b"different task\n", task_file.read_bytes())
+
+        mismatched_sidecar = self.root / "mismatched-sidecar-collection"
+        mismatched_sidecar.mkdir(mode=0o700)
+        sidecar_file = private(mismatched_sidecar / "collection-binding.json", b"foreign sidecar\n")
+        with self.assertRaisesRegex(GEN.GenerationError, "collection_output_mismatch"):
+            self.prepare_collection_inputs(mismatched_sidecar, browser)
+        self.assertEqual({"collection-binding.json"}, {path.name for path in mismatched_sidecar.iterdir()})
+        self.assertEqual(b"foreign sidecar\n", sidecar_file.read_bytes())
+
+        extra_variant = private(artifacts / "extra-receipt.json", b"{}")
+        extra_collection = self.root / "extra-variant-collection"
+        with self.assertRaisesRegex(GEN.GenerationError, "generation_artifacts_incomplete"):
+            self.prepare_collection_inputs(extra_collection, browser)
+        self.assertFalse(extra_collection.exists())
+        extra_variant.unlink()
+
+        output_mode = self.output.stat().st_mode & 0o777
+        artifacts_mode = artifacts.stat().st_mode & 0o777
+        try:
+            self.output.chmod(0o755)
+            with self.assertRaisesRegex(GEN.GenerationError, "generation_output_invalid"):
+                self.prepare_collection_inputs(self.root / "generation-mode-failure", browser)
+            self.output.chmod(output_mode)
+            artifacts.chmod(0o755)
+            with self.assertRaisesRegex(GEN.GenerationError, "generation_artifacts_missing"):
+                self.prepare_collection_inputs(self.root / "artifacts-mode-failure", browser)
+            self.assertEqual(0o755, artifacts.stat().st_mode & 0o777)
+        finally:
+            self.output.chmod(output_mode)
+            artifacts.chmod(artifacts_mode)
+        self.assertEqual(2, len(runner.provider_calls))
+
+    def test_collection_private_scope_and_missing_final_receipt_block_before_outputs(self) -> None:
+        runner = FakeCodex()
+        self.execute(runner)
+        browser = self.make_browser()
+        private_scope = self.root / "private-scope-collection"
+        self.manifest["task"]["text"] = "Use my /Users/fixture/private data"
+        self.save_manifest()
+        with self.assertRaisesRegex(GEN.GenerationError, "task_not_public_synthetic"):
+            self.prepare_collection_inputs(private_scope, browser)
+        self.assertFalse(private_scope.exists())
+
+        self.manifest["task"]["text"] = "Build a public synthetic dashboard."
+        self.save_manifest()
+        (self.output / "run-receipt.json").unlink()
+        missing_final = self.root / "missing-final-collection"
+        with self.assertRaisesRegex(GEN.GenerationError, "generation_final_receipt_missing"):
+            self.prepare_collection_inputs(missing_final, browser, generation_receipt_sha256="0" * 64)
+        self.assertFalse(missing_final.exists())
+        self.assertEqual(2, len(runner.provider_calls))
+
+    def test_collection_uncertain_attempt_does_not_resume_or_create_inputs(self) -> None:
+        runner = FakeCodex(bad=b"unparseable synthetic provider output")
+        with self.assertRaises(GEN.GenerationError):
+            self.execute(runner)
+        self.assertEqual(1, len(runner.provider_calls))
+        collection_dir = self.root / "uncertain-collection"
+        with self.assertRaises(GEN.GenerationError):
+            self.prepare_collection_inputs(collection_dir, self.make_browser(),
+                                           generation_receipt_sha256="0" * 64)
+        self.assertFalse(collection_dir.exists())
+        self.assertEqual(1, len(runner.provider_calls))
+
+    def test_prepare_collection_cli_requires_pin_and_dispatches_static_mode(self) -> None:
+        common = ["--manifest", str(self.manifest_path), "--reviewed-manifest-sha256", self.save_manifest(),
+                  "--repository", str(self.repo), "--output-dir", str(self.output)]
+        with patch("sys.stdout", new=io.StringIO()) as captured:
+            status = GEN.main([*common, "--prepare-collection"])
+        self.assertEqual(2, status)
+        self.assertEqual("collection_arguments_required", json.loads(captured.getvalue())["code"])
+
+        prepared = {"status": "collection_inputs_prepared", "run_id": "synthetic-generation",
+                    "generation_receipt_sha256": "a" * 64, "collector_manifest_sha256": "b" * 64,
+                    "browser_sha256": "c" * 64}
+        with patch.object(GEN, "prepare_collection", return_value=prepared) as prepare:
+            with patch("sys.stdout", new=io.StringIO()) as captured:
+                status = GEN.main([*common, "--prepare-collection", "--collection-dir", str(self.root / "collection"),
+                                   "--generation-receipt-sha256", "a" * 64])
+        self.assertEqual(0, status)
+        self.assertEqual(Path("/opt/homebrew/bin/agent-browser"), prepare.call_args.kwargs["browser_executable"])
+        self.assertEqual(0, json.loads(captured.getvalue())["provider_calls"])
+        self.assertEqual(0, json.loads(captured.getvalue())["browser_launches"])
 
 
 if __name__ == "__main__":

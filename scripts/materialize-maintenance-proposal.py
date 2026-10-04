@@ -309,14 +309,23 @@ def discover_targets(
         rows = rule.get("targets")
         if not isinstance(rows, list):
             raise ProposalError("import_rule_invalid")
+        metadata_relative = safe_relative(str(rule.get("source_metadata", "")))
         for row in rows:
             if not isinstance(row, Mapping):
                 raise ProposalError("import_rule_invalid")
-            targets.append((
-                safe_relative(str(row.get("source", ""))),
-                safe_relative(str(row.get("target", ""))),
-                expected_pin,
-            ))
+            source_relative = safe_relative(str(row.get("source", "")))
+            target_relative = safe_relative(str(row.get("target", "")))
+            metadata_path = stage / target_relative / metadata_relative
+            assert_no_symlink_components(metadata_path, stage)
+            metadata = read_object(metadata_path, "import_metadata_invalid")
+            latest_commit = metadata.get("latest_commit")
+            if (
+                metadata.get("upstream_skill_path") != source_relative.as_posix()
+                or not isinstance(latest_commit, Mapping)
+                or latest_commit.get("sha") != expected_pin
+            ):
+                raise ProposalError("import_metadata_invalid")
+            targets.append((source_relative, target_relative, expected_pin))
         return targets
     if mapping != "existing-source-markdown":
         raise ProposalError("import_rule_invalid")

@@ -297,7 +297,8 @@ class CliGBrainTransport(GBrainTransport):
         }
 
     def text_canary(self, *, source: str, identity: str) -> dict[str, Any]:
-        request = {"schema_version": 1, "source": source, "operation": "keyword", "limit": 3, "query": identity}
+        request = {"schema_version": 1, "source": source, "operation": "keyword", "limit": 3, "query": identity,
+                   "expected_version": "0.42.67.0"}
         argv = [str(self.bun_path), "--no-env-file", str(PINNED_OPERATION_HELPER)]
         result = self._invoke(argv, expect_json=True, input_payload=canonical_json(request))
         payload = result.get("payload") if result.get("_transport_status") == "success" else None

@@ -22,6 +22,7 @@ from urllib.parse import urlsplit
 
 SCHEMA_VERSION = 1
 ADAPTER_VERSION = "field-theory-allowlist-v1"
+EVIDENCE_IDENTITY_CONTRACT = "source-revision-content-v2"
 IMPORT_TRANSPORT_VERSION = "gbrain-cli-markdown-v1"
 SOURCE_ID = "x-bookmarks"
 FIELD_THEORY_SOURCE_ID = "field-theory"
@@ -76,6 +77,12 @@ def canonical_json(value: Any) -> str:
 
 def canonical_json_digest(value: Any) -> str:
     return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
+
+
+def source_configuration_digest(source: dict[str, Any]) -> str:
+    """Bind source configuration independently of inline fixture records."""
+    return canonical_json_digest({key: value for key, value in source.items()
+        if key not in {"pages", "items"}})
 
 
 def opaque(prefix: str, value: Any, length: int = 32) -> str:
@@ -307,7 +314,7 @@ def _link_projection(row: dict[str, Any]) -> dict[str, Any]:
     return {"state": "captured" if links else "not_present", "count": len(links), "digests": digests, "set_digest": canonical_json_digest(sorted(set(digests)))}
 
 
-def normalize_observation(row: dict[str, Any], source_id: str, snapshot_id: str, captured_at: str | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+def normalize_observation(row: dict[str, Any], source_id: str, snapshot_id: str, captured_at: str | None = None, *, evidence_identity_contract: str = EVIDENCE_IDENTITY_CONTRACT) -> tuple[dict[str, Any], dict[str, Any]]:
     """Return (opaque public observation, owner-local raw record)."""
 
     if not isinstance(row, dict):
@@ -326,7 +333,15 @@ def normalize_observation(row: dict[str, Any], source_id: str, snapshot_id: str,
     content_digest = canonical_json_digest(row)
     disposition = _observation_disposition(row)
     source_identity = opaque("source", {"source_id": source_id, "native": native})
-    evidence_id = opaque("evidence", {"source": source_identity, "canonical": canonical_id, "revision": revision_digest})
+    # A source revision is not a revision of every later enrichment field.
+    # Bind evidence to the observed bytes as well, without changing the native
+    # revision or timestamp. Existing v1 ledger rows remain addressable.
+    identity = {"source": source_identity, "canonical": canonical_id, "revision": revision_digest}
+    if evidence_identity_contract == EVIDENCE_IDENTITY_CONTRACT:
+        identity.update(contract=EVIDENCE_IDENTITY_CONTRACT, content=content_digest)
+    elif evidence_identity_contract != "source-revision-v1":
+        raise CorpusError("unsupported evidence identity contract")
+    evidence_id = opaque("evidence", identity)
     public = {
         "schema_version": SCHEMA_VERSION,
         "evidence_id": evidence_id,
@@ -346,6 +361,7 @@ def normalize_observation(row: dict[str, Any], source_id: str, snapshot_id: str,
         "completeness_state": disposition,
         "adapter_version": ADAPTER_VERSION,
         "derivation": {
+            "evidence_identity_contract": evidence_identity_contract,
             "was_derived_from": [source_identity],
             "was_generated_by": opaque("activity", {"adapter": ADAPTER_VERSION, "snapshot": snapshot_id}),
             "lineage_digest": canonical_json_digest({"source": source_identity, "content": content_digest, "revision": revision_digest}),
@@ -497,7 +513,7 @@ def reconcile_pages(source: dict[str, Any], policy: Any, parity: dict[str, Any] 
     page_receipts: list[dict[str, Any]] = []
     seen_requested_cursors: set[str] = set()
     seen_returned_cursors: set[str] = set()
-    seen_observation_keys: set[tuple[str, str]] = set()
+    seen_observation_keys: set[tuple[str, str, str]] = set()
     duplicate_count = 0
     failure: dict[str, Any] | None = None
     expected_cursor: Any = None
@@ -540,7 +556,7 @@ def reconcile_pages(source: dict[str, Any], policy: Any, parity: dict[str, Any] 
         page_links: list[str] = []
         for row in rows:
             public, raw = normalize_observation(row, source_id, snapshot_id)
-            key = (public["canonical_source_identity"], public["revision_digest"])
+            key = (public["canonical_source_identity"], public["revision_digest"], public["content_digest"])
             if key in seen_observation_keys:
                 duplicate_count += 1
                 continue
@@ -564,7 +580,10 @@ def reconcile_pages(source: dict[str, Any], policy: Any, parity: dict[str, Any] 
             seen_returned_cursors.add(returned_key)
         expected_cursor = returned
         if returned in (None, ""):
-            cursor_exhausted = True
+            if position != len(pages) - 1:
+                failure = _safe_failure("pages_after_terminal_cursor", ordinal)
+            else:
+                cursor_exhausted = True
         page_receipts.append(_page_receipt(
             page, source_id, source_identity, query_contract_digest, snapshot_id, p_digest, "complete" if failure is None else "partial",
             page_ids, canonical_json_digest(page),
@@ -611,6 +630,7 @@ def reconcile_pages(source: dict[str, Any], policy: Any, parity: dict[str, Any] 
         "snapshot_id": snapshot_id,
         "source_id": safe_identifier(source_id, "source"),
         "source_identity": opaque("source", source_id),
+        "source_config_digest": source_configuration_digest(source),
         "source_contract": {
             "adapter": "field_theory",
             "adapter_version": ADAPTER_VERSION,
@@ -722,8 +742,18 @@ def store_owner_records(ledger_path: Path, records: Iterable[dict[str, Any]]) ->
         """)
         added = 0
         with connection:
+            # Serialize the identity/content check with the insert. An
+            # evidence identity cannot silently replace or discard different
+            # bytes, including under concurrent writers.
+            connection.execute("BEGIN IMMEDIATE")
             for record in records:
                 public = record["public"]
+                existing = connection.execute(
+                    "SELECT content_digest FROM source_observations WHERE evidence_id = ?",
+                    (public["evidence_id"],),
+                ).fetchone()
+                if existing and existing[0] != public["content_digest"]:
+                    raise CorpusError("bookmark evidence content conflict")
                 before = connection.total_changes
                 connection.execute(
                     "INSERT OR IGNORE INTO source_observations VALUES (?, ?, ?, ?, ?, ?, ?, ?)",

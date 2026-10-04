@@ -121,6 +121,7 @@ class BookmarkInfrastructureStatusTests(unittest.TestCase):
         return STATUS.FRESHNESS.read_database_binding(self.database)
 
     def write_refresh_receipt(self, *, generated_at: datetime | None = None) -> None:
+        generated_at = generated_at or datetime(2026, 8, 30, 2, 30, tzinfo=timezone.utc)
         database_digest = STATUS.FRESHNESS.file_sha256(self.database)
         empty_state = {
             "md": {"exists": False, "file_count": 0, "total_size": 0, "content_hash": "", "truncated": False},
@@ -132,7 +133,7 @@ class BookmarkInfrastructureStatusTests(unittest.TestCase):
         payload = {
             "schema": STATUS.FRESHNESS.RECEIPT_SCHEMA,
             "run_id": "status-test-run",
-            "generated_at": (generated_at or datetime.now(timezone.utc)).isoformat(),
+            "generated_at": generated_at.isoformat(),
             "outcome": "applied_verified",
             "authoritative": True,
             "deterministic_checks_passed": True,
@@ -168,6 +169,7 @@ class BookmarkInfrastructureStatusTests(unittest.TestCase):
         }
         self.receipt.write_text(json.dumps(payload), encoding="utf-8")
         self.receipt.chmod(0o600)
+        os.utime(self.receipt, (generated_at.timestamp(), generated_at.timestamp()))
 
     def write_stack_receipts(self, *, complete: bool = True) -> None:
         receipts = self.state / "receipts"
@@ -187,6 +189,8 @@ class BookmarkInfrastructureStatusTests(unittest.TestCase):
                 encoding="utf-8",
             )
             path.chmod(0o600)
+            receipt_time = datetime(2026, 8, 30, 2, 0, tzinfo=timezone.utc).timestamp()
+            os.utime(path, (receipt_time, receipt_time))
 
     def write_scheduler_files(self, *, duplicate: bool = False, drifted: bool = False) -> None:
         jobs = [
@@ -233,6 +237,8 @@ class BookmarkInfrastructureStatusTests(unittest.TestCase):
         report = self.report()
         encoded = json.dumps(report)
         self.assertEqual("healthy", report["status"])
+        self.assertEqual(1800, report["field_theory"]["receipt"]["age_seconds"])
+        self.assertEqual(1800, report["field_theory"]["receipt"]["verified_age_seconds"])
         self.assertEqual(2, report["field_theory"]["source"]["row_count"])
         self.assertEqual("2026-08-30T02:00:00+00:00", report["field_theory"]["source"]["max_source_timestamp"])
         self.assertEqual(1, report["field_theory"]["media"]["bookmarks_with_media"])
@@ -246,6 +252,8 @@ class BookmarkInfrastructureStatusTests(unittest.TestCase):
         self.assertTrue(report["scheduler"]["daily_field_theory"]["gbrain_lane_excluded"])
         self.assertTrue(report["stack_receipts"]["collection"]["complete"])
         self.assertTrue(report["stack_receipts"]["curation"]["complete"])
+        self.assertEqual(3600, report["stack_receipts"]["collection"]["age_seconds"])
+        self.assertEqual(3600, report["stack_receipts"]["curation"]["age_seconds"])
         self.assertFalse(report["safety"]["bookmark_bodies_included"])
         self.assertNotIn("private body", encoded)
         self.assertNotIn("another private body", encoded)
@@ -299,7 +307,7 @@ class BookmarkInfrastructureStatusTests(unittest.TestCase):
 
     def test_stale_or_missing_source_receipt_is_blocked_without_body_leak(self) -> None:
         self.write_refresh_receipt(
-            generated_at=datetime.now(timezone.utc) - timedelta(hours=37)
+            generated_at=datetime(2026, 8, 30, 3, 0, tzinfo=timezone.utc) - timedelta(hours=37)
         )
         report = self.report()
         self.assertEqual("blocked", report["status"])

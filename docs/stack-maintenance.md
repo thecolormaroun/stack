@@ -207,7 +207,17 @@ exact `origin/main` SHA, and invokes that base's checked-in
 rejected. The materializer fetches each exact observed commit and follows the
 curated existing-import rules in
 `registry/maintenance-imports.json`. It never discovers or activates new
-skills. Every fetched license must match the exact reviewed SHA-256 digest in
+skills. For `existing-source-markdown` providers, ordinary mappings come from
+each existing curated import's `references/source.md` path and inspected pin.
+The `retained_targets` list declares reviewed exceptions for removed upstream
+targets; it is not the list of ordinary imports. `explicit-source-json` providers
+use the rule's explicit source/target pairs and require existing `source.json`
+provenance to match the source path and current provider pin before producing
+replacement outputs; missing, mismatched or symlinked provenance fails closed.
+Coverage tests resolve these mappings
+against the provider exports and the maintenance inventory's required exports;
+mapping coverage is not candidate-version compatibility or upgrade approval.
+Every fetched license must match the exact reviewed SHA-256 digest in
 the provider registry; matching a license phrase is not sufficient. Missing
 mappings, changed licenses, file, directory, or dangling symlinks, upstream
 deletions, or renames fail closed for review. The symlink gate covers each

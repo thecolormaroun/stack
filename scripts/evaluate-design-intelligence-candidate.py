@@ -419,16 +419,20 @@ def _feedback_values(row: Mapping[str, Any], candidate: Mapping[str, Any]) -> li
 
 
 def _feedback_kind(value: Any) -> str:
+    # Result authors cannot authenticate their own task feedback. No trusted,
+    # candidate-bound feedback producer is registered in this evaluator yet.
     if isinstance(value, Mapping):
         if value.get("synthetic") is True or value.get("is_synthetic") is True:
             return "synthetic"
         if value.get("real") is True or value.get("is_real") is True:
-            return "real"
+            return "unverified"
         kind = str(value.get("kind", value.get("source", value.get("type", "")))).lower()
         if kind in {"synthetic", "fixture", "simulated", "model"}:
             return "synthetic"
         if kind in {"real", "user", "human", "task", "task-use", "task_use"}:
-            return "real"
+            return "unverified"
+        if any(key in value for key in ("verified", "reviewed_by", "reviewer", "receipt_sha256")):
+            return "unverified"
         if isinstance(value.get("text"), str) and value["text"].strip():
             return "unknown"
     if isinstance(value, str) and value.strip():
@@ -506,19 +510,20 @@ def _write_idempotent(path: Path, data: bytes) -> None:
     temporary = path.parent / f".{path.name}.{os.getpid()}.tmp"
     descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     try:
-        offset = 0
-        while offset < len(data):
-            offset += os.write(descriptor, data[offset:])
-        os.fsync(descriptor)
-        os.fchmod(descriptor, 0o600)
-    finally:
-        os.close(descriptor)
-    try:
-        os.link(temporary, path)
-    except FileExistsError:
-        info = path.stat()
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600 or path.read_bytes() != data:
-            raise DesignEvaluationError("existing evaluation receipt differs from deterministic rerun")
+        try:
+            offset = 0
+            while offset < len(data):
+                offset += os.write(descriptor, data[offset:])
+            os.fsync(descriptor)
+            os.fchmod(descriptor, 0o600)
+        finally:
+            os.close(descriptor)
+        try:
+            os.link(temporary, path)
+        except FileExistsError:
+            info = path.stat()
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600 or path.read_bytes() != data:
+                raise DesignEvaluationError("existing evaluation receipt differs from deterministic rerun")
     finally:
         try:
             temporary.unlink()
@@ -655,6 +660,7 @@ def evaluate_design_candidate(
     # Explicit synthetic inputs/results are allowed to produce a review packet,
     # but never to become active evidence by themselves.
     real_feedback = 0
+    unverified_feedback = 0
     feedback_present = 0
     synthetic_only = True
     max_disagreement = 0.0
@@ -673,7 +679,8 @@ def evaluate_design_candidate(
             kinds = row["feedback_kinds"]
             feedback_present += len(kinds)
             real_feedback += sum(kind == "real" for kind in kinds)
-            if any(kind == "real" for kind in kinds):
+            unverified_feedback += sum(kind == "unverified" for kind in kinds)
+            if any(kind != "synthetic" for kind in kinds):
                 synthetic_only = False
             for gate, passed in row["gates"].items():
                 if not passed:
@@ -734,6 +741,7 @@ def evaluate_design_candidate(
         for row in normalized["development"]
         if not any(kind == "real" for kind in row["feedback_kinds"])
     })
+    synthetic_only = feedback_present > 0 and synthetic_only
     dimension_regressions = {
         name: delta for name, values in all_dimension_deltas.items() if values and (delta := mean(values)) < -float(profile_doc["maximum_dimension_regression"])
     }
@@ -758,6 +766,8 @@ def evaluate_design_candidate(
         reasons.append("missing_real_task_usefulness_feedback")
     elif profile_doc.get("required_task_feedback") and development_feedback_gaps:
         reasons.append("incomplete_real_task_usefulness_feedback")
+    if unverified_feedback:
+        reasons.append("unverified_task_usefulness_feedback")
     if unstable_fixtures or unstable_improvements:
         reasons.append("unstable_scores")
     if max_disagreement > float(profile_doc["maximum_rubric_disagreement"]):
@@ -766,6 +776,10 @@ def evaluate_design_candidate(
     if feedback_present == 0:
         status = "blocked-eval"
     elif "hard_gate_failure" in reasons or "holdout_regression" in reasons or "fixture_dimension_regression" in reasons:
+        status = "rejected"
+    elif any(reason in reasons for reason in (
+        "insufficient_development_wins", "insufficient_weighted_improvement", "dimension_regression",
+    )):
         status = "rejected"
     elif unstable_fixtures or unstable_improvements or max_disagreement > float(profile_doc["maximum_rubric_disagreement"]):
         status = "human_review_required"
@@ -780,6 +794,15 @@ def evaluate_design_candidate(
         status = "awaiting_approval"
     if synthetic_only and status == "awaiting_approval":
         reasons.append("synthetic_evidence_requires_real_task_use")
+
+    next_gate = "human-review-and-publication-receipts" if status == "awaiting_approval" else "human-review" if status == "human_review_required" else "revise-or-discard-candidate"
+    if (
+        status == "human_review_required"
+        and unverified_feedback
+        and "unstable_scores" not in reasons
+        and "rubric_usefulness_disagreement" not in reasons
+    ):
+        next_gate = "provide-independently-bound-task-feedback"
 
     receipt = {
         "schema_version": 1,
@@ -805,6 +828,7 @@ def evaluate_design_candidate(
             "unstable_improvements": sorted(unstable_improvements),
             "maximum_rubric_usefulness_disagreement": max_disagreement,
             "real_task_usefulness_feedback_count": real_feedback,
+            "unverified_task_usefulness_feedback_count": unverified_feedback,
             "task_usefulness_feedback_count": feedback_present,
             "development_feedback_gaps": development_feedback_gaps,
             "synthetic_only": synthetic_only,
@@ -817,14 +841,14 @@ def evaluate_design_candidate(
             "dimension_regression": not dimension_regressions,
             "holdout_regression": not holdout_regression,
             "hard_gates": not hard_gate_failures,
-            "task_usefulness_feedback": feedback_present > 0,
+            "task_usefulness_feedback": real_feedback > 0 and not development_feedback_gaps,
             "score_stability": not unstable_fixtures,
             "rubric_usefulness_agreement": max_disagreement <= float(profile_doc["maximum_rubric_disagreement"]),
         },
         "reason_codes": sorted(set(reasons)),
         "quarantine": {"results_owner_local": True, "candidate_outputs": True, "retrieval_truth": False, "future_fixtures": False},
         "activation": {"active_pointer": False, "install": False, "publish": False, "draft_pr": False, "network_action": False},
-        "next_gate": "human-review-and-publication-receipts" if status == "awaiting_approval" else "human-review" if status == "human_review_required" else "revise-or-discard-candidate",
+        "next_gate": next_gate,
     }
     return receipt
 

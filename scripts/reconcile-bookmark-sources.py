@@ -73,12 +73,26 @@ def reconcile_sources(source: dict[str, Any], policy: Any, parity: dict[str, Any
 
     snapshot, raw_records = reconcile_pages(source_from_document(source), policy, parity)
     if previous_snapshot is not None:
-        current = {row["canonical_source_identity"]: row["revision_digest"] for row in snapshot["observations"]}
-        previous = {row["canonical_source_identity"]: row["revision_digest"] for row in previous_snapshot.get("observations", [])}
+        def evidence_sets(rows: list[dict[str, Any]]) -> dict[str, list[tuple[str, str]]]:
+            result: dict[str, set[tuple[str, str]]] = {}
+            for row in rows:
+                result.setdefault(row["canonical_source_identity"], set()).add(
+                    (row["revision_digest"], row.get("content_digest", "")))
+            return {identity: sorted(values) for identity, values in result.items()}
+
+        current = evidence_sets(snapshot["observations"])
+        previous = evidence_sets(previous_snapshot.get("observations", []))
+        scope_fields = ("source_id", "source_identity", "source_config_digest", "source_contract", "policy_digest")
+        current_scope = {key: snapshot.get(key) for key in scope_fields}
+        previous_scope = {key: previous_snapshot.get(key) for key in scope_fields}
+        scope_changed = current_scope != previous_scope
+        complete = all(value.get("completeness_state") == "complete" and value.get("cursor_exhausted") is True
+                       for value in (snapshot, previous_snapshot))
         snapshot["zero_delta"] = {
-            "state": "passed" if current == previous else "changed",
+            "state": "incomplete" if not complete else "passed" if current == previous and not scope_changed else "changed",
             "changed_count": sum(1 for identity in set(current) | set(previous) if current.get(identity) != previous.get(identity)),
-            "digest": canonical_json_digest({"current": current, "previous": previous}),
+            "source_contract_changed": scope_changed,
+            "digest": canonical_json_digest({"current": current, "previous": previous, "current_scope": current_scope, "previous_scope": previous_scope}),
         }
     if apply:
         if ledger_path is None:

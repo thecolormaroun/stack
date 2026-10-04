@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -21,6 +22,113 @@ def _module():
 
 
 class MaintenanceMaterializerTests(unittest.TestCase):
+    def test_catalog_required_imports_resolve_through_curated_provenance(self) -> None:
+        materializer = _module()
+        registry = json.loads((ROOT / "registry/upstreams.json").read_text())
+        rules = json.loads((ROOT / "registry/maintenance-imports.json").read_text())
+        inventory = json.loads((ROOT / "registry/maintenance-sources.json").read_text())
+        providers = {row["id"]: row for row in registry["providers"]}
+        required_by_provider: dict[str, set[str]] = {}
+        for source in inventory["sources"]:
+            if source["disposition"] == "catalog-managed-provider":
+                required_by_provider.setdefault(source["provider_id"], set()).update(
+                    source["required_exports"]
+                )
+
+        for rule in rules["providers"]:
+            with self.subTest(provider=rule["id"]):
+                provider = providers[rule["id"]]
+                self.assertEqual(provider["install"], "pinned-import")
+                retained = {
+                    (Path(row["source"]), Path(row["target"])): row["pin"]
+                    for row in rule["retained_targets"]
+                }
+                targets = materializer.discover_targets(
+                    ROOT, rule, provider["pin"]["value"], retained
+                )
+                target_names = [target.name for _source, target, _pin in targets]
+                self.assertEqual(len(target_names), len(set(target_names)))
+                self.assertTrue(set(provider["exports"]).issubset(target_names))
+                self.assertTrue(
+                    required_by_provider[rule["id"]].issubset(target_names)
+                )
+                for source, target, inspected_pin in targets:
+                    self.assertTrue((ROOT / target / "SKILL.md").is_file())
+                    self.assertTrue((ROOT / target / "capability.json").is_file())
+                    self.assertEqual(
+                        inspected_pin,
+                        retained.get((source, target), provider["pin"]["value"]),
+                    )
+
+    def test_ordinary_mapping_does_not_require_a_retained_target_entry(self) -> None:
+        import tempfile
+
+        materializer = _module()
+        with tempfile.TemporaryDirectory() as temporary:
+            stage = Path(temporary)
+            target = stage / "skills/imported/david/david-handoff"
+            (target / "references").mkdir(parents=True)
+            pin = "a" * 40
+            (target / "references/source.md").write_text(
+                "- Upstream path: `skills/agent-orchestration/handoff`\n"
+                f"- Inspected commit: `{pin}`\n",
+                encoding="utf-8",
+            )
+            rule = {
+                "mapping": "existing-source-markdown",
+                "target_root": "skills/imported/david",
+                "target_prefix": "david-",
+                "source_metadata": "references/source.md",
+            }
+
+            self.assertEqual(
+                materializer.discover_targets(stage, rule, pin, {}),
+                [
+                    (
+                        Path("skills/agent-orchestration/handoff"),
+                        Path("skills/imported/david/david-handoff"),
+                        pin,
+                    )
+                ],
+            )
+
+    def test_mapping_rejects_missing_or_wrong_pin_and_unsafe_provenance(self) -> None:
+        import tempfile
+
+        materializer = _module()
+        with tempfile.TemporaryDirectory() as temporary:
+            stage = Path(temporary)
+            target = stage / "skills/imported/david/david-handoff"
+            (target / "references").mkdir(parents=True)
+            pin = "a" * 40
+            rule = {
+                "mapping": "existing-source-markdown",
+                "target_root": "skills/imported/david",
+                "target_prefix": "david-",
+                "source_metadata": "references/source.md",
+            }
+            cases = {
+                "missing_source": (f"- Inspected commit: `{pin}`\n", "import_metadata_invalid"),
+                "missing_pin": (
+                    "- Upstream path: `skills/agent-orchestration/handoff`\n",
+                    "import_metadata_invalid",
+                ),
+                "wrong_pin": (
+                    "- Upstream path: `skills/agent-orchestration/handoff`\n"
+                    f"- Inspected commit: `{'b' * 40}`\n",
+                    "import_metadata_invalid",
+                ),
+                "unsafe_source": (
+                    f"- Upstream path: `../outside`\n- Inspected commit: `{pin}`\n",
+                    "import_path_invalid",
+                ),
+            }
+            for name, (metadata, reason) in cases.items():
+                with self.subTest(case=name):
+                    (target / "references/source.md").write_text(metadata, encoding="utf-8")
+                    with self.assertRaisesRegex(materializer.ProposalError, reason):
+                        materializer.discover_targets(stage, rule, pin, {})
+
     def test_import_normalizes_whitespace_only_lines_without_changing_markdown_breaks(self) -> None:
         import tempfile
 
@@ -52,6 +160,95 @@ class MaintenanceMaterializerTests(unittest.TestCase):
             self.assertNotIn("\n   \n", imported)
             self.assertIn("\n\u00a0\n", imported)
             self.assertIn("Keep this Markdown hard break.  \nNext line.", imported)
+
+    def test_explicit_mapping_preserves_existing_path_and_pin_identity(self) -> None:
+        import copy
+        import tempfile
+
+        materializer = _module()
+        with tempfile.TemporaryDirectory() as temporary:
+            stage = Path(temporary) / "stage"
+            checkout = Path(temporary) / "checkout"
+            target = stage / "skills/imported/emil/emil-design-eng"
+            source = checkout / "skills/emil-design-eng"
+            (target / "references").mkdir(parents=True)
+            source.mkdir(parents=True)
+            (target / "SKILL.md").write_text("old\n", encoding="utf-8")
+            (target / "capability.json").write_text("{}\n", encoding="utf-8")
+            license_bytes = b"MIT License\nPermission is hereby granted, free of charge\n"
+            (checkout / "LICENSE").write_bytes(license_bytes)
+            (source / "SKILL.md").write_text(
+                "---\nname: emil-design-eng\ndescription: Design engineering.\n---\n\n# Design\n",
+                encoding="utf-8",
+            )
+            old_pin, new_pin = "a" * 40, "b" * 40
+            provider = {
+                "id": "emil",
+                "canonical_source": "https://github.com/example/design-skill.git",
+                "pin": {"type": "git-commit", "value": old_pin},
+                "license_sha256": hashlib.sha256(license_bytes).hexdigest(),
+            }
+            rule = {
+                "id": "emil",
+                "display_name": "Example Designer",
+                "mapping": "explicit-source-json",
+                "source_metadata": "references/source.json",
+                "license": "MIT",
+                "targets": [{
+                    "source": "skills/emil-design-eng",
+                    "target": "skills/imported/emil/emil-design-eng",
+                }],
+            }
+            metadata_path = target / "references/source.json"
+            valid_metadata = {
+                "upstream_skill_path": "skills/emil-design-eng",
+                "latest_commit": {"sha": old_pin},
+            }
+            metadata_path.write_text(json.dumps(valid_metadata), encoding="utf-8")
+            before = {path: path.read_bytes() for path in target.rglob("*") if path.is_file()}
+            outputs = materializer.materialize_provider(stage, checkout, provider, rule, new_pin)
+            generated = json.loads(outputs["skills/imported/emil/emil-design-eng/references/source.json"])
+            self.assertEqual(generated["upstream_skill_path"], "skills/emil-design-eng")
+            self.assertEqual(generated["latest_commit"]["sha"], new_pin)
+            self.assertEqual(before, {path: path.read_bytes() for path in before})
+
+            wrong_path = copy.deepcopy(valid_metadata)
+            wrong_path["upstream_skill_path"] = "skills/other"
+            wrong_pin = copy.deepcopy(valid_metadata)
+            wrong_pin["latest_commit"]["sha"] = "c" * 40
+            for case, metadata in (
+                ("missing", None),
+                ("wrong_path", wrong_path),
+                ("wrong_pin", wrong_pin),
+                ("missing_commit", {"upstream_skill_path": "skills/emil-design-eng"}),
+                ("malformed_commit", {"upstream_skill_path": "skills/emil-design-eng", "latest_commit": []}),
+            ):
+                with self.subTest(case=case):
+                    if metadata is None:
+                        metadata_path.unlink()
+                    else:
+                        metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+                    existing = {path: path.read_bytes() for path in target.rglob("*") if path.is_file()}
+                    with self.assertRaisesRegex(materializer.ProposalError, "import_metadata_invalid"):
+                        materializer.materialize_provider(stage, checkout, provider, rule, new_pin)
+                    self.assertEqual(existing, {path: path.read_bytes() for path in existing})
+
+            outside = Path(temporary) / "outside"
+            outside.mkdir()
+            (outside / "source.json").write_text(json.dumps(valid_metadata), encoding="utf-8")
+            metadata_path.unlink()
+            metadata_path.symlink_to(outside / "source.json")
+            with self.assertRaisesRegex(materializer.ProposalError, "mapped_skill_invalid"):
+                materializer.materialize_provider(stage, checkout, provider, rule, new_pin)
+            metadata_path.unlink()
+            (target / "references").rename(target / "saved-references")
+            (target / "references").symlink_to(outside, target_is_directory=True)
+            with self.assertRaisesRegex(materializer.ProposalError, "mapped_skill_invalid"):
+                materializer.materialize_provider(stage, checkout, provider, rule, new_pin)
+            self.assertEqual(
+                (outside / "source.json").read_text(encoding="utf-8"),
+                json.dumps(valid_metadata),
+            )
 
     def test_import_is_deterministic_and_bound_to_existing_mapping(self) -> None:
         import tempfile

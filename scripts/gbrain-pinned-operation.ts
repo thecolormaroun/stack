@@ -17,8 +17,9 @@ import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { assertSafeEnvironment } from "./gbrain-pinned-environment.mjs";
+import { operationVersionAllowed, extractionIsUnverified, readEngineConfig, assertReadOnlySession } from "./gbrain-read-contract.mjs";
 
-type Request =
+type Request = (
   | { schema_version: 1; source: "x-bookmarks"; operation: "version" }
   | { schema_version: 1; source: "x-bookmarks"; operation: "sources_status" }
   | {
@@ -33,9 +34,7 @@ type Request =
       source: "x-bookmarks";
       operation: "import";
       directory: string;
-    };
-
-const VERSION = "0.42.67.0";
+    }) & { expected_version?: string };
 
 function fail(): never {
   throw new Error("pinned operation failed closed");
@@ -92,16 +91,17 @@ function boundConfigBytes(): Buffer {
   return payload;
 }
 
-function moduleRoot(): string {
+function moduleRoot(operation: Request["operation"]): { root: string; version: string } {
   const cliPath = process.env.GBRAIN_CLI_PATH;
   if (!cliPath) fail();
   const expectedCli = realpathSync(join(homedir(), ".bun", "bin", "gbrain"));
   const resolvedCli = realpathSync(cliPath);
-  if (resolvedCli !== expectedCli || !resolvedCli.endsWith("/gbrain/src/cli.ts")) fail();
+  const installedCli = realpathSync(join(homedir(), ".bun", "install", "global", "node_modules", "gbrain", "src", "cli.ts"));
+  if (resolvedCli !== expectedCli || resolvedCli !== installedCli) fail();
   const root = dirname(dirname(resolvedCli));
   const packageDocument = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-  if (packageDocument?.name !== "gbrain" || packageDocument?.version !== VERSION) fail();
-  return root;
+  if (packageDocument?.name !== "gbrain" || !operationVersionAllowed(packageDocument?.version, operation)) fail();
+  return { root, version: packageDocument.version };
 }
 
 function validateRequest(value: unknown): Request {
@@ -109,6 +109,8 @@ function validateRequest(value: unknown): Request {
   const request = value as Partial<Request>;
   if (request.schema_version !== 1 || request.source !== "x-bookmarks") fail();
   if (!["version", "sources_status", "keyword", "import"].includes(String(request.operation))) fail();
+  if (["sources_status", "keyword"].includes(String(request.operation)) &&
+      (typeof request.expected_version !== "string" || !operationVersionAllowed(request.expected_version, String(request.operation)))) fail();
   if (request.operation === "import") {
     if (typeof request.directory !== "string" || !isAbsolute(request.directory)) fail();
     const lexical = resolve(request.directory);
@@ -159,7 +161,7 @@ function localCloneAttested(status: Record<string, unknown>): boolean {
     ) return false;
     const git = (args: string[]) => execFileSync("/usr/bin/git", ["-C", resolved, ...args], {
       encoding: "utf8",
-      env: { HOME: homedir(), PATH: "/usr/bin:/bin:/usr/sbin:/sbin", TMPDIR: "/private/tmp" },
+      env: { HOME: homedir(), PATH: "/usr/bin:/bin:/usr/sbin:/sbin", TMPDIR: "/private/tmp", GIT_OPTIONAL_LOCKS: "0" },
       timeout: 30_000,
     }).trim();
     return (
@@ -177,12 +179,13 @@ function localCloneAttested(status: Record<string, unknown>): boolean {
 async function main(): Promise<void> {
   if (realpathSync(process.execPath) !== realpathSync("/opt/homebrew/bin/bun")) fail();
   assertSafeEnvironment(process.env);
-  const root = moduleRoot();
   const raw = await Bun.stdin.text();
   if (raw.length === 0 || raw.length > 8192) fail();
   const request = validateRequest(JSON.parse(raw));
+  const { root, version } = moduleRoot(request.operation);
+  if (["sources_status", "keyword"].includes(request.operation) && request.expected_version !== version) fail();
   if (request.operation === "version") {
-    process.stdout.write(`gbrain ${VERSION}`);
+    process.stdout.write(`gbrain ${version}`);
     return;
   }
 
@@ -209,15 +212,20 @@ async function main(): Promise<void> {
     assertSnapshot();
     if (!config) fail();
     assertLocalBackend(config);
-    const engineConfig = configModule.toEngineConfig(config);
+    const engineConfig = readEngineConfig(version, request.operation, configModule.toEngineConfig(config));
     const engine = await factoryModule.createEngine(engineConfig);
     try {
       await engine.connect(engineConfig);
+      if (request.operation !== "import" && engineConfig.engine === "postgres") {
+        assertReadOnlySession(await engine.executeRaw(
+          "SELECT current_setting('default_transaction_read_only') AS read_only",
+        ));
+      }
       if (request.operation === "sources_status") {
         const sourceModule = await import(pathToFileURL(join(root, "src/core/sources-ops.ts")).href);
         const status = await sourceModule.getSourceStatus(engine, request.source);
         assertSnapshot();
-        const cloneState = status.clone_state === "corrupted" && localCloneAttested(status)
+        const cloneState = version !== "0.59.0.0" && status.clone_state === "corrupted" && localCloneAttested(status)
           ? "local-attested"
           : status.clone_state;
         process.stdout.write(JSON.stringify({
@@ -240,10 +248,10 @@ async function main(): Promise<void> {
           .map((row: { page_id?: number }) => row.page_id)
           .filter((value: number | undefined): value is number => Number.isSafeInteger(value)))];
         const unverified = pageIds.length > 0
-          ? await engine.getUnverifiedExtractionPageIds(pageIds)
+          ? await engine.getUnverifiedExtractionPageIds(pageIds, { sourceId: request.source })
           : new Set<number>();
         for (const row of results) {
-          if (unverified.has(row.page_id)) row.unverified = true;
+          if (extractionIsUnverified(unverified, row.page_id)) row.unverified = true;
         }
         assertSnapshot();
         process.stdout.write(JSON.stringify(results));

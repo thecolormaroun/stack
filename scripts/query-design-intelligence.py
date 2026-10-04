@@ -63,7 +63,7 @@ EXPECTED_BUN_CLI = Path("/opt/homebrew/Cellar/bun/1.3.14/bin/bun")
 DEFAULT_GBRAIN_CONFIG = ACCOUNT_HOME / ".gbrain" / "config.json"
 PINNED_OPERATION_HELPER = ROOT / "scripts" / "gbrain-pinned-operation.ts"
 LIVE_EGRESS_CONTRACT = "gbrain-keyword-fts-no-provider-v1"
-SUPPORTED_LIVE_CLI_VERSIONS = frozenset({"0.42.67.0"})
+SUPPORTED_LIVE_CLI_VERSIONS = frozenset({"0.42.67.0", "0.48.2.0", "0.59.0.0"})
 ALLOWED_LOCATOR_SCOPES = frozenset({"bookmarks/", "bookmark-"})
 ALLOWED_LOCAL_POSTGRES_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 ALLOWED_LOCAL_POSTGRES_PORTS = frozenset({5432})
@@ -118,7 +118,7 @@ def _trusted_gbrain_cli(path: str | Path) -> str | None:
         or not os.access(resolved, os.X_OK)
         or not isinstance(package, dict)
         or package.get("name") != "gbrain"
-        or package.get("version") != "0.42.67.0"
+        or package.get("version") not in SUPPORTED_LIVE_CLI_VERSIONS
     ):
         return None
     return str(resolved)
@@ -824,6 +824,7 @@ class CliGBrainTransport:
         self._source_grant: _TrustedSourceGrant | None = None
         self._freshness: dict[str, Any] | None = None
         self._attestation: dict[str, str] | None = None
+        self._attested_cli_version: str | None = None
         self._attestation_state = "unavailable"
         self._attestation_reason = "trusted-target-unbound"
 
@@ -939,6 +940,7 @@ class CliGBrainTransport:
         self._source_grant = source_grant
         self._freshness = {"as_of": as_of, "max_age_days": max_age}
         self._attestation = None
+        self._attested_cli_version = None
         self._attestation_state = "unavailable"
         self._attestation_reason = "source-attestation-not-run"
 
@@ -983,6 +985,11 @@ class CliGBrainTransport:
         if bun_executable is None or gbrain_cli is None or config_digest is None or not argv or argv[0] != self.cli_path:
             return None, "failed"
         operation = "version" if len(argv) == 2 and argv[1] == "--version" else "sources_status"
+        request = {"schema_version": 1, "source": SOURCE, "operation": operation}
+        if operation != "version":
+            if self._source_grant is None or self._attested_cli_version not in self._source_grant["allowed_cli_versions"]:
+                return None, "failed"
+            request["expected_version"] = self._attested_cli_version
         try:
             helper = PINNED_OPERATION_HELPER.resolve(strict=True)
             if helper != PINNED_OPERATION_HELPER or helper.is_symlink() or helper.stat().st_uid != os.getuid():
@@ -992,7 +999,7 @@ class CliGBrainTransport:
             environment["GBRAIN_CONFIG_SHA256"] = config_digest
             result = self.runner(
                 [bun_executable, "--no-env-file", str(helper)],
-                input=canonical_json({"schema_version": 1, "source": SOURCE, "operation": operation}),
+                input=canonical_json(request),
                 capture_output=True,
                 text=True,
                 env=environment,
@@ -1021,6 +1028,8 @@ class CliGBrainTransport:
             return None, "failed"
         if not self._grant_current():
             return None, "grant-expired"
+        if self._source_grant is None or self._attested_cli_version not in self._source_grant["allowed_cli_versions"]:
+            return None, "failed"
         bun_executable = _trusted_bun_executable(self.bun_path)
         gbrain_cli = _trusted_gbrain_cli(self.cli_path)
         if bun_executable is None or gbrain_cli is None:
@@ -1033,7 +1042,8 @@ class CliGBrainTransport:
             if helper != PINNED_OPERATION_HELPER or helper.is_symlink() or helper.stat().st_uid != os.getuid():
                 return None, "failed"
             payload = json.dumps(
-                {"schema_version": 1, "source": SOURCE, "operation": "keyword", "query": query, "limit": limit},
+                {"schema_version": 1, "source": SOURCE, "operation": "keyword", "query": query, "limit": limit,
+                 "expected_version": self._attested_cli_version},
                 separators=(",", ":"),
                 sort_keys=True,
             )
@@ -1088,6 +1098,7 @@ class CliGBrainTransport:
             return None, version_state, "cli-version-unavailable" if version_state == "unavailable" else "cli-version-invalid"
         if version not in SUPPORTED_LIVE_CLI_VERSIONS or version not in self._source_grant["allowed_cli_versions"]:
             return None, "failed", "cli-version-unsupported"
+        self._attested_cli_version = version
         payload = json.dumps({"id": SOURCE}, separators=(",", ":"), sort_keys=True)
         stdout, state = self._run([self.cli_path, "call", "sources_status", payload])
         if stdout is None:
@@ -1127,7 +1138,13 @@ class CliGBrainTransport:
         parsed_fresh_at = _parse_time(fresh_at)
         assert parsed_fresh_at is not None
         try:
-            helper_digest = hashlib.sha256(PINNED_OPERATION_HELPER.read_bytes()).hexdigest()
+            helper_digest = digest({
+                name: hashlib.sha256(PINNED_OPERATION_HELPER.with_name(name).read_bytes()).hexdigest()
+                for name in (
+                    "gbrain-pinned-operation.ts", "gbrain-pinned-environment.mjs",
+                    "gbrain-read-contract.mjs",
+                )
+            })
         except OSError:
             return None, "failed", "keyword-adapter-unavailable"
         attestation = {

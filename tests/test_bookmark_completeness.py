@@ -162,6 +162,53 @@ class BookmarkCompletenessTests(unittest.TestCase):
         folder_diff = RECONCILE.compare_source_sets(left["observations"], parity["observations"])
         self.assertEqual(len(folder_diff["folder_membership_diffs"]), 1)
 
+    def test_enrichment_revision_is_distinct_evidence_not_a_native_revision(self) -> None:
+        before = RECONCILE.reconcile_sources(self.source, self.policy)
+        changed = copy.deepcopy(self.source)
+        changed["pages"][0]["rows"][0]["primary_category"] = "Synthetic polish"
+        after = RECONCILE.reconcile_sources(changed, self.policy, previous_snapshot=before)
+        left, right = before["observations"][0], after["observations"][0]
+        self.assertEqual(left["revision_digest"], right["revision_digest"])
+        self.assertEqual(left["revision_time"], right["revision_time"])
+        self.assertNotEqual(left["evidence_id"], right["evidence_id"])
+        self.assertEqual(after["zero_delta"]["changed_count"], 1)
+        changed["pages"][0]["rows"].append(self.source["pages"][0]["rows"][0])
+        both = RECONCILE.reconcile_sources(changed, self.policy)
+        self.assertEqual(both["observation_count"], 3)
+        self.assertEqual(both["duplicate_count"], 0)
+
+    def test_identical_content_ignores_capture_and_snapshot_identity(self) -> None:
+        row = self.source["pages"][0]["rows"][0]
+        first, _ = RECONCILE.normalize_observation(row, "field-theory", "one", "2026-01-01T00:00:00Z")
+        second, _ = RECONCILE.normalize_observation(row, "field-theory", "two", "2026-02-01T00:00:00Z")
+        self.assertEqual(first["evidence_id"], second["evidence_id"])
+
+    def test_zero_delta_requires_same_source_scope_and_complete_snapshots(self) -> None:
+        before = RECONCILE.reconcile_sources(self.source, self.policy)
+        other = copy.deepcopy(self.source)
+        other["source_id"] = "second-source"
+        after = RECONCILE.reconcile_sources(other, self.policy, previous_snapshot=before)
+        self.assertEqual(after["zero_delta"]["state"], "changed")
+        self.assertTrue(after["zero_delta"]["source_contract_changed"])
+        partial = copy.deepcopy(before)
+        partial["completeness_state"] = "partial"
+        after = RECONCILE.reconcile_sources(self.source, self.policy, previous_snapshot=partial)
+        self.assertEqual(after["zero_delta"]["state"], "incomplete")
+        other = copy.deepcopy(self.source)
+        other["paths"] = ["/synthetic/alternate-source.sqlite3"]
+        after = RECONCILE.reconcile_sources(other, self.policy, previous_snapshot=before)
+        self.assertEqual(after["zero_delta"]["state"], "changed")
+        self.assertTrue(after["zero_delta"]["source_contract_changed"])
+        self.assertNotIn("/synthetic/", json.dumps(after))
+
+    def test_terminal_cursor_with_trailing_pages_is_partial_not_complete(self) -> None:
+        source = copy.deepcopy(self.source)
+        source["pages"][0]["returned_cursor"] = None
+        snapshot = RECONCILE.reconcile_sources(source, self.policy)
+        self.assertEqual(snapshot["completeness_state"], "partial")
+        self.assertFalse(snapshot["cursor_exhausted"])
+        self.assertEqual(snapshot["failure"]["reason"], "pages_after_terminal_cursor")
+
     def test_dry_run_does_not_create_missing_ledger_path(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

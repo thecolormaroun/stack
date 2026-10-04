@@ -467,33 +467,96 @@ class LocalPreparationAdapters:
             return None
         if not isinstance(value, Mapping):
             raise LocalAdapterError("evaluation_config_invalid")
-        required = {"packet", "materialization_receipt", "harness_root", "manifests", "results"}
-        if set(value) != required:
-            if set(value) <= required:
+        required = {"packet", "materialization_receipt", "harness_root", "manifests"}
+        allowed = required | {"results", "browser_collection"}
+        if not required <= set(value) or set(value) - allowed:
+            if set(value) <= allowed:
                 return {"missing": True}
             raise LocalAdapterError("evaluation_config_invalid")
         manifests = value.get("manifests")
-        results = value.get("results")
+        results = value.get("results", {})
         split_names = {"development", "holdout", "rotating_canary"}
-        if not isinstance(manifests, Mapping) or not isinstance(results, Mapping) or set(manifests) != split_names or set(results) != split_names:
+        if not isinstance(manifests, Mapping) or not isinstance(results, Mapping) or set(manifests) != split_names or set(results) - split_names:
+            return {"missing": True}
+        if set(results) != split_names and "browser_collection" not in value:
             return {"missing": True}
         try:
             packet = _bind_json(value["packet"], "evaluation_packet")
             materialization = _bind_json(value["materialization_receipt"], "materialization_receipt")
             harness = _BoundDirectory("evaluation_harness_root", _verify_private_directory(value["harness_root"], "evaluation_harness_root"))
             bound_manifests = {name: _bind_json(manifests[name], f"evaluation_{name}_manifest") for name in sorted(split_names)}
-            bound_results = {name: _bind_json(results[name], f"evaluation_{name}_results") for name in sorted(split_names)}
+            bound_results = {name: _bind_json(path, f"evaluation_{name}_results") for name, path in sorted(results.items())}
         except LocalAdapterError:
             raise
         if not isinstance(packet.value, Mapping) or not isinstance(materialization.value, Mapping):
             raise LocalAdapterError("evaluation_config_invalid")
-        return {
+        evaluation = {
             "packet": packet,
             "materialization": materialization,
             "harness": harness,
             "manifests": bound_manifests,
             "results": bound_results,
         }
+        if "browser_collection" in value:
+            evaluation["browser_collection"] = self._load_browser_collection(value["browser_collection"], evaluation)
+        return evaluation
+
+    def _load_browser_collection(self, value: Any, evaluation: Mapping[str, Any]) -> dict[str, Any]:
+        required = {"manifest", "reviewed_manifest_sha256", "candidate_packet_digest", "materialization_receipt_digest"}
+        if not isinstance(value, Mapping) or set(value) != required:
+            raise LocalAdapterError("browser_collection_config_invalid")
+        packet, materialization = evaluation["packet"], evaluation["materialization"]
+        if (value["candidate_packet_digest"] != _digest_json(packet.value)
+                or value["materialization_receipt_digest"] != _digest_json(materialization.value)):
+            raise LocalAdapterError("browser_collection_candidate_binding_invalid")
+        try:
+            packet_digest, requirements = self._evaluator._validate_packet(packet.value)
+            self._evaluator._validate_materialization(materialization.value, packet.value, packet_digest)
+            fixture_ids: set[str] = set()
+            for split, bound in evaluation["manifests"].items():
+                manifest, _ = self._evaluator._manifest(bound.path, split, requirements[f"{split}_manifest_digest"])
+                ids = {row["id"] for row in manifest["fixtures"]}
+                if fixture_ids & ids:
+                    raise LocalAdapterError("browser_collection_frozen_splits_overlap")
+                fixture_ids.update(ids)
+        except LocalAdapterError:
+            raise
+        except Exception:
+            raise LocalAdapterError("browser_collection_frozen_inputs_invalid") from None
+        self._collector = _load_fixed_module("stack_weekly_browser_evidence", "run-design-intelligence-evaluation.py")
+        manifest_bound = _bind_json(value["manifest"], "browser_collection_manifest")
+        try:
+            manifest = self._collector.load_manifest(manifest_bound.path, value["reviewed_manifest_sha256"])
+        except Exception:
+            raise LocalAdapterError("browser_collection_manifest_invalid") from None
+        if {case["case_id"] for case in manifest["cases"]} != fixture_ids:
+            raise LocalAdapterError("browser_collection_frozen_cases_mismatch")
+        if not all(case["primary_workflow"] for case in manifest["cases"]):
+            raise LocalAdapterError("browser_collection_primary_workflow_required")
+        for path in manifest["input_paths"]:
+            _verify_private_file(str(path), "browser_collection_input")
+        self._code_digests.update({
+            "browser_collector": manifest["collector_digest"],
+            "workflow_store": manifest["helper_digests"]["workflow_store"],
+        })
+        self._code_digest = _digest_json(self._code_digests)
+        collection_binding_digest = _digest_json({
+            "candidate_packet_digest": packet_digest,
+            "materialization_receipt_digest": _digest_json(materialization.value),
+            "frozen_manifest_digests": {
+                name: bound.digest for name, bound in sorted(evaluation["manifests"].items())
+            },
+            "reviewed_collector_manifest_digest": manifest_bound.digest,
+            "browser_digest": manifest["browser_digest"],
+            "collector_digest": manifest["collector_digest"],
+            "helper_digests": manifest["helper_digests"],
+            "input_bindings": manifest["input_bindings"],
+            "executor_policy_revision": manifest["executor_policy_revision"],
+        })
+        return {"manifest": manifest_bound, "binding": manifest,
+                "candidate_packet_digest": packet_digest,
+                "materialization_receipt_digest": _digest_json(materialization.value),
+                "collection_binding_digest": collection_binding_digest}
 
     def _pinned_source_document(self) -> dict[str, Any]:
         if self._source_document is None:
@@ -547,10 +610,15 @@ class LocalPreparationAdapters:
             raw_records = [raw_by_evidence[evidence_id] for evidence_id in evidence_ids]
             for observation, raw in zip(observations, raw_records):
                 try:
+                    # Sealed snapshots retain their original evidence IDs;
+                    # absence of this additive v2 marker denotes legacy v1.
+                    derivation = observation.get("derivation", {})
+                    identity_contract = derivation.get("evidence_identity_contract", "source-revision-v1")
                     normalized, _record = self._corpus.normalize_observation(
                         raw,
                         str(observation.get("source_id", snapshot.get("source_id", "field-theory"))),
                         str(snapshot.get("snapshot_id", "sealed-snapshot")),
+                        evidence_identity_contract=identity_contract,
                     )
                 except Exception:
                     raise LocalAdapterError("source_ledger_mismatch") from None
@@ -663,9 +731,11 @@ class LocalPreparationAdapters:
         return {"schema_version": SCHEMA_VERSION, "state": state, "changed": state == "changed", "digest": _digest_json(material)}
 
     def _eval_config(self) -> dict[str, Any]:
-        if not self._evaluation or self._evaluation.get("missing"):
+        if self._evaluation is None:
             return {"schema_version": SCHEMA_VERSION, "state": "not_configured", "input_digests": {}}
-        return {
+        if self._evaluation.get("missing"):
+            return {"schema_version": SCHEMA_VERSION, "state": "incomplete", "input_digests": {}}
+        config = {
             "schema_version": SCHEMA_VERSION,
             "state": "configured",
             "profile": "design-learning-v1",
@@ -677,6 +747,18 @@ class LocalPreparationAdapters:
                 "results": {name: bound.digest for name, bound in self._evaluation["results"].items()},
             },
         }
+        collection = self._evaluation.get("browser_collection")
+        if collection is not None:
+            manifest = collection["binding"]
+            config["input_digests"]["browser_collection"] = {
+                "manifest": collection["manifest"].digest,
+                "collection_binding": collection["collection_binding_digest"],
+                "browser": manifest["browser_digest"],
+                "collector": manifest["collector_digest"],
+                "helpers": manifest["helper_digests"],
+                "executor_policy_revision": manifest["executor_policy_revision"],
+            }
+        return config
 
     def campaign_inputs(self) -> dict[str, Any]:
         snapshot, _raw_records = self._reconcile()
@@ -705,21 +787,13 @@ class LocalPreparationAdapters:
         artifacts = self._state_dir / "artifacts"
         run_dir = artifacts / run_id
         for directory in (artifacts, run_dir):
-            if directory.exists():
-                try:
-                    info = directory.lstat()
-                except OSError:
-                    raise LocalAdapterError("stage_artifact_unavailable") from None
-                if (
-                    directory.is_symlink()
-                    or not stat.S_ISDIR(info.st_mode)
-                    or info.st_uid != os.getuid()
-                    or stat.S_IMODE(info.st_mode) != 0o700
-                ):
-                    raise LocalAdapterError("stage_artifact_permissions_invalid")
-                continue
             try:
                 directory.mkdir(mode=0o700)
+            except FileExistsError:
+                # Another campaign may create the shared collector directory.
+                # Verify its inode and private mode instead of treating EEXIST
+                # as a failed campaign; never repair unsafe existing paths.
+                pass
             except OSError:
                 raise LocalAdapterError("stage_artifact_unavailable") from None
             try:
@@ -884,9 +958,130 @@ class LocalPreparationAdapters:
             return self._blocked("retrieval_quality_gate_unmet", artifact)
         return self._blocked("retrieval_result_unavailable", artifact)
 
-    def _evaluation_stage(self, run_id: str) -> dict[str, Any]:
+    @staticmethod
+    def _browser_observation_validation(
+        receipt: Mapping[str, Any],
+        expected_case_ids: set[str],
+    ) -> dict[str, Any]:
+        expected = {
+            (case_id, variant)
+            for case_id in expected_case_ids
+            for variant in ("baseline", "candidate")
+        }
+        observations = receipt.get("observations")
+        if not isinstance(observations, list) or len(observations) != len(expected):
+            return {"complete": False, "candidate_failure": False, "baseline_workflow_failure": False}
+
+        rows: dict[tuple[str, str], Mapping[str, Any]] = {}
+        for row in observations:
+            if not isinstance(row, Mapping):
+                return {"complete": False, "candidate_failure": False, "baseline_workflow_failure": False}
+            key = (row.get("case_id"), row.get("variant"))
+            if key not in expected or key in rows:
+                return {"complete": False, "candidate_failure": False, "baseline_workflow_failure": False}
+            workflow = row.get("primary_workflow_actions")
+            overflow = row.get("overflow")
+            page_errors = row.get("page_errors")
+            if (
+                not isinstance(workflow, Mapping)
+                or workflow.get("status") not in {"observed", "failed", "unknown"}
+                or not isinstance(overflow, Mapping)
+                or overflow.get("status") != "observed"
+                or type(overflow.get("horizontal_overflow_pixels")) is not int
+                or overflow["horizontal_overflow_pixels"] < 0
+                or not isinstance(page_errors, Mapping)
+                or page_errors.get("status") != "observed"
+                or type(page_errors.get("nonempty_line_count")) is not int
+                or page_errors["nonempty_line_count"] < 0
+            ):
+                return {"complete": False, "candidate_failure": False, "baseline_workflow_failure": False}
+            rows[key] = row
+        if set(rows) != expected:
+            return {"complete": False, "candidate_failure": False, "baseline_workflow_failure": False}
+
+        candidate_failure = any(
+            rows[(case_id, "candidate")]["primary_workflow_actions"]["status"] != "observed"
+            or rows[(case_id, "candidate")]["overflow"]["horizontal_overflow_pixels"] > 0
+            or rows[(case_id, "candidate")]["page_errors"]["nonempty_line_count"] > 0
+            for case_id in expected_case_ids
+        )
+        baseline_workflow_failure = any(
+            rows[(case_id, "baseline")]["primary_workflow_actions"]["status"] in {"failed", "unknown"}
+            for case_id in expected_case_ids
+        )
+        return {
+            "complete": True,
+            "candidate_failure": candidate_failure,
+            "baseline_workflow_failure": baseline_workflow_failure,
+        }
+
+    def _collect_browser_evidence(self, run_id: str, evaluation: Mapping[str, Any], keepalive: Any) -> tuple[dict[str, Any], dict[str, Any]]:
+        collection = evaluation["browser_collection"]
+        bound, binding = collection["manifest"], collection["binding"]
+        _verify_unchanged(bound)
+        for path in binding["input_paths"]:
+            _verify_private_file(str(path), "browser_collection_input")
+        if any(_repo_file_digest(ROOT / "scripts" / filename) != self._code_digests[key] for key, filename in (
+                ("browser_collector", "run-design-intelligence-evaluation.py"), ("workflow_store", "stack-run-state.py"))):
+            raise LocalAdapterError("browser_collection_execution_drift")
+        current = self._collector.load_manifest(bound.path, bound.digest)
+        if current["browser_digest"] != binding["browser_digest"] or current["input_bindings"] != binding["input_bindings"]:
+            raise LocalAdapterError("browser_collection_execution_drift")
+        collection_dir_id = f"browser-evidence-{collection['collection_binding_digest']}"
+        collection_output = self._artifact_directory(collection_dir_id)
+        try:
+            receipt = self._collector.run_evaluation(bound.path, bound.digest,
+                collection_output, keepalive=keepalive)
+        except self._collector.EvidenceError as error:
+            raise LocalAdapterError(error.code) from None
+        _verify_unchanged(bound)
+        expected_case_ids = {case["case_id"] for case in binding["cases"]}
+        observation_validation = self._browser_observation_validation(receipt, expected_case_ids)
+        objective_failed = observation_validation["candidate_failure"]
+        receipt_status = receipt.get("status")
+        baseline_only_block = (
+            receipt_status == "blocked"
+            and observation_validation["complete"]
+            and observation_validation["baseline_workflow_failure"]
+            and not objective_failed
+        )
+        if not observation_validation["complete"]:
+            collection_validation = "incomplete_or_invalid_observations"
+        elif objective_failed:
+            collection_validation = "candidate_failure_observed"
+        elif baseline_only_block:
+            collection_validation = "baseline_workflow_failure_only"
+        elif receipt_status == "evidence_collected" and not observation_validation["baseline_workflow_failure"]:
+            collection_validation = "candidate_measurements_render_unverified"
+        else:
+            collection_validation = "receipt_status_inconsistent"
+        summary = {
+            "schema_version": 1, "receipt_kind": "weekly-browser-evidence-link",
+            "candidate_packet_digest": collection["candidate_packet_digest"],
+            "materialization_receipt_digest": collection["materialization_receipt_digest"],
+            "manifest_digest": bound.digest,
+            "collection_binding_digest": collection["collection_binding_digest"],
+            "collector_receipt_path": f"artifacts/{collection_dir_id}/run-receipt.json",
+            "collector_receipt_digest": _digest_json(receipt),
+            "status": receipt_status,
+            "observation_count": len(receipt.get("observations", [])) if isinstance(receipt.get("observations"), list) else 0,
+            "observations_complete": observation_validation["complete"],
+            "collection_validation": collection_validation,
+            "candidate_render_binding_status": "unverified",
+            "evaluation_status": "not_evaluated", "human_task_usefulness": "pending",
+            "promotion": "prohibited", "publication": "prohibited",
+        }
+        if objective_failed:
+            summary["objective_candidate_failure"] = True
+        if baseline_only_block:
+            summary["baseline_workflow_failure_observed"] = True
+        return summary, self._persist("browser_collection", run_id, summary)
+
+    def _evaluation_stage(self, run_id: str, keepalive: Any = None) -> dict[str, Any]:
         evaluation = self._evaluation
-        if not evaluation or evaluation.get("missing"):
+        if evaluation is not None and evaluation.get("missing"):
+            return self._blocked("candidate_evaluation_inputs_incomplete")
+        if evaluation is None:
             artifact = self._persist("candidate_evaluation", run_id, {
                 "schema_version": SCHEMA_VERSION,
                 "status": "no_candidate_selected",
@@ -906,6 +1101,19 @@ class LocalPreparationAdapters:
                 *evaluation["results"].values(),
             ):
                 _verify_unchanged(bound)
+            if "browser_collection" in evaluation:
+                collection_summary, collection_artifact = self._collect_browser_evidence(run_id, evaluation, keepalive)
+                if (
+                    not collection_summary["observations_complete"]
+                    or collection_summary.get("objective_candidate_failure") is True
+                    or collection_summary["collection_validation"] == "receipt_status_inconsistent"
+                ):
+                    return self._blocked("candidate_evaluation_objective_failure", collection_artifact)
+                if set(evaluation["results"]) != {"development", "holdout", "rotating_canary"}:
+                    return {**self._blocked("candidate_evaluation_results_pending", collection_artifact), "retry_class": "transient"}
+                if any(not isinstance(bound.value, Mapping) or bound.value.get("browser_evidence_digest") != collection_summary["collector_receipt_digest"] for bound in evaluation["results"].values()):
+                    return self._blocked("candidate_evaluation_browser_binding_invalid", collection_artifact)
+                return self._blocked("candidate_evaluation_render_binding_unavailable", collection_artifact)
             receipt = self._evaluator.evaluate_design_candidate(
                 copy.deepcopy(dict(evaluation["packet"].value)),
                 copy.deepcopy(dict(evaluation["materialization"].value)),
@@ -922,6 +1130,8 @@ class LocalPreparationAdapters:
             ):
                 _verify_unchanged(bound)
         except LocalAdapterError as error:
+            if error.code == "workflow_execution_locked":
+                return {**self._blocked(error.code), "retry_class": "transient"}
             return self._blocked(error.code)
         except Exception:
             return self._blocked("candidate_evaluation_failed")
@@ -951,7 +1161,8 @@ class LocalPreparationAdapters:
             if stage_id == "retrieval":
                 return self._retrieval_stage(run_id)
             if stage_id == "candidate_evaluation":
-                return self._evaluation_stage(run_id)
+                keepalive = context.get("renew_lease")
+                return self._evaluation_stage(run_id, keepalive if callable(keepalive) else None)
             maintenance = context.get("maintenance") if isinstance(context, Mapping) else None
             if isinstance(maintenance, Mapping) and maintenance.get("status") == "linked":
                 return {"status": "prepared"}

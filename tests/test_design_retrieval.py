@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import itertools
 import json
 import os
 import shutil
@@ -305,7 +306,7 @@ class DesignRetrievalTests(unittest.TestCase):
     def live_runner(self, calls, *, status=None, results=None, version="gbrain 0.42.67.0"):
         def runner(argv, **kwargs):
             self.assertEqual([str(self.query.DEFAULT_BUN_CLI.resolve(strict=True)), "--no-env-file"], argv[0:2])
-            self.assertEqual(str(ROOT / "scripts"), kwargs["cwd"])
+            self.assertEqual(str(self.query.PINNED_OPERATION_HELPER.parent), kwargs["cwd"])
             if argv[2].endswith("gbrain-pinned-operation.ts"):
                 operation = json.loads(kwargs["input"])["operation"]
                 if operation == "keyword":
@@ -322,12 +323,14 @@ class DesignRetrievalTests(unittest.TestCase):
             if operation == "version":
                 return SimpleNamespace(returncode=0, stdout=version, stderr="")
             if operation == "sources_status":
+                self.assertEqual(version.removeprefix("gbrain "), json.loads(kwargs["input"])["expected_version"])
                 return SimpleNamespace(returncode=0, stdout=json.dumps(status or self.live_status()), stderr="")
             if operation == "keyword_search":
-                self.assertEqual(str(ROOT / "scripts"), kwargs["cwd"])
+                self.assertEqual(str(self.query.PINNED_OPERATION_HELPER.parent), kwargs["cwd"])
                 self.assertRegex(kwargs["env"]["GBRAIN_CONFIG_SHA256"], r"^[a-f0-9]{64}$")
                 payload = json.loads(kwargs["input"])
-                self.assertEqual({"limit", "operation", "query", "schema_version", "source"}, set(payload))
+                self.assertEqual({"limit", "operation", "query", "schema_version", "source", "expected_version"}, set(payload))
+                self.assertEqual(version.removeprefix("gbrain "), payload["expected_version"])
                 return SimpleNamespace(returncode=0, stdout=json.dumps(results if results is not None else [self.live_result()]), stderr="")
             return SimpleNamespace(returncode=1, stdout="", stderr="")
         return runner
@@ -539,6 +542,57 @@ class DesignRetrievalTests(unittest.TestCase):
             )
         self.assertEqual([], calls)
 
+    def test_new_read_version_still_requires_an_exact_owner_grant(self):
+        package = self.query.EXPECTED_GBRAIN_CLI.parents[1] / "package.json"
+        original_grant = json.loads(self.grant.read_text())
+        for version, granted in itertools.product(("0.48.2.0", "0.59.0.0"), (False, True)):
+            with self.subTest(version=version, granted=granted):
+                package.write_text(json.dumps({"name": "gbrain", "version": version}))
+                grant = {**original_grant, "allowed_cli_versions": [version] if granted else ["0.42.67.0"]}
+                self.grant.write_text(json.dumps(grant))
+                calls = []
+                live = self.query.CliGBrainTransport(
+                    cli_path=self.approved_cli,
+                    runner=self.live_runner(calls, version=f"gbrain {version}"), live=True,
+                )
+                response = self.query.retrieve(
+                    self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=live,
+                )
+                if not granted:
+                    self.assertEqual("failed", response["status"])
+                    self.assertEqual("cli-version-unsupported", response["reason_code"])
+                    self.assertEqual(["version"], [call["operation"] for call in calls])
+                else:
+                    self.assertEqual("degraded", response["status"])
+                    self.assertGreater(response["result_count"], 0)
+                    self.assertTrue(all(call["source"] == "x-bookmarks" for call in calls))
+                    self.assertEqual(0, response["safety"]["provider_calls"])
+
+    def test_package_swap_after_attestation_cannot_use_an_ungranted_read_version(self):
+        calls = []
+        base = self.live_runner(calls)
+        package = self.query.EXPECTED_GBRAIN_CLI.parents[1] / "package.json"
+        denied_versions = []
+
+        def swapped(argv, **kwargs):
+            request = json.loads(kwargs["input"])
+            if request["operation"] == "keyword":
+                actual = json.loads(package.read_text())["version"]
+                self.assertEqual(request["expected_version"], "0.42.67.0")
+                if actual != request["expected_version"]:
+                    denied_versions.append(actual)
+                    return SimpleNamespace(returncode=1, stdout="", stderr="")
+            result = base(argv, **kwargs)
+            if request["operation"] == "sources_status":
+                package.write_text(json.dumps({"name": "gbrain", "version": "0.59.0.0"}))
+            return result
+
+        live = self.query.CliGBrainTransport(cli_path=self.approved_cli, runner=swapped, live=True)
+        response = self.query.retrieve(self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=live)
+        self.assertEqual(response["status"], "failed")
+        self.assertEqual(denied_versions, ["0.59.0.0"])
+        self.assertNotIn("keyword_search", [call["operation"] for call in calls])
+
     def test_live_version_and_command_allowlists_fail_closed(self):
         calls = []
         live = self.query.CliGBrainTransport(
@@ -691,6 +745,37 @@ class DesignRetrievalTests(unittest.TestCase):
         self.assertRegex(response["index"]["model_versions"][0], r"^gbrain-cli:0\.42\.67\.0:stack-keyword:[a-f0-9]{16}$")
         self.assertTrue(response["safety"]["target_attested"])
         self.assertTrue(response["safety"]["source_scope_enforced"])
+
+    def test_each_helper_dependency_changes_the_retrieval_fingerprint(self):
+        helper_directory = self.root.resolve() / "helper-copies"
+        helper_directory.mkdir()
+        names = ("gbrain-pinned-operation.ts", "gbrain-pinned-environment.mjs", "gbrain-read-contract.mjs")
+        for name in names:
+            shutil.copyfile(ROOT / "scripts" / name, helper_directory / name)
+
+        def fingerprint():
+            transport = self.query.CliGBrainTransport(
+                cli_path=self.approved_cli, runner=self.live_runner([]), live=True,
+            )
+            response = self.query.retrieve(
+                self.request(), target_manifest=self.manifest, source_grant=self.grant, transport=transport,
+            )
+            self.assertEqual(1, response["result_count"])
+            self.assertEqual(1, len(response["index"]["model_versions"]))
+            return response["index"]["model_versions"][0]
+
+        with mock.patch.object(self.query, "PINNED_OPERATION_HELPER", helper_directory / names[0]):
+            baseline = fingerprint()
+            for name in names:
+                with self.subTest(dependency=name):
+                    path = helper_directory / name
+                    original = path.read_bytes()
+                    try:
+                        path.write_bytes(original + b"\n// fingerprint regression probe\n")
+                        self.assertNotEqual(baseline, fingerprint())
+                    finally:
+                        path.write_bytes(original)
+                    self.assertEqual(baseline, fingerprint())
 
     def test_live_source_attestation_failures_are_visible_and_stop_search(self):
         cases = {

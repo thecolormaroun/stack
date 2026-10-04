@@ -12,6 +12,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,6 +24,30 @@ SPEC.loader.exec_module(INSTALLER)
 
 
 class RuntimeInstallTests(unittest.TestCase):
+    def test_already_exited_verifier_keeps_exit_status_without_group_lookup(self) -> None:
+        actual_popen = subprocess.Popen
+
+        def completed_process(*args, **kwargs):
+            self.assertIs(kwargs.get("start_new_session"), True)
+            process = actual_popen(*args, **kwargs)
+            process.wait(timeout=5)
+            return process
+
+        with tempfile.TemporaryDirectory() as temporary:
+            stage = Path(temporary) / "stage"
+            stage.mkdir()
+            for command in ("true", "false"):
+                target = {"name": "fixture", "post_switch_verifier": [command]}
+                with self.subTest(command=command), patch.object(INSTALLER.subprocess, "Popen", side_effect=completed_process):
+                    with patch.object(INSTALLER.os, "getpgid", side_effect=ProcessLookupError(3, "synthetic verifier already exited")) as group_lookup:
+                        if command == "true":
+                            self.assertEqual({"target": "fixture", "status": "passed", "exit_code": 0},
+                                             INSTALLER.run_verifier(target, stage))
+                        else:
+                            with self.assertRaisesRegex(INSTALLER.InstallError, "post-switch verifier failed"):
+                                INSTALLER.run_verifier(target, stage)
+                        group_lookup.assert_not_called()
+
     def source_commit(self, root: Path) -> str:
         return subprocess.check_output(
             ["git", "-C", str(root), "rev-parse", "HEAD"], text=True

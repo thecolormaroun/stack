@@ -65,7 +65,7 @@ the automation's exact interpreter invocation is part of the contract. A wrong r
 rejected before even a Git subprocess can run; a concurrent upstream advance
 fails closed as a stale checkout for the next scheduled retry.
 
-The active task uses `gpt-5.6-sol` at high reasoning. Deterministic collection
+The active task uses `gpt-6-sol` at high reasoning. Deterministic collection
 still runs first. Model work occurs only when material evidence exists. Every
 independently material candidate may reach evaluation and is processed
 sequentially with a fresh quota preflight for each model/reviewer wave.
@@ -212,6 +212,62 @@ Once a candidate is selected, missing or insufficient evidence blocks
 evaluation. See the
 [readiness reconciliation](weekly-intelligence-readiness.md) for live
 integration and approval gates.
+
+### Opt-in browser evidence collection
+
+The `evaluation` object may additionally contain `browser_collection` with
+`manifest`, `reviewed_manifest_sha256`, `candidate_packet_digest`, and
+`materialization_receipt_digest`. The two candidate bindings use canonical JSON
+SHA-256; the reviewed manifest pin uses exact file bytes. Configuration remains
+owner-local and disabled by default. The reviewed collector manifest may select
+only an allowlisted browser executable. Arbitrary commands, profiles, providers,
+and new browser arguments cannot be supplied through this adapter.
+
+Before launching the existing collector, the adapter checks the candidate and
+materialization contracts, frozen split digests, pairwise-disjoint fixture IDs,
+exact collector case coverage, explicit primary workflows, and private input
+permissions. Only `synthetic_non_private` self-contained HTML is accepted;
+private-source rendering still requires whole-process egress attestation.
+The collector and its helpers, browser executable, and reviewed manifest pins
+participate in the weekly fingerprint. The collector keeps its own WorkflowStore
+and execution lock and renews the outer weekly stage lease before browser
+commands and checkpoints. A lost outer lease stops collection. Collector output
+is retained under a canonical digest of the candidate packet, materialization,
+frozen manifests, reviewed collector manifest, browser, and helper/input
+bindings. This key is independent of the weekly run ID and score-result files.
+Each campaign's safe link artifact records the state-relative collector receipt
+path and canonical receipt digest, without embedding absolute paths or source
+data.
+
+In this opt-in mode, score-result maps may initially be absent or incomplete.
+The adapter retains the collected evidence and returns a retryable
+`candidate_evaluation_results_pending` block; waiting does not strike the
+non-transient failure circuit. Repeating collection verifies checkpoints without
+replaying completed browser actions. Concurrent campaigns sharing the canonical
+collector directory treat `workflow_execution_locked` as transient contention;
+waiting for the active collector cannot open the failure circuit. Candidate
+workflow failures, horizontal overflow, incomplete observations, and page
+errors block even before scores
+arrive. A baseline workflow failure may remain comparison evidence when
+observations are complete and candidate workflow, overflow, and page-error
+observations report no failure. These collector observations remain
+render-binding-unverified.
+
+Each subsequently supplied split result must bind `browser_evidence_digest` to
+the canonical JSON digest of the collector receipt, available as
+`collector_receipt_digest` in the safe `browser_collection.json` link artifact.
+Scores cannot override observed candidate failures. The browser collector has
+no reviewed producer that binds rendered HTML assets to the candidate packet,
+so the link artifact marks candidate render binding `unverified`. Missing or
+partial results remain retryable; complete receipt-bound scores stop at
+`candidate_evaluation_render_binding_unavailable` before the evaluator runs.
+The adapter never treats generic HTML as a candidate quality pass and never
+generates scores, reviewer identity, or human feedback. The full existing
+evaluator still owns repeated-score, holdout, accessibility, privacy, citation,
+and real task-usefulness gates when supplied through its supported non-collector
+path. An explicit but incomplete `evaluation` object blocks, rather than
+claiming that no candidate was selected. Supplying complete results changes the
+campaign fingerprint without changing the canonical collector output location.
 
 ## Automatic promotion and publication
 

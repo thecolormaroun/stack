@@ -61,7 +61,7 @@ class WeeklyAutomaticPromotionContractTests(unittest.TestCase):
     def test_strong_model_and_uncapped_automatic_promotion_are_active(self) -> None:
         config = WEEKLY.load_config()
 
-        self.assertEqual("gpt-5.6-sol", config["scheduler"]["model"])
+        self.assertEqual("gpt-6-sol", config["scheduler"]["model"])
         self.assertEqual("high", config["scheduler"]["reasoning_effort"])
         self.assertTrue(config["analysis_budget"]["authorized"])
         self.assertEqual("concurrent_model_contexts", config["analysis_budget"]["unit"])
@@ -170,6 +170,25 @@ class WeeklyAutomaticPromotionContractTests(unittest.TestCase):
             campaign_fields - {"campaign_run_id"},
             set(lineage["dependentRequired"]["campaign_run_id"]),
         )
+
+    def test_digest_checklist_does_not_limit_skill_candidate_count(self) -> None:
+        checklist = (
+            ROOT / "skills/design/design-intelligence/eval/checklist.md"
+        ).read_text(encoding="utf-8")
+
+        output_c = next(
+            (line for line in checklist.splitlines() if line.startswith("- [ ] Output C ")),
+            "",
+        )
+        for phrase in (
+            "every independently material",
+            "evaluated sequentially",
+            "all promotion gates preserved",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, output_c)
+        self.assertNotRegex(output_c, r"(?:at most|up to|no more than)\s+\d+")
+        self.assertIn("at most 3 Zettelkasten candidates", checklist)
 
     def test_coordinator_prepares_the_automatic_tail_without_manual_queue(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

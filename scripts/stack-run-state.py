@@ -200,6 +200,27 @@ class WorkflowStore:
             self.conn.rollback()
             raise
 
+    def renew_child_lease(self, run_id: str, child_id: str, lease_owner: str, *, lease_seconds: int = 300, now: float | None = None) -> bool:
+        """Extend only a live lease still held by this exact owner."""
+        if lease_seconds <= 0:
+            raise RunStateError("lease_seconds must be positive")
+        now = time.time() if now is None else now
+        self._transaction()
+        try:
+            run = self._run(run_id)
+            if run["status"] in {"cancelled", "receipted", "shipped"}:
+                self.conn.rollback()
+                return False
+            updated = self.conn.execute(
+                "UPDATE children SET lease_expires_at = ? WHERE run_id = ? AND child_id = ? AND status = 'leased' AND lease_owner = ? AND lease_expires_at > ?",
+                (now + lease_seconds, run_id, child_id, lease_owner, now),
+            ).rowcount
+            self.conn.commit()
+            return bool(updated)
+        except Exception:
+            self.conn.rollback()
+            raise
+
     def checkpoint(self, run_id: str, child_id: str, lease_owner: str, artifact: str) -> None:
         self._transaction()
         try:

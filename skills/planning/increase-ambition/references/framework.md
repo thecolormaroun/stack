@@ -1,0 +1,49 @@
+# Ambition techniques
+
+Read this inventory before choosing the dimensions. Evaluate every dimension, then use only techniques that materially help the user's task. Greater ambition means a better approach, not an automatically larger assignment.
+
+## Speed: the same work in less time
+
+Preserve the intended work and quality while reducing elapsed time. Choose this when the task and desired output are already sound and time is the bottleneck. Optional implementation examples, rather than additional defining techniques, include reusing available assets, removing avoidable handoffs, and doing independent steps in parallel. Preserve verification; do not invent deadlines, spend more, or trade away requirements without permission.
+
+## Altitude: move from the task to its intended outcome
+
+1. **Find the next outcome.** Ask what should happen after the artifact is used and what goal lies beyond that. Distinguish the user's desired result from their current best guess at a task that will produce it.
+2. **Widen relevant context, not the mission.** Identify the available evidence needed to understand the situation rather than merely filling a template. For a business review, establish what changed, why it changed, and what should be done. Seek relevant breadth within authorized data boundaries, not indiscriminate data collection.
+3. **Move toward decisions.** Identify and rank the most urgent decisions, then develop plausible directions with arguments for and against each. A useful review may culminate in the three most urgent decisions; use a different count when the task calls for it. A meeting to discuss the artifact is a clue that the underlying decision matters.
+4. **Question the current mechanism.** Where the outcome warrants it, propose a better way to achieve the purpose than the current artifact or cadence. For example, move from periodic review to earlier detection of problems and better allocation of people and money. Keep a mandated deliverable and present any replacement as an optional proposal.
+5. **Validate the higher-level alternative.** Test against the user's historical evidence whether it would have achieved the outcome sooner or better. Propose a bounded parallel trial beside the current approach, such as one review cycle, with comparison criteria before any replacement. Do not initiate that trial while rewriting.
+6. **Design durable workflows when appropriate.** Consider replacing repeated task-by-task instructions with an outcome-oriented workflow that reduces handoffs. Specify its evidence inputs, verification steps, review points, and stopping or escalation conditions. For software reliability, this could require accessible crash reports, version-to-code mapping, and the relevant operating-system environments to reproduce and verify fixes; generalize the dependency pattern to the actual domain.
+7. **Match abstraction to feasibility.** Prefer altitude when the user seeks an ultimate outcome, and use restraint for creative work whose particular form or process is the point. Avoid ungrounded missions such as an unlimited instruction to generate profit. Name missing infrastructure or approvals rather than assuming autonomous capability.
+
+## Depth: do this task exceptionally well
+
+Keep the task's scope while working below its surface. Aim for work that could teach a leading practitioner something, when the task and resources justify that standard.
+
+1. **Use professional instruments, not professional vocabulary.** Identify the tools, techniques, media, and knowledge the best practitioners actually use. Choose methods that fit the question: for example, databases and statistical models for serious data analysis rather than a polished summary table alone. Identify suitable expert methods even when the user does not know their names; do not require the user to supply the methodology.
+2. **Start from the rawest permitted material.** Prefer original records, logs, observations, source artifacts, or other primary inputs over pre-digested summaries. If only a summary is available or permitted, state the resulting limits and work within them.
+3. **Set an audacious, specific target.** Challenge a modest improvement with a much more demanding measurable target when useful. For example, investigate a 200 ms load-time target rather than assuming that reducing 10 seconds to 5 seconds is the ceiling. Treat apparent impossibility as a reason to examine constraints and try another method, rather than stopping at the first unsupported objection. Frame the target as worth a serious attempt, not a guaranteed fact; maintain honest feasibility estimates and bounded effort.
+4. **Challenge accepted beliefs adversarially.** Reconstruct a consequential assumption from the raw evidence and try to disprove it. For instance, test whether onboarding really explains churn rather than accepting that narrative. Examine alternatives and distinguish association from causation.
+5. **Produce new knowledge.** Look for blind spots or previously unknown signals once the investigation reaches the underlying data. When justified, build a model or simulation that reproduces known history before using it to explore new predictions. A customer simulation might first reproduce the past year of logs, then discover an early churn signal and demonstrate predictive value on unseen data. Calibrate against history and validate out of sample; never present fitting the past as proof of generalization.
+6. **Use an outside judge.** Identify evidence independent of the assistant's confidence and the user's approval. Prefer a runnable check with immediate feedback: tests, benchmarks, reproducible calculations against source records, held-out data, or an appropriate external standard or qualified reviewer. A second model agreeing is not by itself independent evidence. Use failed checks to guide further bounded revision. If objective correctness is inapplicable, explain the limits and use suitable reader or audience feedback without pretending it proves artistic quality.
+
+Before rewriting a depth-oriented ask, state four things concisely: what additional work a leading practitioner would do, the rawest useful starting material, the concrete methods and tools, and the independent evidence of success. Then ask for exactly those improvements, not a larger project.
+
+## Range: bring useful methods from additional fields
+
+1. **Replace artifact nouns with actions.** Describe what the work needs to make happen. A review deck may need to help busy people understand cause and effect and decide under uncertainty within a short meeting. This exposes relevant fields more clearly than the noun “deck.”
+2. **Imagine the strongest useful team.** Ask which disciplines would be assembled if the quality of this outcome really mattered. Use that thought experiment to escape familiar methods, not to fabricate stakes or urgency. Select only contributions worth their cost.
+3. **Assemble complementary production methods.** For a review, analytical investigation, journalistic evidence gathering and narrative, and rigorous editing may all help. If presentation is essential, consider motion or audio design. For spatial work, consider techniques such as 3D modeling or rendering rather than remaining confined to text. Include unfamiliar tools, media and techniques when they serve the actual outcome.
+4. **Add adversarial perspectives where useful.** Apply methods from a relevant red team: for a business narrative, short-selling research or forensic accounting can expose weak claims and overlooked risks. Choose a challenge appropriate to the task rather than importing financial analysis everywhere.
+5. **Do the methods; do not perform the personas.** Specify the evidence, actions, tools and outputs associated with each contribution. Do not write a fictional expert conversation or rely on role titles to improve quality.
+6. **Coordinate contributions into one result.** Where useful, propose independent workstreams or specialist agents with concrete deliverables, then reconcile their evidence and disagreements. Multiple threads and agents are implementation options, not necessary theater and not permission to execute the rewritten task.
+
+## Practices that support all four dimensions
+
+- **Test assumed limits.** Capabilities are uneven. Do not assume either universal competence or impossibility based on habit; use a concrete experiment or relevant precedent to establish what is attainable.
+- **Use specific hard goals.** Prefer a measurable difficult target over a vague request to try harder. Where meaningful, combine a demanding target with a tight timebox. Use the user's actual time constraint; if none exists, propose an ambitious timebox for approval rather than inventing a commitment.
+- **Build confidence through evidence.** A previously solved analogue, demonstration, or example from another field can reveal possibilities the user has not considered. Translate the useful technique into this task; do not imply that one success guarantees another.
+- **Allow an exploratory attempt to fail.** Where the stakes permit, frame a small prototype or experiment as learning rather than guaranteed production success. Set a bounded effort and extract what the attempt establishes. Do not use this framing to reduce care on high-stakes tasks or to disguise a missed requirement.
+- **Name enabling resources.** Serious applications may need computation, software and relevant data through connectors or other authorized routes. Identify the minimum necessary access and environments in the prompt. Rewriting grants none of these permissions; ask before any later action that requires approval.
+
+Preserve the original objective, constraints, budget, data limits and permissions across all techniques. Separate an optional broader proposal from the core prompt. Never convert ambition into fabricated certainty, hidden scope expansion, or endless execution.

@@ -1,0 +1,14 @@
+interface:
+  display_name: Increase Ambition
+  short_description: Rewrite prompts with targeted, practical ambition
+  default_prompt: Use $increase-ambition to choose useful ambition dimensions and
+    rewrite my initial ask.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

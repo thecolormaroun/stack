@@ -4942,6 +4942,66 @@
     },
     {
       "artifact_type": "skill",
+      "audit_status": "pending",
+      "canonical_name": "increase-ambition",
+      "commands": [
+        "stack.plan"
+      ],
+      "context": {
+        "inputs": [
+          "original-ask",
+          "objective",
+          "constraints"
+        ],
+        "outputs": [
+          "dimension-choice",
+          "rewritten-prompt"
+        ]
+      },
+      "disposition": {
+        "evidence_gap": "Stack-specific behavioral review and runtime verification remain pending; this change transfers the reviewed portable source package only.",
+        "next_review_trigger": "Complete Stack behavioral review and runtime verification before activation.",
+        "status": "hold-pending-evidence"
+      },
+      "domain": "planning",
+      "family": "planning",
+      "lifecycle": "candidate",
+      "overlaps": [],
+      "ownership": {
+        "package": "stack",
+        "provider": "stack",
+        "source_path": "skills/planning/increase-ambition/SKILL.md"
+      },
+      "provenance": {
+        "license": "unknown",
+        "posture": "repository-local",
+        "source_identity": "stack:skills/planning/increase-ambition"
+      },
+      "purpose": "Rewrite product and technical planning asks with selectively greater speed, depth, range, or altitude while preserving constraints and returning a bounded replacement prompt.",
+      "role": "workflow",
+      "runtimes": {
+        "publish_targets": [],
+        "supported": [
+          "claude",
+          "codex"
+        ]
+      },
+      "schema_version": 1,
+      "source": {
+        "skill_path": "skills/planning/increase-ambition/SKILL.md"
+      },
+      "trust_class": "read-only",
+      "validation": {
+        "evidence": [
+          "verified-portable-package-sha256:19563d2d173f41b777a67518bf769bbe56f0bacd2b3357e6f19c1257aa1f0c79"
+        ],
+        "status": "pending"
+      },
+      "validation_class": "representative-route",
+      "visibility": "extended"
+    },
+    {
+      "artifact_type": "skill",
       "audit_status": "reviewed",
       "canonical_name": "knip",
       "commands": [
@@ -8925,7 +8985,7 @@
   "catalog_kind": "stack-capability-catalog",
   "schema_version": 1,
   "summary": {
-    "callable_entrypoint_count": 141,
-    "capability_count": 141
+    "callable_entrypoint_count": 142,
+    "capability_count": 142
   }
 }

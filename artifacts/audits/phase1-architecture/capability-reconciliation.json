@@ -142,6 +142,7 @@
       "skills/orchestration/goal/SKILL.md": "skills/orchestration/goal/capability.json",
       "skills/orchestration/handoff/SKILL.md": "skills/orchestration/handoff/capability.json",
       "skills/orchestration/parallel-goals/SKILL.md": "skills/orchestration/parallel-goals/capability.json",
+      "skills/planning/increase-ambition/SKILL.md": "skills/planning/increase-ambition/capability.json",
       "skills/platform/local-tracker-dashboard/SKILL.md": "skills/platform/local-tracker-dashboard/capability.json",
       "skills/platform/reclaude/SKILL.md": "skills/platform/reclaude/capability.json",
       "skills/product/compatibility/ideate/SKILL.md": "skills/product/compatibility/ideate/capability.json",
@@ -285,6 +286,7 @@
       "skills/orchestration/goal/SKILL.md",
       "skills/orchestration/handoff/SKILL.md",
       "skills/orchestration/parallel-goals/SKILL.md",
+      "skills/planning/increase-ambition/SKILL.md",
       "skills/platform/local-tracker-dashboard/SKILL.md",
       "skills/platform/reclaude/SKILL.md",
       "skills/product/compatibility/ideate/SKILL.md",
@@ -296,8 +298,8 @@
     "missing": []
   },
   "counts": {
-    "callable_skills": 141,
-    "manifests": 141,
+    "callable_skills": 142,
+    "manifests": 142,
     "package_exports": 20,
     "private_declarations": 1,
     "unclassified": 0

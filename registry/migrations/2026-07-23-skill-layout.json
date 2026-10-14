@@ -382,6 +382,11 @@
       "source": "skills/illo/SKILL.md"
     },
     {
+      "canonical_name": "increase-ambition",
+      "destination": "skills/planning/increase-ambition/SKILL.md",
+      "source": "skills/planning/increase-ambition/SKILL.md"
+    },
+    {
       "canonical_name": "knip",
       "destination": "skills/engineering/knip/SKILL.md",
       "source": "skills/knip/SKILL.md"

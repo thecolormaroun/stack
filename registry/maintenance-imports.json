@@ -115,6 +115,23 @@
           "target": "skills/imported/emil/emil-write-swift"
         }
       ]
+    },
+    {
+      "id": "stewdio",
+      "display_name": "Blake Shao (Stewdio)",
+      "target_root": ".",
+      "target_prefix": "",
+      "mapping": "explicit-source-json",
+      "source_metadata": "references/source.json",
+      "license": "MIT",
+      "retained_targets": [],
+      "retained_files": [],
+      "targets": [
+        {
+          "source": "skills/blank-page",
+          "target": "skills/imported/stewdio/blank-page"
+        }
+      ]
     }
   ]
 }

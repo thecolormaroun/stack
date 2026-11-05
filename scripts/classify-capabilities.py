@@ -41,11 +41,12 @@ COMMAND_OVERRIDES = {
     "ideate": "stack.explore",
 }
 PRIMARY_CAPABILITIES = {"core-stack", "core-run", "cpo"}
-# Emil Kowalski collection imports; the rest of that collection falls through to engineering.
-EMIL_DESIGN = {
+# Pinned design imports (Emil Kowalski, Stewdio); the rest of Emil's collection falls through to engineering.
+PINNED_DESIGN_IMPORTS = {
     "emil-animate", "emil-animate-expo", "emil-animation-vocabulary", "emil-apple-design", "emil-choreograph",
     "emil-find-animation-opportunities", "emil-improve-animations", "emil-mobile-native", "emil-prototype",
     "emil-remove-animations",
+    "blank-page",
 }
 PURPOSE_OVERRIDES = {
     "agent-operating-stack": "Deprecated compatibility alias for the canonical Stack root router.",
@@ -64,7 +65,7 @@ def canonical_json(value: Any) -> str:
 
 
 def provider_for(path: str) -> tuple[str, str]:
-    for provider in ("matt", "david", "impeccable", "studio", "ui", "emil", "taste-skill-suite", "other"):
+    for provider in ("matt", "david", "impeccable", "studio", "ui", "emil", "stewdio", "taste-skill-suite", "other"):
         if path.startswith(f"skills/imported/{provider}/"):
             return provider, "imported-skills"
     for prefix, provider in (("skills/matt-", "matt"), ("skills/david-", "david"), ("skills/impeccable/", "impeccable"), ("skills/studio/", "studio"), ("skills/ui-skills/", "ui"), ("skills/emil-", "emil"), ("skills/taste-skill-suite/", "impeccable")):
@@ -85,7 +86,7 @@ def family_for(name: str, path: str) -> str:
         return "product"
     if path.startswith("skills/studio/research/") or name in {"field-theory-bookmark-synthesis", "fieldbook-source-split", "david-deep-research", "david-research-prompt", "david-youtube-transcript", "matt-research", "muller-brockmann-grid-systems", "userinterface-wiki"}:
         return "knowledge"
-    if path.startswith(("skills/studio/design/", "skills/impeccable/", "skills/ui-skills/", "skills/cdo/")) or name in {"cdo", "emil-design-eng", "illo", "better-icons", "review-animations", "ui-design-brain", "make-interfaces-feel-better", "design-intelligence", "rams", "deslop", "taste-skill-suite-soft-skill", "taste-skill-suite-redesign-skill", "cdo-taste-skill"} or name in EMIL_DESIGN:
+    if path.startswith(("skills/studio/design/", "skills/impeccable/", "skills/ui-skills/", "skills/cdo/")) or name in {"cdo", "emil-design-eng", "illo", "better-icons", "review-animations", "ui-design-brain", "make-interfaces-feel-better", "design-intelligence", "rams", "deslop", "taste-skill-suite-soft-skill", "taste-skill-suite-redesign-skill", "cdo-taste-skill"} or name in PINNED_DESIGN_IMPORTS:
         return "design"
     if name in {"tdd", "matt-tdd", "matt-implement", "matt-prototype", "matt-diagnosing-bugs", "matt-codebase-design", "matt-domain-modeling", "matt-improve-codebase-architecture", "matt-ask-matt", "react-doctor", "simplify", "knip", "fix-sentry-issues", "gemini-review"}:
         return "engineering"

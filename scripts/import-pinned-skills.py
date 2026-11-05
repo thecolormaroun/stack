@@ -91,13 +91,22 @@ def record_collection_source(sources: dict[str, Any], provider: dict[str, Any], 
             "target_paths": [],
             "required_exports": [],
         }
-        last = max(index for index, item in enumerate(sources["sources"]) if item.get("provider_id") == provider_id)
+        # Sit next to the provider's other rows, or after the last catalog provider for a new one.
+        own = [index for index, item in enumerate(sources["sources"]) if item.get("provider_id") == provider_id]
+        catalog = [index for index, item in enumerate(sources["sources"]) if item["disposition"] == "catalog-managed-provider"]
+        last = max(own or catalog)
         sources["sources"].insert(last + 1, row)
         policy_path = ROOT / "config" / "stack-maintenance.json"
         policy = policy_path.read_text(encoding="utf-8")
         ids = json.loads(policy)["legacy_target_ids"]
         anchor = next(f'    "{item["id"]}",\n' for item in reversed(sources["sources"][: last + 1]) if item["id"] in ids)
-        policy_path.write_text(policy.replace(anchor, anchor + f'    "{row_id}",\n', 1), encoding="utf-8")
+        policy = policy.replace(anchor, anchor + f'    "{row_id}",\n', 1)
+        # The maintenance lane may only propose changes under allowlisted roots.
+        root_entry = f'    "skills/imported/{provider_id}/",\n'
+        if root_entry not in policy:
+            last_root = [line for line in policy.splitlines(keepends=True) if line.startswith('    "skills/imported/')][-1]
+            policy = policy.replace(last_root, last_root + root_entry, 1)
+        policy_path.write_text(policy, encoding="utf-8")
     row["target_paths"] = sorted(set(row["target_paths"]) | {f"skills/imported/{provider_id}/{name}" for name in added})
     row["required_exports"] = sorted(set(row["required_exports"]) | set(added))
 
@@ -123,7 +132,10 @@ def frontmatter_description(skill: Path) -> str:
     end = lines.index("---", 1)
     for line in lines[1:end]:
         if line.startswith("description:"):
-            return line.split(":", 1)[1].strip().strip("'\"")
+            value = line.split(":", 1)[1].strip()
+            if value.startswith('"') and value.endswith('"'):
+                return json.loads(value)  # double-quoted YAML scalar: unescape \"
+            return value.strip("'")
     raise SystemExit(f"{skill}: missing description")
 
 
@@ -224,7 +236,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--list-unmapped", action="store_true")
     parser.add_argument("--all-unmapped", action="store_true")
     parser.add_argument("--skill", action="append", default=[], help="upstream skill name to add (repeatable)")
-    parser.add_argument("--family", action="append", default=[], help="UPSTREAM=family for a new skill (default: design); also add it to classify-capabilities.py family_for")
+    parser.add_argument("--family", action="append", default=[], help="UPSTREAM=family for a new skill (default: design); also add it to classify-capabilities.py family_for (PINNED_DESIGN_IMPORTS for design)")
     parser.add_argument("--canonical-source", help="update the provider's canonical source (e.g. after an upstream rename)")
     args = parser.parse_args(argv)
 

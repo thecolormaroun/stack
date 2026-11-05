@@ -36,7 +36,7 @@ class UpstreamPackageTests(unittest.TestCase):
         self.lock = json.loads((ROOT / "upstreams.lock.json").read_text())
 
     def test_allowlisted_immutable_pins_and_last_known_good(self) -> None:
-        required = {"compound-engineering", "gstack", "stack-codex", "matt", "david", "emil"}
+        required = {"compound-engineering", "gstack", "stack-codex", "matt", "david", "emil", "stewdio"}
         providers = {provider["id"]: provider for provider in self.registry["providers"]}
         self.assertEqual(set(providers), required)
         for provider_id, provider in providers.items():
@@ -185,7 +185,7 @@ class UpstreamPackageTests(unittest.TestCase):
     def test_maintenance_import_rules_are_curated_and_complete(self) -> None:
         rules = json.loads((ROOT / "registry/maintenance-imports.json").read_text())
         providers = {row["id"]: row for row in rules["providers"]}
-        self.assertEqual(set(providers), {"matt", "david", "emil"})
+        self.assertEqual(set(providers), {"matt", "david", "emil", "stewdio"})
         self.assertTrue(all(row["license"] == "MIT" for row in providers.values()))
         self.assertEqual(providers["matt"]["mapping"], "existing-source-markdown")
         self.assertEqual(providers["david"]["mapping"], "existing-source-markdown")

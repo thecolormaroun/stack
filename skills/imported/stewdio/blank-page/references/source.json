@@ -1,0 +1,21 @@
+{
+  "files": [
+    "skills/blank-page/SKILL.md",
+    "skills/blank-page/agents/openai.yaml",
+    "skills/blank-page/references/examples.md",
+    "skills/blank-page/references/finding-references.md",
+    "skills/blank-page/references/patterns.md",
+    "skills/blank-page/references/vocabulary.md",
+    "skills/blank-page/scripts/find_refs.py"
+  ],
+  "latest_commit": {
+    "sha": "cd42b37fa7cd0a5550e51f45cc8f82f63377b98c"
+  },
+  "license": {
+    "source_file": "LICENSE",
+    "spdx_id": "MIT"
+  },
+  "retained_files": [],
+  "source_repo": "https://github.com/StewdioAI/blank-page",
+  "upstream_skill_path": "skills/blank-page"
+}

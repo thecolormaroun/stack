@@ -126,6 +126,7 @@
       "skills/imported/matt/matt-triage/SKILL.md": "skills/imported/matt/matt-triage/capability.json",
       "skills/imported/matt/matt-wayfinder/SKILL.md": "skills/imported/matt/matt-wayfinder/capability.json",
       "skills/imported/matt/matt-writing-great-skills/SKILL.md": "skills/imported/matt/matt-writing-great-skills/capability.json",
+      "skills/imported/stewdio/blank-page/SKILL.md": "skills/imported/stewdio/blank-page/capability.json",
       "skills/imported/studio/design/asset-generation/SKILL.md": "skills/imported/studio/design/asset-generation/capability.json",
       "skills/imported/studio/design/design-system/SKILL.md": "skills/imported/studio/design/design-system/capability.json",
       "skills/imported/studio/design/layout-strategy/SKILL.md": "skills/imported/studio/design/layout-strategy/capability.json",
@@ -284,6 +285,7 @@
       "skills/imported/matt/matt-triage/SKILL.md",
       "skills/imported/matt/matt-wayfinder/SKILL.md",
       "skills/imported/matt/matt-writing-great-skills/SKILL.md",
+      "skills/imported/stewdio/blank-page/SKILL.md",
       "skills/imported/studio/design/asset-generation/SKILL.md",
       "skills/imported/studio/design/design-system/SKILL.md",
       "skills/imported/studio/design/layout-strategy/SKILL.md",
@@ -326,8 +328,8 @@
     "missing": []
   },
   "counts": {
-    "callable_skills": 156,
-    "manifests": 156,
+    "callable_skills": 157,
+    "manifests": 157,
     "package_exports": 20,
     "private_declarations": 1,
     "unclassified": 0

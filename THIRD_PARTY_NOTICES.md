@@ -9,5 +9,6 @@ Stack owns command mappings and package metadata, not the upstream skill impleme
 | Matt Pocock skills | mattpocock/skills | `391a2701dd948f94f56a39f7533f8eea9a859c87` | MIT |
 | David Ondrej skills | davidondrej/skills | `5c99080334072075eb9e0a17837f7d24e4f3e6ae` | MIT |
 | Emil Kowalski skills | emilkowalski/skills | `c8a79627b59d72d764d6ab6f2c87c09a48169833` | MIT |
+| Stewdio blank-page skill | StewdioAI/blank-page | `cd42b37fa7cd0a5550e51f45cc8f82f63377b98c` | MIT |
 
 Stack-Codex is Stack-owned repository content, bundled under `packages/stack-codex/content` so a GitHub clone contains the complete eight-skill package. Its package pin, `483015638591618e884d4c21f1fa037b645bb872e33acf063fa7a5f802c80df3`, is a deterministic SHA-256 digest over sorted relative paths and exact file bytes. It is not an external upstream and does not appear in the third-party table above.

@@ -14,6 +14,7 @@
     "emil-design-eng",
     "review-animations",
     "emil-skills",
+    "stewdio-skills",
     "illo-skill",
     "codex-plugin-marketplace",
     "claude-plugin-marketplace",
@@ -103,6 +104,7 @@
     "skills/imported/matt/",
     "skills/imported/david/",
     "skills/imported/emil/",
+    "skills/imported/stewdio/",
     "skills/design/review-animations/",
     "docs/stack-maintenance.md"
   ],

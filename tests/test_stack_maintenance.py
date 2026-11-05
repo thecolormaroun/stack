@@ -380,6 +380,7 @@ def test_source_audit_resolves_catalog_local_report_only_and_retired_rows(tmp_pa
         "gstack",
         "matt",
         "stack-codex",
+        "stewdio",
     }
     assert all("/Users/" not in json.dumps(report) for _ in (0,))
 

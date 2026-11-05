@@ -133,6 +133,16 @@
       "required_exports": ["emil-animate", "emil-animate-expo", "emil-animation-performance", "emil-animation-vocabulary", "emil-apple-design", "emil-ask-sonner", "emil-break-ui", "emil-choreograph", "emil-find-animation-opportunities", "emil-improve-animations", "emil-mobile-native", "emil-pick-ui-library", "emil-prototype", "emil-remove-animations", "emil-write-swift"]
     },
     {
+      "id": "stewdio-skills",
+      "target": "Blake Shao (Stewdio) imported skill collection",
+      "disposition": "catalog-managed-provider",
+      "provider_ref": "StewdioAI/blank-page",
+      "pin_source": "registry/upstreams.json:stewdio",
+      "provider_id": "stewdio",
+      "target_paths": ["skills/imported/stewdio/blank-page"],
+      "required_exports": ["blank-page"]
+    },
+    {
       "id": "illo-skill",
       "target": "illo external plugin and marketplace",
       "disposition": "report-only-external-plugin",

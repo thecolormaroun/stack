@@ -47,6 +47,11 @@
       "source": "skills/better-icons/SKILL.md"
     },
     {
+      "canonical_name": "blank-page",
+      "destination": "skills/imported/stewdio/blank-page/SKILL.md",
+      "source": "skills/imported/stewdio/blank-page/SKILL.md"
+    },
+    {
       "canonical_name": "bolder",
       "destination": "skills/imported/impeccable/bolder/SKILL.md",
       "source": "skills/impeccable/bolder/SKILL.md"

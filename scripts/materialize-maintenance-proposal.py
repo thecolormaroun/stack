@@ -27,6 +27,7 @@ SHA1 = re.compile(r"^[a-f0-9]{40}$")
 SAFE_PATH = re.compile(r"^(?!/)(?!.*(?:^|/)\.\.(?:/|$))[A-Za-z0-9._/-]+$")
 SOURCE_PATH_LINE = re.compile(r"^- Upstream path: `([^`]+)`$", re.MULTILINE)
 SOURCE_COMMIT_LINE = re.compile(r"^- Inspected commit: `([a-f0-9]{40})`$", re.MULTILINE)
+IMPORT_PREFIXES = ("matt-", "david-", "emil-")
 
 
 class ProposalError(ValueError):
@@ -221,8 +222,10 @@ def split_skill(path: Path) -> tuple[list[str], str, str]:
 
 def materialized_skill(source: Path, *, target_name: str, display_name: str, commit: str, metadata_path: str) -> bytes:
     frontmatter, upstream_name, body = split_skill(source)
-    expected = target_name.split("-", 1)[1] if target_name.startswith(("matt-", "david-")) else target_name
-    if upstream_name != expected:
+    # Namespaced imports add a provider prefix; upstream names that already
+    # carry it (emil-design-eng) and unprefixed targets must match exactly.
+    prefix = next((value for value in IMPORT_PREFIXES if target_name.startswith(value)), None)
+    if upstream_name != target_name and (prefix is None or target_name[len(prefix) :] != upstream_name):
         raise ProposalError("import_name_mismatch")
     name_index = next(index for index, line in enumerate(frontmatter) if line.startswith("name:"))
     frontmatter[name_index] = f"name: {target_name}"

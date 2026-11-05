@@ -53,6 +53,27 @@ class MaintenanceMaterializerTests(unittest.TestCase):
             self.assertIn("\n\u00a0\n", imported)
             self.assertIn("Keep this Markdown hard break.  \nNext line.", imported)
 
+    def test_import_name_accepts_provider_prefix_or_exact_name_only(self) -> None:
+        import tempfile
+
+        materializer = _module()
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "SKILL.md"
+
+            def imported(upstream: str, target: str) -> str:
+                source.write_text(f"---\nname: {upstream}\ndescription: x\n---\nbody\n", encoding="utf-8")
+                return materializer.materialized_skill(
+                    source, target_name=target, display_name="Emil Kowalski", commit="c" * 40, metadata_path="references/source.json"
+                ).decode("utf-8")
+
+            self.assertIn("name: emil-animate\n", imported("animate", "emil-animate"))
+            self.assertIn("name: emil-design-eng\n", imported("emil-design-eng", "emil-design-eng"))
+            self.assertIn("name: review-animations\n", imported("review-animations", "review-animations"))
+            self.assertIn("name: matt-tdd\n", imported("tdd", "matt-tdd"))
+            for upstream, target in (("animate", "emil-choreograph"), ("animate", "animate-x"), ("animate", "other-animate")):
+                with self.assertRaisesRegex(materializer.ProposalError, "import_name_mismatch"):
+                    imported(upstream, target)
+
     def test_import_is_deterministic_and_bound_to_existing_mapping(self) -> None:
         import tempfile
 

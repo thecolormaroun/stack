@@ -1,32 +1,24 @@
 ---
 name: emil-design-eng
 description: This skill encodes Emil Kowalski's philosophy on UI polish, component design, animation decisions, and the invisible details that make software feel great.
-license: Source wrapper for https://github.com/emilkowalski/skill; upstream GitHub repo currently has no explicit license.
-metadata:
-  source: https://github.com/emilkowalski/skill
-  source_site: https://emilkowal.ski/skill
-  upstream_skill: skills/emil-design-eng
-  upstream_commit: e695d13cb298db0f46d5ef05be2ad13fa12908a6
 ---
 
+## Stack Import
+
+- Invoke this curated import as `$emil-design-eng`.
+- Upstream name: `emil-design-eng`.
+- Upstream author: Emil Kowalski.
+- Exact upstream commit: `c8a79627b59d72d764d6ab6f2c87c09a48169833`.
+- Source metadata and license notice: [references/source.json](references/source.json).
+- New skills, deletions, and license changes remain review-gated.
+
 # Design Engineering
-
-## Source Boundary
-
-- Upstream repo: https://github.com/emilkowalski/skill
-- Upstream site: https://emilkowal.ski/skill
-- Upstream skill path: `skills/emil-design-eng`
-- Upstream commit: `e695d13cb298db0f46d5ef05be2ad13fa12908a6`
-- Upstream GitHub license: none reported as of 2026-06-24.
-- Stack source metadata: [references/source.json](references/source.json).
-
-Because the upstream repo has no explicit license, keep this as an attributed Stack reference and review licensing before publishing or relicensing the source text outside this repo.
 
 ## Initial Response
 
 When this skill is first invoked without a specific question, respond only with:
 
-> I'm ready to help you build interfaces that feel right, my knowledge comes from Emil Kowalski's design engineering philosophy. If you want to dive even deeper, check out Emil’s course: [animations.dev](https://animations.dev/).
+> I'm ready to help you build interfaces that feel right, my knowledge comes from Emil Kowalski's design engineering philosophy.
 
 Do not provide any other information until the user asks a question.
 
@@ -509,23 +501,25 @@ element.style.setProperty('--swipe-amount', `${distance}px`);
 element.style.transform = `translateY(${distance}px)`;
 ```
 
-### Framer Motion hardware acceleration caveat
+### Motion hardware acceleration caveat
 
-Framer Motion's shorthand properties (`x`, `y`, `scale`) are NOT hardware-accelerated. They use `requestAnimationFrame` on the main thread. For hardware acceleration, use the full `transform` string:
+From `motion` 14.2, Motion's shorthand properties (`x`, `y`, `scale`, `rotate`) are hardware-accelerated on HTML elements. Before 14.2 they use `requestAnimationFrame` on the main thread, so on those versions use the full `transform` string for hardware acceleration:
 
 ```jsx
-// NOT hardware accelerated (convenient but drops frames under load)
+// motion 14.2+: hardware accelerated. Before 14.2: main thread, drops frames under load
 <motion.div animate={{ x: 100 }} />
 
-// Hardware accelerated (stays smooth even when main thread is busy)
+// Hardware accelerated in every version (stays smooth even when main thread is busy)
 <motion.div animate={{ transform: "translateX(100px)" }} />
 ```
+
+Some Motion animations still run on the main thread in every version: layout animations (`layout`, `layoutId`), animations with `onUpdate` or `transformTemplate`, inertia (drag momentum), and values driven every frame by a motion value (drag, `useTransform`).
 
 This matters when the browser is simultaneously loading content, running scripts, or painting. At Vercel, the dashboard tab animation used Shared Layout Animations and dropped frames during page loads. Switching to CSS animations (off main thread) fixed it.
 
 ### CSS animations beat JS under load
 
-CSS animations run off the main thread. When the browser is busy loading a new page, Framer Motion animations (using `requestAnimationFrame`) drop frames. CSS animations remain smooth. Use CSS for predetermined animations; JS for dynamic, interruptible ones.
+CSS animations run off the main thread. When the browser is busy loading a new page, animations that run on `requestAnimationFrame` (including Motion layout animations) drop frames. CSS animations remain smooth. Use CSS for predetermined animations; JS for dynamic, interruptible ones.
 
 ### Use WAAPI for programmatic CSS animations
 
@@ -686,6 +680,6 @@ When reviewing UI code, check for:
 | Duration > 300ms on UI element             | Reduce to 150-250ms                                              |
 | Hover animation without media query        | Add `@media (hover: hover) and (pointer: fine)`                  |
 | Keyframes on rapidly-triggered element     | Use CSS transitions for interruptibility                         |
-| Framer Motion `x`/`y` props under load     | Use `transform: "translateX()"` for hardware acceleration        |
+| Motion `x`/`y` props under load (pre-14.2) | Upgrade to 14.2+, or use `transform: "translateX()"`             |
 | Same enter/exit transition speed           | Make exit faster than enter (e.g., enter 2s, exit 200ms)         |
 | Elements all appear at once                | Add stagger delay (30-80ms between items)                        |

@@ -2,26 +2,26 @@
 name: review-animations
 description: Reviews animation and motion code against a high craft bar derived from Emil Kowalski's design engineering philosophy. Default to flagging; approval is earned.
 disable-model-invocation: true
-license: Source wrapper for https://github.com/emilkowalski/skill; upstream GitHub repo currently has no explicit license.
-metadata:
-  source: https://github.com/emilkowalski/skill
-  source_site: https://emilkowal.ski/skill
-  upstream_skill: skills/review-animations
-  upstream_commit: e695d13cb298db0f46d5ef05be2ad13fa12908a6
 ---
+
+## Stack Import
+
+- Invoke this curated import as `$review-animations`.
+- Upstream name: `review-animations`.
+- Upstream author: Emil Kowalski.
+- Exact upstream commit: `c8a79627b59d72d764d6ab6f2c87c09a48169833`.
+- Source metadata and license notice: [references/source.json](references/source.json).
+- New skills, deletions, and license changes remain review-gated.
 
 # Reviewing Animations
 
-## Source Boundary
+## Initial Response
 
-- Upstream repo: https://github.com/emilkowalski/skill
-- Upstream site: https://emilkowal.ski/skill
-- Upstream skill path: `skills/review-animations`
-- Upstream commit: `e695d13cb298db0f46d5ef05be2ad13fa12908a6`
-- Upstream GitHub license: none reported as of 2026-06-24.
-- Stack source metadata: [references/source.json](references/source.json).
+When this skill is first invoked without a specific question, respond only with:
 
-Because the upstream repo has no explicit license, keep this as an attributed Stack reference and review licensing before publishing or relicensing the source text outside this repo.
+> I'm ready to review your animations against a high craft bar, my standards come from Emil Kowalski's animation philosophy.
+
+Do not provide any other information until the user asks a question.
 
 A specialized review skill. It does ONE thing: review animation and motion code against a high craft bar. It does not write features, fix unrelated bugs, or review non-motion code. If asked to review general code, decline and point to a general review skill.
 
@@ -31,7 +31,7 @@ You are a senior design engineer with a brutal eye for craft. Your bias is towar
 
 The substantive bar comes from Emil Kowalski's animation philosophy (animations.dev). The review *method* — non-negotiable standards, escalation triggers, a remedial hierarchy, tiered output, and explicit approval criteria — is adapted from aggressive code-quality review.
 
-For the full rule catalog (easing curves, duration tables, spring config, gestures, clip-path, performance, a11y), see [references/STANDARDS.md](references/STANDARDS.md). Load it whenever a finding needs a precise value or citation.
+For the full rule catalog (easing curves, duration tables, spring config, gestures, clip-path, performance, a11y), see [STANDARDS.md](STANDARDS.md). Load it whenever a finding needs a precise value or citation.
 
 ## The Ten Non-Negotiable Standards
 
@@ -43,13 +43,13 @@ Every animation in the diff is measured against these. A violation is a finding.
 
 3. **Responsive easing.** Entering/exiting elements use `ease-out` or a strong custom curve. `ease-in` on UI is a block — it delays the moment the user watches most. Built-in CSS easings are too weak; expect custom cubic-beziers.
 
-4. **Sub-300ms UI.** UI animations stay under 300ms; anything slower on a UI element needs justification or it's a finding. Per-element budgets live in [references/STANDARDS.md](references/STANDARDS.md).
+4. **Sub-300ms UI.** UI animations stay under 300ms; anything slower on a UI element needs justification or it's a finding. Per-element budgets live in [STANDARDS.md](STANDARDS.md).
 
 5. **Origin & physical correctness.** Popovers/dropdowns/tooltips scale from their trigger (`transform-origin`), not center. Never animate from `scale(0)` — start from `scale(0.9–0.97)` + opacity (Modals are exempt — they stay centered.)
 
 6. **Interruptibility.** Rapidly-triggered or gesture-driven motion (toasts, toggles, drags) must be interruptible — CSS transitions or springs that retarget from current state, not keyframes that restart from zero.
 
-7. **GPU-only properties.** Animate `transform` and `opacity` only. Animating `width`/`height`/`margin`/`padding`/`top`/`left` (or Framer Motion `x`/`y`/`scale` shorthands under load) is a performance finding.
+7. **GPU-only properties.** Animate `transform` and `opacity` only. Animating `width`/`height`/`margin`/`padding`/`top`/`left` (or Motion `x`/`y`/`scale` shorthands under load on versions before 14.2) is a performance finding.
 
 8. **Accessibility.** `prefers-reduced-motion` is honored (gentler, not zero — keep opacity/color, drop movement). Hover animations are gated behind `@media (hover: hover) and (pointer: fine)`.
 
@@ -69,7 +69,7 @@ Flag these on sight, hard:
 - `transform-origin: center` on a trigger-anchored popover/dropdown/tooltip
 - Keyframes on toasts, toggles, or anything added/triggered rapidly
 - Animating layout properties (`width`/`height`/`margin`/`padding`/`top`/`left`)
-- Framer Motion `x`/`y`/`scale` props on motion that runs while the page is busy
+- Motion `x`/`y`/`scale` props (before `motion` 14.2) or layout animations on motion that runs while the page is busy
 - Updating a CSS variable on a parent to drive a child transform (style recalc storm)
 - Missing `prefers-reduced-motion` handling on movement
 - Ungated `:hover` motion
@@ -85,7 +85,7 @@ When proposing fixes, prefer earlier moves over later ones:
 3. **Fix the easing** — swap `ease-in`→`ease-out`/custom curve; use a strong cubic-bezier.
 4. **Fix the origin/physicality** — correct `transform-origin`; replace `scale(0)` with `scale(0.95)`+opacity.
 5. **Make it interruptible** — keyframes → transitions, or a spring for gesture-driven motion.
-6. **Move it to the GPU** — layout props → `transform`/`opacity`; shorthand → full `transform` string; WAAPI for programmatic CSS.
+6. **Move it to the GPU** — layout props → `transform`/`opacity`; shorthand before Motion 14.2 → upgrade or full `transform` string; WAAPI for programmatic CSS.
 7. **Asymmetric timing** — slow the deliberate phase, snap the response.
 8. **Polish** — blur to mask crossfades, stagger for groups, `@starting-style` for entry, spring for "alive" elements.
 9. **Accessibility & cohesion** — add reduced-motion + hover gating; tune to match the component's personality.
@@ -121,7 +121,7 @@ Close with an explicit decision:
 - **Block** — any feel-breaking regression, animation on a keyboard/high-frequency action, `scale(0)`/`ease-in` on UI, or a non-GPU animation with an easy GPU fix.
 - **Approve** — no feel-breaking regressions, no obvious motion that should be deleted, durations and easing within bounds, interruptibility handled where needed, reduced-motion respected.
 
-Be specific and cite `file:line`. When a value is needed (a curve, a duration, a spring config), pull the exact one from [references/STANDARDS.md](references/STANDARDS.md) rather than approximating.
+Be specific and cite `file:line`. When a value is needed (a curve, a duration, a spring config), pull the exact one from [STANDARDS.md](STANDARDS.md) rather than approximating.
 
 ## Guidelines
 

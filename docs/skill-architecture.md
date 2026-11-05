@@ -6,19 +6,21 @@ Stack is a runtime-neutral control plane for software work. Logical command IDs 
 
 The refactor began with 150 callable skills. Nine personal-operations and
 knowledge-management workflows were integrated into their existing native
-owners and removed from Stack. The remaining catalog contains 141 capabilities:
-133 active capabilities and eight deprecated compatibility routes.
+owners and removed from Stack, leaving 141 capabilities. The full Emil Kowalski
+collection (15 more pinned imports under `skills/imported/emil/`) brings the
+catalog to 156 capabilities: 148 active capabilities and eight deprecated
+compatibility routes.
 
 | Family | Capabilities |
 | --- | ---: |
 | Core | 5 |
 | Product | 6 |
 | Planning | 7 |
-| Design | 18 |
-| Engineering | 67 |
+| Design | 28 |
+| Engineering | 71 |
 | Orchestration | 11 |
 | Review | 5 |
-| QA | 5 |
+| QA | 6 |
 | Delivery | 2 |
 | Knowledge | 8 |
 | Platform | 7 |

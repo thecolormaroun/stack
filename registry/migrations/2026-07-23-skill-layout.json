@@ -107,6 +107,16 @@
       "source": "skills/studio/research/competitive-intel/SKILL.md"
     },
     {
+      "canonical_name": "core-run",
+      "destination": "skills/core/run/SKILL.md",
+      "source": "skills/core/run/SKILL.md"
+    },
+    {
+      "canonical_name": "core-stack",
+      "destination": "skills/core/stack/SKILL.md",
+      "source": "skills/core/stack/SKILL.md"
+    },
+    {
       "canonical_name": "cpo",
       "destination": "skills/product/cpo/SKILL.md",
       "source": "skills/cpo/SKILL.md"
@@ -292,9 +302,84 @@
       "source": "skills/impeccable/distill/SKILL.md"
     },
     {
+      "canonical_name": "emil-animate",
+      "destination": "skills/imported/emil/emil-animate/SKILL.md",
+      "source": "skills/imported/emil/emil-animate/SKILL.md"
+    },
+    {
+      "canonical_name": "emil-animate-expo",
+      "destination": "skills/imported/emil/emil-animate-expo/SKILL.md",
+      "source": "skills/imported/emil/emil-animate-expo/SKILL.md"
+    },
+    {
+      "canonical_name": "emil-animation-performance",
+      "destination": "skills/imported/emil/emil-animation-performance/SKILL.md",
+      "source": "skills/imported/emil/emil-animation-performance/SKILL.md"
+    },
+    {
+      "canonical_name": "emil-animation-vocabulary",
+      "destination": "skills/imported/emil/emil-animation-vocabulary/SKILL.md",
+      "source": "skills/imported/emil/emil-animation-vocabulary/SKILL.md"
+    },
+    {
+      "canonical_name": "emil-apple-design",
+      "destination": "skills/imported/emil/emil-apple-design/SKILL.md",
+      "source": "skills/imported/emil/emil-apple-design/SKILL.md"
+    },
+    {
+      "canonical_name": "emil-ask-sonner",
+      "destination": "skills/imported/emil/emil-ask-sonner/SKILL.md",
+      "source": "skills/imported/emil/emil-ask-sonner/SKILL.md"
+    },
+    {
+      "canonical_name": "emil-break-ui",
+      "destination": "skills/imported/emil/emil-break-ui/SKILL.md",
+      "source": "skills/imported/emil/emil-break-ui/SKILL.md"
+    },
+    {
+      "canonical_name": "emil-choreograph",
+      "destination": "skills/imported/emil/emil-choreograph/SKILL.md",
+      "source": "skills/imported/emil/emil-choreograph/SKILL.md"
+    },
+    {
       "canonical_name": "emil-design-eng",
       "destination": "skills/imported/emil/emil-design-eng/SKILL.md",
       "source": "skills/emil-design-eng/SKILL.md"
+    },
+    {
+      "canonical_name": "emil-find-animation-opportunities",
+      "destination": "skills/imported/emil/emil-find-animation-opportunities/SKILL.md",
+      "source": "skills/imported/emil/emil-find-animation-opportunities/SKILL.md"
+    },
+    {
+      "canonical_name": "emil-improve-animations",
+      "destination": "skills/imported/emil/emil-improve-animations/SKILL.md",
+      "source": "skills/imported/emil/emil-improve-animations/SKILL.md"
+    },
+    {
+      "canonical_name": "emil-mobile-native",
+      "destination": "skills/imported/emil/emil-mobile-native/SKILL.md",
+      "source": "skills/imported/emil/emil-mobile-native/SKILL.md"
+    },
+    {
+      "canonical_name": "emil-pick-ui-library",
+      "destination": "skills/imported/emil/emil-pick-ui-library/SKILL.md",
+      "source": "skills/imported/emil/emil-pick-ui-library/SKILL.md"
+    },
+    {
+      "canonical_name": "emil-prototype",
+      "destination": "skills/imported/emil/emil-prototype/SKILL.md",
+      "source": "skills/imported/emil/emil-prototype/SKILL.md"
+    },
+    {
+      "canonical_name": "emil-remove-animations",
+      "destination": "skills/imported/emil/emil-remove-animations/SKILL.md",
+      "source": "skills/imported/emil/emil-remove-animations/SKILL.md"
+    },
+    {
+      "canonical_name": "emil-write-swift",
+      "destination": "skills/imported/emil/emil-write-swift/SKILL.md",
+      "source": "skills/imported/emil/emil-write-swift/SKILL.md"
     },
     {
       "canonical_name": "extract",
@@ -630,16 +715,6 @@
       "canonical_name": "simplify",
       "destination": "skills/engineering/simplify/SKILL.md",
       "source": "skills/simplify/SKILL.md"
-    },
-    {
-      "canonical_name": "core-run",
-      "destination": "skills/core/run/SKILL.md",
-      "source": "skills/core/run/SKILL.md"
-    },
-    {
-      "canonical_name": "core-stack",
-      "destination": "skills/core/stack/SKILL.md",
-      "source": "skills/core/stack/SKILL.md"
     },
     {
       "canonical_name": "stack-refresh-pr-mode",

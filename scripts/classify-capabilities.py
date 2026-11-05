@@ -41,6 +41,12 @@ COMMAND_OVERRIDES = {
     "ideate": "stack.explore",
 }
 PRIMARY_CAPABILITIES = {"core-stack", "core-run", "cpo"}
+# Emil Kowalski collection imports; the rest of that collection falls through to engineering.
+EMIL_DESIGN = {
+    "emil-animate", "emil-animate-expo", "emil-animation-vocabulary", "emil-apple-design", "emil-choreograph",
+    "emil-find-animation-opportunities", "emil-improve-animations", "emil-mobile-native", "emil-prototype",
+    "emil-remove-animations",
+}
 PURPOSE_OVERRIDES = {
     "agent-operating-stack": "Deprecated compatibility alias for the canonical Stack root router.",
     "mega-workflow": "Deprecated compatibility alias for the canonical full Stack workflow run.",
@@ -79,13 +85,13 @@ def family_for(name: str, path: str) -> str:
         return "product"
     if path.startswith("skills/studio/research/") or name in {"field-theory-bookmark-synthesis", "fieldbook-source-split", "david-deep-research", "david-research-prompt", "david-youtube-transcript", "matt-research", "muller-brockmann-grid-systems", "userinterface-wiki"}:
         return "knowledge"
-    if path.startswith(("skills/studio/design/", "skills/impeccable/", "skills/ui-skills/", "skills/cdo/")) or name in {"cdo", "emil-design-eng", "illo", "better-icons", "review-animations", "ui-design-brain", "make-interfaces-feel-better", "design-intelligence", "rams", "deslop", "taste-skill-suite-soft-skill", "taste-skill-suite-redesign-skill", "cdo-taste-skill"}:
+    if path.startswith(("skills/studio/design/", "skills/impeccable/", "skills/ui-skills/", "skills/cdo/")) or name in {"cdo", "emil-design-eng", "illo", "better-icons", "review-animations", "ui-design-brain", "make-interfaces-feel-better", "design-intelligence", "rams", "deslop", "taste-skill-suite-soft-skill", "taste-skill-suite-redesign-skill", "cdo-taste-skill"} or name in EMIL_DESIGN:
         return "design"
     if name in {"tdd", "matt-tdd", "matt-implement", "matt-prototype", "matt-diagnosing-bugs", "matt-codebase-design", "matt-domain-modeling", "matt-improve-codebase-architecture", "matt-ask-matt", "react-doctor", "simplify", "knip", "fix-sentry-issues", "gemini-review"}:
         return "engineering"
     if name in {"matt-code-review", "david-cyber-audit", "david-google-safe-browsing", "scratch-eval-promotion-gate", "agent-verification-ladder"}:
         return "review"
-    if name in {"david-browser-harness", "live-site-health-check", "review-animations", "fixing-accessibility", "fixing-metadata", "fixing-motion-performance"} or "accessibility" in name:
+    if name in {"emil-break-ui", "david-browser-harness", "live-site-health-check", "review-animations", "fixing-accessibility", "fixing-metadata", "fixing-motion-performance"} or "accessibility" in name:
         return "qa"
     if path.startswith("skills/studio/ship/") or name in {"stack-refresh-pr-mode", "david-push-skill-to-github"}:
         return "delivery"

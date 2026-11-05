@@ -11,6 +11,24 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
+EMIL_COLLECTION = (
+    "emil-animate",
+    "emil-animate-expo",
+    "emil-animation-performance",
+    "emil-animation-vocabulary",
+    "emil-apple-design",
+    "emil-ask-sonner",
+    "emil-break-ui",
+    "emil-choreograph",
+    "emil-find-animation-opportunities",
+    "emil-improve-animations",
+    "emil-mobile-native",
+    "emil-pick-ui-library",
+    "emil-prototype",
+    "emil-remove-animations",
+    "emil-write-swift",
+)
+
 
 class UpstreamPackageTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -173,7 +191,8 @@ class UpstreamPackageTests(unittest.TestCase):
         self.assertEqual(providers["david"]["mapping"], "existing-source-markdown")
         self.assertEqual(
             {row["target"] for row in providers["emil"]["targets"]},
-            {"skills/imported/emil/emil-design-eng", "skills/design/review-animations"},
+            {"skills/imported/emil/emil-design-eng", "skills/design/review-animations"}
+            | {f"skills/imported/emil/{name}" for name in EMIL_COLLECTION},
         )
 
     def test_sync_preflight_fails_closed_for_a_missing_checkout(self) -> None:

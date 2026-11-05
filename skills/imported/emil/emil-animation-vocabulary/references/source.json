@@ -1,0 +1,15 @@
+{
+  "files": [
+    "skills/animation-vocabulary/SKILL.md"
+  ],
+  "latest_commit": {
+    "sha": "c8a79627b59d72d764d6ab6f2c87c09a48169833"
+  },
+  "license": {
+    "source_file": "LICENSE",
+    "spdx_id": "MIT"
+  },
+  "retained_files": [],
+  "source_repo": "https://github.com/emilkowalski/skills",
+  "upstream_skill_path": "skills/animation-vocabulary"
+}

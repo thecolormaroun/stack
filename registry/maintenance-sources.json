@@ -106,7 +106,7 @@
       "id": "emil-design-eng",
       "target": "Emil design engineering skill wrapper",
       "disposition": "catalog-managed-provider",
-      "provider_ref": "emilkowalski/skill",
+      "provider_ref": "emilkowalski/skills",
       "pin_source": "registry/upstreams.json:emil",
       "provider_id": "emil",
       "target_paths": ["skills/imported/emil/emil-design-eng"],
@@ -116,11 +116,21 @@
       "id": "review-animations",
       "target": "Emil review animations skill wrapper",
       "disposition": "catalog-managed-provider",
-      "provider_ref": "emilkowalski/skill",
+      "provider_ref": "emilkowalski/skills",
       "pin_source": "registry/upstreams.json:emil",
       "provider_id": "emil",
       "target_paths": ["skills/design/review-animations"],
       "required_exports": ["review-animations"]
+    },
+    {
+      "id": "emil-skills",
+      "target": "Emil Kowalski imported skill collection",
+      "disposition": "catalog-managed-provider",
+      "provider_ref": "emilkowalski/skills",
+      "pin_source": "registry/upstreams.json:emil",
+      "provider_id": "emil",
+      "target_paths": ["skills/imported/emil/emil-animate", "skills/imported/emil/emil-animate-expo", "skills/imported/emil/emil-animation-performance", "skills/imported/emil/emil-animation-vocabulary", "skills/imported/emil/emil-apple-design", "skills/imported/emil/emil-ask-sonner", "skills/imported/emil/emil-break-ui", "skills/imported/emil/emil-choreograph", "skills/imported/emil/emil-find-animation-opportunities", "skills/imported/emil/emil-improve-animations", "skills/imported/emil/emil-mobile-native", "skills/imported/emil/emil-pick-ui-library", "skills/imported/emil/emil-prototype", "skills/imported/emil/emil-remove-animations", "skills/imported/emil/emil-write-swift"],
+      "required_exports": ["emil-animate", "emil-animate-expo", "emil-animation-performance", "emil-animation-vocabulary", "emil-apple-design", "emil-ask-sonner", "emil-break-ui", "emil-choreograph", "emil-find-animation-opportunities", "emil-improve-animations", "emil-mobile-native", "emil-pick-ui-library", "emil-prototype", "emil-remove-animations", "emil-write-swift"]
     },
     {
       "id": "illo-skill",

@@ -53,6 +53,66 @@
         {
           "source": "skills/review-animations",
           "target": "skills/design/review-animations"
+        },
+        {
+          "source": "skills/animate",
+          "target": "skills/imported/emil/emil-animate"
+        },
+        {
+          "source": "skills/animate-expo",
+          "target": "skills/imported/emil/emil-animate-expo"
+        },
+        {
+          "source": "skills/animation-performance",
+          "target": "skills/imported/emil/emil-animation-performance"
+        },
+        {
+          "source": "skills/animation-vocabulary",
+          "target": "skills/imported/emil/emil-animation-vocabulary"
+        },
+        {
+          "source": "skills/apple-design",
+          "target": "skills/imported/emil/emil-apple-design"
+        },
+        {
+          "source": "skills/ask-sonner",
+          "target": "skills/imported/emil/emil-ask-sonner"
+        },
+        {
+          "source": "skills/break-ui",
+          "target": "skills/imported/emil/emil-break-ui"
+        },
+        {
+          "source": "skills/choreograph",
+          "target": "skills/imported/emil/emil-choreograph"
+        },
+        {
+          "source": "skills/find-animation-opportunities",
+          "target": "skills/imported/emil/emil-find-animation-opportunities"
+        },
+        {
+          "source": "skills/improve-animations",
+          "target": "skills/imported/emil/emil-improve-animations"
+        },
+        {
+          "source": "skills/mobile-native",
+          "target": "skills/imported/emil/emil-mobile-native"
+        },
+        {
+          "source": "skills/pick-ui-library",
+          "target": "skills/imported/emil/emil-pick-ui-library"
+        },
+        {
+          "source": "skills/prototype",
+          "target": "skills/imported/emil/emil-prototype"
+        },
+        {
+          "source": "skills/remove-animations",
+          "target": "skills/imported/emil/emil-remove-animations"
+        },
+        {
+          "source": "skills/write-swift",
+          "target": "skills/imported/emil/emil-write-swift"
         }
       ]
     }

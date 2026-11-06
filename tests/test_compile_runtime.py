@@ -78,6 +78,33 @@ class RuntimeCompileTests(unittest.TestCase):
             self.assertEqual((first["codex"] / "runtime-manifest.json").read_bytes(), (second["codex"] / "runtime-manifest.json").read_bytes())
             self.assertEqual((first["codex"] / "stage-attestation.json").read_bytes(), (second["codex"] / "stage-attestation.json").read_bytes())
 
+    def test_claude_target_is_a_skills_dir_plugin_and_codex_is_not(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.write_skill(root, "active")
+            entry = capability("active", supported=["claude", "codex"])
+            entry["runtimes"] = {"supported": ["claude", "codex"], "publish_targets": ["claude", "codex"]}
+            self.write_catalog(root, [entry])
+            targets = root / "targets.json"
+            targets.write_text(json.dumps({
+                "schema_version": 1,
+                "catalog_digest": COMPILER.digest_file(root / "registry/capabilities.json"),
+                "targets": [
+                    {"name": "claude", "runtime": "claude", "destination": "installed/claude"},
+                    {"name": "codex", "runtime": "codex", "destination": "installed/codex"},
+                ],
+            }), encoding="utf-8")
+            stages = COMPILER.compile_runtimes(root, root / "registry/capabilities.json", targets, root / "runtime", source_commit="abc123def4567890")
+
+            plugin = json.loads((stages["claude"] / ".claude-plugin/plugin.json").read_text())
+            self.assertEqual(plugin["name"], "stack")
+            self.assertEqual(plugin["version"], "1.0.0+abc123def456")
+            self.assertTrue((stages["claude"] / "skills/active/SKILL.md").is_file())
+            self.assertFalse((stages["codex"] / ".claude-plugin").exists())
+            # The manifest is part of the attested public tree, not a post-hoc addition.
+            attestation = json.loads((stages["claude"] / "stage-attestation.json").read_text())
+            self.assertEqual(attestation["staged_tree_digest"], COMPILER.staged_tree_digest(stages["claude"]))
+
     def test_active_compatibility_alias_compiles_from_canonical_source(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

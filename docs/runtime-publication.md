@@ -42,6 +42,14 @@ The live target contract is strict Claude/Codex parity:
 - Claude: `$HOME/.claude/skills/stack`
 - Codex: `$HOME/.codex/skills/stack`
 
+Claude Code discovers skills only one level under `~/.claude/skills/`, so the
+compiler also writes `.claude-plugin/plugin.json` into the Claude target. That
+makes the directory a skills-dir plugin: Claude Code loads it in place, through
+the installer's symlink, as `stack@skills-dir`, and exposes each staged skill,
+command, and agent as `stack:<name>`. Its version is `1.0.0+<source commit>`,
+and the Claude post-switch verifier checks it. No raw skill root, marketplace,
+or plugin store is written; `claude plugin list` shows the loaded state.
+
 From a clean checkout, the durable fresh-machine path is:
 
 ```sh

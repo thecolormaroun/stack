@@ -599,6 +599,25 @@ def compile_private_overlays(overlay_path: Path, targets: list[dict[str, Any]], 
             raise RuntimeError(f"private overlay validation failed for {target['name']}: {error}") from error
 
 
+def write_claude_plugin_manifest(stage: Path, commit: str) -> None:
+    """Make the Claude target a skills-dir plugin.
+
+    Claude Code discovers only ``~/.claude/skills/<name>/SKILL.md`` one level
+    deep, so the nested ``skills/<name>/`` tree is invisible on its own. A
+    plugin manifest at the target root makes Claude Code load the directory
+    in place as ``stack@skills-dir``, exposing every skill, command, and agent
+    as ``stack:<name>`` without touching any raw skill root or plugin store.
+    """
+    manifest = {
+        "name": "stack",
+        "version": f"1.0.0+{commit[:12]}",
+        "description": "Stack: curated design-and-build skills, commands, and agents compiled from thecolormaroun/stack.",
+    }
+    plugin_dir = stage / ".claude-plugin"
+    plugin_dir.mkdir()
+    (plugin_dir / "plugin.json").write_text(canonical_json(manifest), encoding="utf-8")
+
+
 def compile_runtimes(root: Path, catalog_path: Path, targets_path: Path, staging_root: Path, *, source_commit: str | None = None, private_overlay: Path | None = None, private_output_root: Path | None = None, package_cache: Path | None = None) -> dict[str, Path]:
     root = root.resolve()
     catalog_path = catalog_path.resolve()
@@ -709,6 +728,8 @@ def compile_runtimes(root: Path, catalog_path: Path, targets_path: Path, staging
             copy_shared_tree(verification_artifacts, destination, mapping, label="private-overlay verification input")
         rewrite_relative_links(stage, mapping)
         validate_staged_links(stage)
+        if target["runtime"] == "claude":
+            write_claude_plugin_manifest(stage, commit)
         aliases = [
             {"alias": alias, "canonical_target": entry["canonical_name"]}
             for entry in included

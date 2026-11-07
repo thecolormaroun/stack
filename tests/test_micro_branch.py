@@ -1,6 +1,7 @@
 """End-to-end tests for skills/design/micro-branch/scripts/mb.py on throwaway git repos."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -9,6 +10,8 @@ import sys
 import tempfile
 import textwrap
 import unittest
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +55,37 @@ FAKE_TWOMBLY = textwrap.dedent(
                                                      "comments": [{"by": "me", "text": "shorter"}]}]}))
     else:
         print(json.dumps({"ok": True}))
+    """
+)
+
+
+FAKE_STUDIO_BUILD = textwrap.dedent(
+    """
+    import hashlib, json, pathlib
+    def sid(text):
+        return hashlib.sha1(text.encode()).hexdigest()[:16]
+    dist = pathlib.Path("dist")
+    (dist / "assets").mkdir(parents=True, exist_ok=True)
+    protos = []
+    for meta in sorted(pathlib.Path("src/prototypes").glob("*/*/meta.json")):
+        folder, owner = meta.parent, meta.parent.parent.name
+        items = []
+        for f in sorted(folder.rglob("*.tsx")):
+            rel = f.relative_to(folder)
+            if not any(part.startswith("_") for part in rel.parts):
+                items.append({"path": rel.as_posix(), "fileType": "view", "studioId": sid(folder.name + rel.as_posix())})
+        (dist / "prototypes" / "artifacts" / owner).mkdir(parents=True, exist_ok=True)
+        (dist / "prototypes" / "artifacts" / owner / (folder.name + ".json")).write_text(json.dumps(items))
+        protos.append({"id": folder.name, "contributorKey": owner, "studioId": sid(folder.name)})
+    (dist / "prototypes" / "manifest.json").write_text(json.dumps({"prototypes": protos}))
+    (dist / "index.html").write_text(
+        '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Demo&amp;display=swap">'
+        '<script type="module" src="/assets/app.js"></script>')
+    (dist / "assets" / "app.css").write_text("@font-face{src:url(https://fonts.gstatic.com/s/demo/a.woff2)}")
+    (dist / "assets" / "app.js").write_text(
+        'const c=`{"apiKey":"AIza' + "B" * 35 + '","authDomain":"x"}`;'
+        "const k={OAI_API_KEY:`excalidraw-oai-api-key`};"
+        'const f="https://fonts.gstatic.com/s/demo/a.woff2";const t=`https://fonts.gstatic.com/${f}`;')
     """
 )
 
@@ -265,11 +299,131 @@ class MicroBranchTest(unittest.TestCase):
                 mb.TwomblyAdapter.call(object.__new__(mb.TwomblyAdapter), blocked)
         self.assertNotIn("share", log.read_text())
 
+    def test_round_entry_with_query_reaches_frame_and_board(self) -> None:
+        self.sb.mb("round", "new", "variant", "--question", "q", "--entry", "index.html?variant=b")
+        self.cut("r1", "a", "<h1>a</h1>\n")
+        out = self.sb.mb("publish", "r1/t1")
+        self.assertEqual(out["frame"]["entry"], "index.html?variant=b")
+        board = (self.sb.repo / ".git" / "micro-branch" / "board" / "index.html").read_text()
+        self.assertIn('src="../frames/r1-variant/t1-a/index.html?variant=b"', board)
+
+    def test_view_needs_the_design_studio_preset(self) -> None:
+        self.assertIn("design-studio preset", self.sb.mb("round", "new", "x", "--question", "q", "--view", "a", expect=2)["error"])
+        self.sb.mb("round", "new", "x", "--question", "q")
+        self.assertIn("design-studio preset", self.sb.mb("take", "new", "r1", "a", "--view", "a", expect=2)["error"])
+        self.assertEqual(self.sb.git("branch", "--list", "mb/*"), "")
+        self.assertIn("studio.config.json", self.sb.mb("init", "--preset", "design-studio", expect=2)["error"])
+
+    def test_setup_symlinks_never_land_in_take_commits(self) -> None:
+        self.sb.mb("init", "--setup", 'ln -s "$MB_MAIN" linked-deps')
+        self.sb.mb("round", "new", "deps", "--question", "q")
+        take = self.cut("r1", "a", "<h1>a</h1>\n")
+        tree = Path(take["worktree"])
+        self.assertTrue((tree / "linked-deps").is_symlink())
+        self.sb.mb("publish", "r1/t1")
+        self.assertNotIn("linked-deps", self.sb.git("ls-tree", "-r", "--name-only", "HEAD", cwd=tree).splitlines())
+        self.assertNotIn("linked-deps", self.sb.git("status", "--porcelain", cwd=tree))
+        self.assertIn("/linked-deps", (self.sb.repo / ".git" / "info" / "exclude").read_text())
+
     def test_outside_git_repo_fails_cleanly(self) -> None:
         proc = subprocess.run([sys.executable, str(MB), "status"], cwd=self.sb.tmp, capture_output=True, text=True,
                               env={**os.environ, **GIT_ENV})
         self.assertEqual(proc.returncode, 2)
         self.assertIn("not inside a git work tree", json.loads(proc.stdout)["error"])
+
+
+class DesignStudioPresetTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.sb = sb = Sandbox(Path(self._tmp.name).resolve())
+        sb.write(".gitignore", "node_modules/\ndist/\n")
+        sb.write("studio.config.json", '{"name": "Studio"}\n')
+        sb.write("build.py", FAKE_STUDIO_BUILD)
+        sb.write("src/systems/demo/package.json", "{}\n")
+        for proto, files in {"me/shop": ["Screens/home.tsx", "Screens/cart.tsx", "_parts/button.tsx"],
+                             "you/blog": ["Screens/home.tsx"]}.items():
+            sb.write(f"src/prototypes/{proto}/meta.json", "{}\n")
+            for rel in files:
+                sb.write(f"src/prototypes/{proto}/{rel}", "export default () => null\n")
+        (sb.repo / "node_modules").mkdir()
+        (sb.repo / "src" / "systems" / "demo" / "node_modules").mkdir()
+        sb.git("add", "-A")
+        sb.git("commit", "-q", "-m", "studio")
+        self.init = sb.mb("init", "--preset", "design-studio", "--canvas", "board", "--build", "python3 build.py",
+                          "--localize-fonts")
+
+    def tearDown(self) -> None:
+        self.sb.mb("canvas", "stop", "--canvas", "board")
+        self._tmp.cleanup()
+
+    def cache(self, url: str, data: bytes, kind: str) -> str:
+        folder = self.sb.repo / ".git" / "micro-branch" / "cache" / "remote"
+        folder.mkdir(parents=True, exist_ok=True)
+        key = hashlib.sha256(url.encode()).hexdigest()
+        (folder / f"{key}.bin").write_bytes(data)
+        (folder / f"{key}.json").write_text(json.dumps({"type": kind}))
+        return key[:16]
+
+    def test_preset_views_frame_entry_and_snapshot(self) -> None:
+        cfg = self.init["config"]
+        self.assertEqual((cfg["preset"], cfg["out"], cfg["root_paths"]), ("design-studio", "dist", True))
+        self.assertEqual(cfg["scrub"], ["excalidraw-public-config"])
+        self.assertEqual(cfg["localize"], ["fonts.googleapis.com", "fonts.gstatic.com"])
+        views = [v["view"] for v in self.sb.mb("views")["views"]]
+        self.assertEqual(views, ["shop/Screens/cart.tsx", "shop/Screens/home.tsx", "blog/Screens/home.tsx"])
+        vague = self.sb.mb("round", "new", "hero", "--question", "q", "--view", "Screens/home")
+        self.assertIn("matches 2 views", vague["warning"])
+        self.sb.mb("round", "new", "cart", "--question", "Which cart?", "--view", "shop/Screens/cart")
+        take = self.sb.mb("take", "new", "r2", "dense")
+        tree = Path(take["take"]["worktree"])
+        self.assertEqual(sorted(take["setup"]["ignored_links"]), ["node_modules", "src/systems/demo/node_modules"])
+        self.assertEqual(self.sb.git("status", "--porcelain", cwd=tree), "")
+        woff_a = self.cache("https://fonts.gstatic.com/s/demo/a.woff2", b"wOF2-a", "font/woff2")
+        woff_b = self.cache("https://fonts.gstatic.com/s/demo/b.woff2", b"wOF2-b", "font/woff2")
+        sheet = self.cache("https://fonts.googleapis.com/css2?family=Demo&display=swap",
+                           b"@font-face{src:url(https://fonts.gstatic.com/s/demo/b.woff2) format('woff2')}", "text/css")
+        out = self.sb.mb("publish", "r2/t1")
+        entry = out["frame"]["entry"]
+        self.assertTrue(entry.startswith("index.html?studio-preview=1&session=micro-branch&config="))
+        config = json.loads(urllib.parse.parse_qs(urllib.parse.urlsplit(entry).query)["config"][0])
+        self.assertEqual(config["target"]["prototype"], "shop")
+        self.assertEqual(config["target"]["artifact"], "Screens/cart.tsx")
+        self.assertEqual(config["href"], f"/prototypes/{config['target']['prototypeId']}/artifacts/{config['target']['artifactId']}")
+        self.assertEqual((config["surface"], config["dark"]), ("page", False))
+        self.assertEqual(out["frame"]["view"], "shop/Screens/cart.tsx")
+        snap = self.sb.repo / ".git" / "micro-branch" / "frames" / "r2-cart" / "t1-dense"
+        js = (snap / "assets" / "app.js").read_text()
+        self.assertIn('"apiKey":"placeholder"', js)
+        self.assertNotIn("excalidraw-oai-api-key", js)
+        self.assertIn(f'"/mb-assets/{woff_a}.woff2"', js)
+        self.assertIn("`https://fonts.gstatic.com/${f}`", js)  # template literals stay as they are
+        self.assertIn(f"url(../mb-assets/{woff_a}.woff2)", (snap / "assets" / "app.css").read_text())
+        self.assertIn(f'href="/mb-assets/{sheet}.css"', (snap / "index.html").read_text())
+        self.assertIn(f"url({woff_b}.woff2)", (snap / "mb-assets" / f"{sheet}.css").read_text())
+        self.assertEqual((snap / "mb-assets" / f"{woff_b}.woff2").read_bytes(), b"wOF2-b")
+        self.assertEqual(out["prepared"]["localized"]["assets"], 3)
+        self.assertEqual(out["prepared"]["scrubbed"][0]["replaced"], 2)
+        self.assertNotIn("node_modules", self.sb.git("ls-tree", "-r", "--name-only", "HEAD", cwd=tree))
+
+    def test_unknown_view_fails_publish_and_board_serves_frames_on_their_own_origin(self) -> None:
+        self.sb.mb("round", "new", "cart", "--question", "q", "--view", "shop/Screens/cart.tsx")
+        self.sb.mb("take", "new", "r1", "a")
+        missing = self.sb.mb("take", "new", "r1", "b", "--view", "shop/Screens/nope.tsx")
+        self.assertIn("no view matches", missing["warning"])
+        self.cache("https://fonts.gstatic.com/s/demo/a.woff2", b"a", "font/woff2")
+        self.cache("https://fonts.gstatic.com/s/demo/b.woff2", b"b", "font/woff2")
+        self.cache("https://fonts.googleapis.com/css2?family=Demo&display=swap", b"", "text/css")
+        self.assertIn("no view matches", self.sb.mb("publish", "r1/t2", expect=2)["error"])
+        self.sb.mb("publish", "r1/t1")
+        board = self.sb.mb("canvas", "open", "--canvas", "board")
+        port = urllib.parse.urlsplit(board["url"]).port
+        page = (self.sb.repo / ".git" / "micro-branch" / "board" / "index.html").read_text()
+        self.assertIn('data-frame-host="r1-t1"', page)
+        request = urllib.request.Request(f"http://127.0.0.1:{port}/assets/app.css", headers={"Host": f"r1-t1.localhost:{port}"})
+        with urllib.request.urlopen(request, timeout=5) as resp:
+            self.assertIn("mb-assets", resp.read().decode())
+        with urllib.request.urlopen(board["url"], timeout=5) as resp:
+            self.assertIn("R1 · T1 a", resp.read().decode())
 
 
 class MicroBranchPortabilityTest(unittest.TestCase):

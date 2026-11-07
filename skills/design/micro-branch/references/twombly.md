@@ -50,11 +50,11 @@ Twombly checks every frame before placing it. `publish` then fails with
 
 | Code | Cause | Fix |
 |---|---|---|
-| `EXTERNAL_REQUEST` | The page loads something from another host: Google Fonts, Typekit, a CDN script or stylesheet, a remote image, analytics | Download the asset into the build output and load it with a relative path. For fonts, copy the `.woff2` files and write a local `@font-face`, or inline them as `data:` URLs |
+| `EXTERNAL_REQUEST` | The page loads something from another host: Google Fonts, Typekit, a CDN script or stylesheet, a remote image, analytics | For fonts and images, let the script copy them into each snapshot: `init --localize-fonts` for Google Fonts, `init --localize <host>` for other hosts. Otherwise download the asset into the build output and load it with a relative path. Scripts and analytics should come out of the page |
 | `MISSING_FILE` | A file the page asks for is not in the output | Use relative asset paths (see `setup-recipes.md`) and check the build copies the file |
 | `NO_ENTRY` | No entry file in the output | `init --entry <file>` or fix `--out` |
 | `PROJECT_FILE`, `SERVER_CODE`, `ENV_FILE`, `KEY_FILE`, `CREDENTIAL_FILE`, `DATABASE_FILE` | The output folder holds source or config, not just the built site | Point `--out` at the real build output. Common offenders are already left out of snapshots |
-| `SECRET_FOUND` | Something that looks like a key or token is in the files | Remove it. Frames use mock data only. Realistic fake tokens can trip this too; make them obviously fake |
+| `SECRET_FOUND` | Something that looks like a key or token is in the files | Remove it. Frames use mock data only. Realistic fake tokens can trip this too; make them obviously fake. In Design Studio, the bundled Excalidraw strings are handled by the `excalidraw-public-config` scrub rule (`design-studio.md`) |
 | `BLANK_RENDER`, `UNCAUGHT_ERROR`, `LOAD_TIMEOUT` | The page renders nothing, throws, or never finishes loading | Open the snapshot from the board and fix the error. Pages that need a backend need mock data |
 | `FILE_TOO_LARGE`, `TOO_MANY_FILES`, `FRAME_TOO_LARGE` | Over 25 MB per file, 5,000 files or 100 MB per frame | Trim the output, compress media |
 

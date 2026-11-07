@@ -7,7 +7,8 @@ description: >-
   one into trunk. Use when someone says "try a few versions", "give me three takes",
   "micro-branch this", "put the versions on a canvas", "go back to take 2", "build
   on take 3", "pick that one", or wants design iterations that never overwrite
-  each other. Works in any git repo with a static build or plain HTML.
+  each other. Works in any git repo with a static build or plain HTML, and has a
+  Design Studio preset that opens each frame on one prototype view.
 ---
 
 # micro-branch
@@ -48,7 +49,9 @@ machine.
 1. Check the repo: `git status` is clean and trunk has at least one commit. If the
    folder is not a repo, ask before running `git init`.
 2. Work out how a take becomes static files. Read `references/setup-recipes.md`
-   for Vite, Next.js, Astro, plain HTML and other stacks.
+   for Vite, Next.js, Astro, plain HTML and other stacks. A folder with
+   `studio.config.json` is a Design Studio install: use `init --preset design-studio`
+   and read `references/design-studio.md`.
 3. Initialise. Defaults: canvas `twombly`, frame `1280x800`, at most 4 takes per round.
 
 ```sh
@@ -58,12 +61,17 @@ $MB init --name "<project name>" --build "<build command>" --out <output dir> \
 ```
 
 Use `--frame-size 390x844` for mobile screens. Use `--canvas board` when Node is
-missing or Twombly fails; the board needs only Python.
+missing or Twombly fails; the board needs only Python. When Twombly rejects remote
+fonts or images, `--localize-fonts` and `--localize <host>` copy them into each
+frame.
 
 ## The loop
 
 1. **Start a round** for one question the person cares about:
-   `$MB round new <slug> --question "How should view-all open?"`
+   `$MB round new <slug> --question "How should view-all open?"`.
+   Add `--entry "index.html?variant=b"` when the round's frames open somewhere other
+   than the repo's entry, or `--view <prototype>/<path>` in Design Studio
+   (`$MB views` lists them).
 2. **Cut takes**, one idea each, usually 3:
    `$MB take new r1 <slug> --note "one line on the idea"`.
    Edit only inside the `worktree` path it returns. Never edit trunk during a round.
@@ -71,6 +79,8 @@ missing or Twombly fails; the board needs only Python.
 3. **Publish each take**: `$MB publish r1/t2`. It commits the take, runs the build,
    snapshots the output and places a frame on the canvas. A failed build publishes
    nothing and marks the take `broken`; read the log path in the hint and fix it.
+   `prepared` in the reply lists what the snapshot changed (copied assets, scrubbed
+   strings). Mention it if anything was skipped.
 4. **Show the canvas**: `$MB canvas` prints the URL. Tell the person which label is
    which idea in one line each.
 5. **Read feedback**: `$MB feedback` returns what the person is looking at and their
@@ -111,4 +121,6 @@ missing or Twombly fails; the board needs only Python.
   to fix a frame that fails them.
 - `references/setup-recipes.md`: build, output and setup values per stack, and what
   to do when a project has no static build.
+- `references/design-studio.md`: the Design Studio preset, picking a view, and what
+  changes in its snapshots.
 - `references/troubleshooting.md`: common errors and their fixes.

@@ -33,7 +33,7 @@
     "posture": "repository-local",
     "source_identity": "stack:skills/micro-branch"
   },
-  "purpose": "Keep every design iteration as its own git branch (a take), lay takes out side by side on a local canvas (Twombly or a built-in board), jump back to any take, and pick one into trunk. Use when iterating on a UI and versions should never overwrite each other.",
+  "purpose": "Keep every design iteration as its own git branch (a take), lay takes out side by side on a local canvas (Twombly or a built-in board), jump back to any take, and pick one into trunk. Use when iterating on a UI and versions should never overwrite each other. Includes a Design Studio preset that opens each frame on one prototype view.",
   "role": "workflow",
   "runtimes": {
     "publish_targets": [

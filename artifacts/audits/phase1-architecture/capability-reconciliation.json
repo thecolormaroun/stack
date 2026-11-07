@@ -28,6 +28,7 @@
       "skills/design/deslop/SKILL.md": "skills/design/deslop/capability.json",
       "skills/design/illo/SKILL.md": "skills/design/illo/capability.json",
       "skills/design/make-interfaces-feel-better/SKILL.md": "skills/design/make-interfaces-feel-better/capability.json",
+      "skills/design/micro-branch/SKILL.md": "skills/design/micro-branch/capability.json",
       "skills/design/rams/SKILL.md": "skills/design/rams/capability.json",
       "skills/design/review-animations/SKILL.md": "skills/design/review-animations/capability.json",
       "skills/design/ui-design-brain/SKILL.md": "skills/design/ui-design-brain/capability.json",
@@ -187,6 +188,7 @@
       "skills/design/deslop/SKILL.md",
       "skills/design/illo/SKILL.md",
       "skills/design/make-interfaces-feel-better/SKILL.md",
+      "skills/design/micro-branch/SKILL.md",
       "skills/design/rams/SKILL.md",
       "skills/design/review-animations/SKILL.md",
       "skills/design/ui-design-brain/SKILL.md",
@@ -328,8 +330,8 @@
     "missing": []
   },
   "counts": {
-    "callable_skills": 157,
-    "manifests": 157,
+    "callable_skills": 158,
+    "manifests": 158,
     "package_exports": 20,
     "private_declarations": 1,
     "unclassified": 0

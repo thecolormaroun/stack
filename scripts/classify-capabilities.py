@@ -106,7 +106,7 @@ def role_for(name: str, path: str, family: str) -> str:
         return "alias"
     if name == "core-stack":
         return "router"
-    if name == "core-run":
+    if name in {"core-run", "micro-branch"}:
         return "workflow"
     if name in {"cdo", "cpo", "menu", "illo", "matt-ask-matt"}:
         return "router"
@@ -120,7 +120,7 @@ def command_for(name: str, family: str) -> str:
 
 
 def trust_for(family: str, name: str) -> str:
-    if name in {"core-run", "mega-workflow", "departments"}:
+    if name in {"core-run", "mega-workflow", "departments", "micro-branch"}:
         return "local-mutation"
     if family == "delivery":
         return "external-mutation"

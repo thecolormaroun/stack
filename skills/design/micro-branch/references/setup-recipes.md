@@ -6,8 +6,10 @@ output lands (`--out`), and what each new worktree needs before it can build
 before choosing.
 
 Frames are served from a subfolder on the board and as standalone folders in
-Twombly, so **asset paths must be relative**. A blank frame or 404s for `/assets/...`
-means the build wrote absolute paths.
+Twombly, so **asset paths should be relative**. A blank frame or 404s for
+`/assets/...` on the board means the build wrote root paths. If the build can't
+change, `init --root-paths` makes the board serve each frame at the root of its own
+address (`r1-t2.localhost`), which Chrome, Edge and Firefox resolve locally.
 
 | Stack | `--build` | `--out` | Notes |
 |---|---|---|---|
@@ -19,6 +21,7 @@ means the build wrote absolute paths.
 | Create React App | `PUBLIC_URL=. npm run build` | `build` | |
 | Storybook | `npx storybook build -o storybook-static` | `storybook-static` | Each frame shows the whole Storybook |
 | Monorepo package | `cd apps/web && npm run build -- --base=./` | `apps/web/dist` | Paths are relative to the take's root |
+| Design Studio | `init --preset design-studio` | `dist` | Fills in build, setup and root paths. See `design-studio.md` |
 
 Swap `npm run` for `pnpm`, `yarn` or `bun` to match the lockfile.
 
@@ -36,6 +39,11 @@ Every take is a separate worktree, so it starts without `node_modules`.
 
 Install dependencies in the main checkout first when using the symlink. If a take
 adds a package, replace its symlink with a real install inside that worktree.
+
+A `.gitignore` line like `node_modules/` matches folders, not links, so a linked
+`node_modules` would land in the take's commits. After setup, the script adds every
+link setup made to the repo's local `.git/info/exclude` (never committed) and lists
+them under `setup.ignored_links`.
 
 ## Environment
 

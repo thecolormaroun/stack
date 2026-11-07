@@ -16,7 +16,10 @@ import argparse
 import contextlib
 import datetime as dt
 import fcntl
+import functools
+import hashlib
 import html
+import http.server
 import json
 import os
 import re
@@ -27,6 +30,7 @@ import socket
 import subprocess
 import sys
 import time
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any, Iterator
@@ -49,6 +53,35 @@ FRAME_IGNORE = (
     ".git", "node_modules", ".micro-branch", ".twombly", ".DS_Store", ".env*", "*.map",
     "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb", "tsconfig*.json",
 )
+# The board serves a frame on its own origin (r1-t2.localhost) when its build uses root paths like /assets/.
+FRAME_HOST = re.compile(r"^r(\d+)-t(\d+)\.localhost$")
+EXCLUDE_HEADER = "# micro-branch: links that take setup made (safe to delete)"
+GOOGLE_FONT_HOSTS = ("fonts.googleapis.com", "fonts.gstatic.com")
+LOCALIZE_SUFFIXES = {".css", ".js", ".mjs", ".html", ".htm", ".json", ".svg"}
+MARKUP_SUFFIXES = (".html", ".htm", ".svg")
+LOCALIZE_MAX_BYTES = 15 * 1024 * 1024
+# Google serves woff2 only to browser user agents.
+BROWSER_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+ASSET_TYPES = {
+    "text/css": ".css", "font/woff2": ".woff2", "font/woff": ".woff", "font/ttf": ".ttf", "font/otf": ".otf",
+    "image/jpeg": ".jpg", "image/png": ".png", "image/gif": ".gif", "image/webp": ".webp", "image/avif": ".avif",
+    "image/svg+xml": ".svg", "video/mp4": ".mp4", "video/webm": ".webm",
+}
+KNOWN_SUFFIXES = set(ASSET_TYPES.values()) | {".jpeg", ".ico", ".json"}
+# Named, narrow rewrites for strings that libraries bundle and Twombly's secret check flags.
+# Each rule only touches .js files that contain its marker.
+SCRUB_RULES: dict[str, dict[str, Any]] = {
+    # Excalidraw (Design Studio's canvas module) bundles the public Firebase client key of its own
+    # collaboration server, and a browser-storage key name that reads like a secret. Frames use neither.
+    "excalidraw-public-config": {
+        "marker": "excalidraw",
+        "rewrites": (
+            (re.compile(r'("apiKey":")AIza[0-9A-Za-z_\-]{35}(")'), r"\1placeholder\2"),
+            (re.compile(r"excalidraw-oai-api-key"), "placeholder-excalidraw-oai"),
+        ),
+    },
+}
+PRESETS = ("design-studio",)
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "trunk": None,
@@ -64,6 +97,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "twombly_version": TWOMBLY_VERSION,
     "twombly_port": TWOMBLY_PORT,
     "takes_dir": None,
+    "preset": None,
+    "root_paths": False,
+    "localize": [],
+    "scrub": [],
 }
 
 
@@ -101,6 +138,11 @@ def run(cmd: list[str], cwd: Path | str | None = None, check: bool = True) -> su
 
 def git(*args: str, cwd: Path | str | None = None, check: bool = True) -> str:
     return run(["git", *args], cwd=cwd, check=check).stdout.strip()
+
+
+def if_set(key: str, value: Any) -> dict[str, Any]:
+    """`{key: value}` when value is set, else `{}`: for optional fields in replies."""
+    return {key: value} if value else {}
 
 
 def emit(payload: dict[str, Any], code: int = 0) -> int:
@@ -240,8 +282,16 @@ class BoardAdapter:
         self.repo, self.state = repo, state
         self.root = repo.state_dir
 
-    def publish(self, rnd: dict[str, Any], take: dict[str, Any], snapshot: Path) -> dict[str, Any]:
+    def publish(self, rnd: dict[str, Any], take: dict[str, Any], snapshot: Path, entry: str) -> dict[str, Any]:
         return {"adapter": self.name, "path": str(snapshot.relative_to(self.root))}
+
+    def frame_link(self, rnd: dict[str, Any], take: dict[str, Any], attr: str) -> str:
+        """`src`/`href` for a frame: a path on the board, or its own origin when the build uses root paths."""
+        frame = take.get("frame") or {}
+        entry = html.escape(frame.get("entry") or self.state["config"]["entry"])
+        if self.state["config"].get("root_paths"):
+            return f'data-frame-host="r{rnd["n"]}-t{take["n"]}" data-entry="{entry}" data-attr="{attr}"'
+        return f'{attr}="../{html.escape(frame["path"])}/{entry}"'
 
     def render(self) -> Path:
         board = self.root / "board"
@@ -259,13 +309,13 @@ class BoardAdapter:
                 status = take["status"]
                 body = (
                     f'<div class="viewport" style="height:{round(height * scale)}px">'
-                    f'<iframe loading="lazy" src="../{html.escape(src)}/{html.escape(cfg["entry"])}" '
+                    f'<iframe loading="lazy" {self.frame_link(rnd, take, "src")} '
                     f'style="width:{width}px;height:{height}px;transform:scale({scale:.4f})" '
                     f'title="{html.escape(label(rnd, take))}"></iframe></div>'
                     if src
                     else '<div class="viewport empty">not published yet</div>'
                 )
-                link = f'<a href="../{html.escape(src)}/{html.escape(cfg["entry"])}" target="_blank">open</a>' if src else ""
+                link = f'<a {self.frame_link(rnd, take, "href")} target="_blank">open</a>' if src else ""
                 note = f'<p class="note">{html.escape(take["note"])}</p>' if take.get("note") else ""
                 cards.append(
                     f'<article class="card {html.escape(status)}"><header><strong>{html.escape(label(rnd, take))}</strong>'
@@ -292,7 +342,7 @@ class BoardAdapter:
         port = free_port(BOARD_PORT)
         log = open(self.root / "board.log", "a")
         proc = subprocess.Popen(
-            [sys.executable, "-m", "http.server", str(port), "--bind", "127.0.0.1", "--directory", str(self.root)],
+            [sys.executable, str(Path(__file__).resolve()), "_board-serve", str(self.root), str(port)],
             stdout=log, stderr=log, stdin=subprocess.DEVNULL, start_new_session=True,
         )
         for _ in range(50):
@@ -380,12 +430,12 @@ class TwomblyAdapter:
         return {"adapter": self.name, "url": self.info.get("url"), "name": self.info.get("name"),
                 "port": self.info.get("port"), "daemon": self.info.get("daemon")}
 
-    def publish(self, rnd: dict[str, Any], take: dict[str, Any], snapshot: Path) -> dict[str, Any]:
+    def publish(self, rnd: dict[str, Any], take: dict[str, Any], snapshot: Path, entry: str) -> dict[str, Any]:
         if not self.info.get("initialized"):
             self.ensure()
         cfg = self.state["config"]
         flags = ["--title", label(rnd, take), "--width", str(cfg["frame_width"]),
-                 "--height", str(cfg["frame_height"]), "--entry", cfg["entry"]]
+                 "--height", str(cfg["frame_height"]), "--entry", entry]
         frame_id = ((take.get("frame") or {}).get("twombly") or {}).get("id")
         result = self.call("update", frame_id, str(snapshot), *flags, allow_fail=True) if frame_id else None
         if result is None or (not result.get("ok") and not result.get("problems")):
@@ -481,6 +531,269 @@ def free_port(start: int) -> int:
     raise MBError("no free port for the board between 4780 and 4829")
 
 
+# ---------------------------------------------------------------- Design Studio
+
+
+# A fast build for frames: the manifest plus Vite, without the release checks of `pnpm build`.
+DESIGN_STUDIO_BUILD = "node src/platform/node/build/build-manifest.js --deploy && ./node_modules/.bin/vite build"
+# Takes link to the main checkout's dependencies: the root node_modules and each design system's own.
+DESIGN_STUDIO_SETUP = (
+    'ln -s "$MB_MAIN/node_modules" node_modules && '
+    '{ for d in "$MB_MAIN"/src/systems/*/node_modules; do s="${d#"$MB_MAIN"/}"; '
+    '[ -d "$d" ] && [ -d "$(dirname "$s")" ] && [ ! -e "$s" ] && ln -s "$d" "$s"; done; :; }'
+)
+
+
+def design_studio_preset(main: Path) -> dict[str, Any]:
+    if not (main / "studio.config.json").is_file():
+        raise MBError("this repo has no studio.config.json, so it is not a Design Studio folder",
+                      hint="run init from the Design Studio checkout, or drop --preset")
+    if not (main / "node_modules").is_dir():
+        raise MBError("Design Studio's dependencies are not installed in the main checkout",
+                      hint="run `pnpm install` there once; every take links to them")
+    return {"build": DESIGN_STUDIO_BUILD, "out": "dist", "entry": "index.html", "setup": DESIGN_STUDIO_SETUP,
+            "root_paths": True, "scrub": ["excalidraw-public-config"]}
+
+
+def design_studio_views(paths: list[str]) -> list[dict[str, str]]:
+    """Views are .tsx files in a prototype folder (one with meta.json), outside folders starting with _ or ."""
+    protos = {Path(p).parent for p in paths if re.fullmatch(r"src/prototypes/[^/]+/[^/]+/meta\.json", p)}
+    views = []
+    for p in sorted(paths):
+        path = Path(p)
+        root = next((r for r in protos if r in path.parents), None)
+        if root is None or path.suffix != ".tsx":
+            continue
+        rel = path.relative_to(root)
+        if any(part.startswith(("_", ".")) for part in rel.parts):
+            continue
+        views.append({"view": f"{root.name}/{rel.as_posix()}", "prototype": root.name, "contributor": root.parent.name})
+    return views
+
+
+def prototype_files(repo: Repo, ref: str | None = None, worktree: Path | None = None) -> list[str]:
+    if worktree is not None:
+        out = git("ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "src/prototypes", cwd=worktree)
+    else:
+        out = git("ls-tree", "-r", "-z", "--name-only", ref or "HEAD", "--", "src/prototypes", cwd=repo.cwd)
+    return [p for p in out.split("\0") if p]
+
+
+def match_view(view: str, refs: list[str]) -> str:
+    """Find one view by '<prototype>/<path>', by its path alone, or by the end of its path."""
+    key = view.strip().strip("/")
+    bare = key.removesuffix(".tsx").lower()
+    tests = (
+        lambda r: r == key,
+        lambda r: r.removesuffix(".tsx").lower() == bare,
+        lambda r: r.split("/", 1)[1].removesuffix(".tsx").lower() == bare,
+        lambda r: r.removesuffix(".tsx").lower().endswith(bare),
+    )
+    for test in tests:
+        hits = [r for r in refs if test(r)]
+        if len(hits) == 1:
+            return hits[0]
+        if hits:
+            raise MBError(f"'{view}' matches {len(hits)} views", hint="name it as <prototype>/<path>: " + "; ".join(hits[:12]))
+    raise MBError(f"no view matches '{view}'", hint="known views: " + ("; ".join(refs[:15]) or "none"))
+
+
+def check_view(repo: Repo, cfg: dict[str, Any], view: str | None, ref: str | None = None,
+               worktree: Path | None = None) -> str | None:
+    """Reject --view outside Design Studio; return a warning when the view isn't in the files yet."""
+    if not view:
+        return None
+    if cfg.get("preset") != "design-studio":
+        raise MBError("--view needs the design-studio preset", hint="use --entry for other projects")
+    refs = [v["view"] for v in design_studio_views(prototype_files(repo, ref, worktree))]
+    try:
+        match_view(view, refs)
+    except MBError as err:
+        return f"{err}; publish looks again in the take's build"
+    return None
+
+
+def design_studio_entry(out_dir: Path, view: str) -> tuple[str, str]:
+    """Entry that opens one view on its own, through Design Studio's preview address."""
+    folder = out_dir / "prototypes"
+    try:
+        manifest = json.loads((folder / "manifest.json").read_text())
+    except (OSError, ValueError):
+        raise MBError("the build has no prototypes/manifest.json", hint="check the build command; Design Studio writes it while building")
+    found: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
+    for proto in manifest.get("prototypes", []):
+        with contextlib.suppress(OSError, ValueError, KeyError, TypeError):
+            items = json.loads((folder / "artifacts" / proto["contributorKey"] / f"{proto['id']}.json").read_text())
+            for item in items:
+                if item.get("fileType") == "view":
+                    found[f"{proto['id']}/{item['path']}"] = (proto, item)
+    try:
+        ref = match_view(view, sorted(found))
+    except MBError as err:
+        raise MBError(f"{err} in the take's build", hint=f"{err.hint}. Archived prototypes are left out of the build")
+    proto, item = found[ref]
+    if not proto.get("studioId") or not item.get("studioId"):
+        raise MBError(f"{ref} has no studio id in the build", hint="run `pnpm studio sync` in the take, then publish again")
+    config = {
+        "target": {"contributor": proto["contributorKey"], "prototype": proto["id"], "prototypeId": proto["studioId"],
+                   "artifact": item["path"], "artifactId": item["studioId"]},
+        "href": f"/prototypes/{proto['studioId']}/artifacts/{item['studioId']}", "dark": False, "surface": "page",
+    }
+    query = urllib.parse.urlencode({"studio-preview": "1", "session": "micro-branch",
+                                    "config": json.dumps(config, separators=(",", ":"))})
+    return f"index.html?{query}", ref
+
+
+# ---------------------------------------------------------------- snapshot
+
+
+def frame_entry(cfg: dict[str, Any], rnd: dict[str, Any], take: dict[str, Any], out_dir: Path) -> tuple[str, str | None]:
+    """The take's own view or entry wins, then the round's, then the repo's entry."""
+    for scope in (take, rnd):
+        if scope.get("view"):
+            return design_studio_entry(out_dir, scope["view"])
+        if scope.get("entry"):
+            return scope["entry"], None
+    return cfg["entry"], None
+
+
+def entry_file(entry: str) -> str:
+    return re.split(r"[?#]", entry, maxsplit=1)[0]
+
+
+def scrub_snapshot(snapshot: Path, rules: list[str]) -> list[dict[str, Any]]:
+    hits = []
+    for path in sorted(snapshot.rglob("*")):
+        if path.suffix not in (".js", ".mjs") or not path.is_file():
+            continue
+        text = original = path.read_text("utf-8", errors="surrogateescape")
+        for name in rules:
+            rule = SCRUB_RULES[name]
+            if rule["marker"] not in text:
+                continue
+            count = 0
+            for pattern, replacement in rule["rewrites"]:
+                text, n = pattern.subn(replacement, text)
+                count += n
+            if count:
+                hits.append({"rule": name, "file": path.relative_to(snapshot).as_posix(), "replaced": count})
+        if text != original:
+            path.write_text(text, "utf-8", errors="surrogateescape")
+    return hits
+
+
+def fetch_remote(repo: Repo, url: str) -> tuple[bytes, str]:
+    """Download one asset, cached in the state folder so republishing works offline."""
+    cache = repo.state_dir / "cache" / "remote"
+    key = hashlib.sha256(url.encode()).hexdigest()
+    body, meta = cache / f"{key}.bin", cache / f"{key}.json"
+    if body.is_file() and meta.is_file():
+        return body.read_bytes(), json.loads(meta.read_text()).get("type", "")
+    if urllib.parse.urlsplit(url).scheme != "https":
+        raise MBError("only https assets are copied")
+    request = urllib.request.Request(url, headers={"User-Agent": BROWSER_UA, "Accept": "*/*"})
+    try:
+        with urllib.request.urlopen(request, timeout=20) as resp:
+            data, kind = resp.read(LOCALIZE_MAX_BYTES + 1), resp.headers.get_content_type()
+    except (OSError, ValueError) as err:
+        raise MBError(f"download failed: {err}")
+    if len(data) > LOCALIZE_MAX_BYTES:
+        raise MBError("larger than 15 MB")
+    cache.mkdir(parents=True, exist_ok=True)
+    body.write_bytes(data)
+    meta.write_text(json.dumps({"url": url, "type": kind, "fetched_at": now()}) + "\n")
+    return data, kind
+
+
+def asset_suffix(url: str, kind: str) -> str:
+    suffix = Path(urllib.parse.urlsplit(url).path).suffix.lower()
+    if suffix in KNOWN_SUFFIXES:
+        return suffix
+    return ASSET_TYPES.get(kind, ".bin")
+
+
+def localize_snapshot(repo: Repo, cfg: dict[str, Any], snapshot: Path) -> dict[str, Any]:
+    """Copy assets from the listed hosts into mb-assets/ and point the snapshot's files at the copies."""
+    hosts = list(cfg.get("localize") or [])
+    pattern = re.compile(r"https://(?:%s)/[^\s\"'`()<>\\{}$]+(?=[\s\"'`()<>\\]|$)" % "|".join(map(re.escape, hosts)))
+    assets = snapshot / "mb-assets"
+    copies: dict[str, str | None] = {}
+    skipped: list[dict[str, str]] = []
+
+    def reference(target: str, source: Path) -> str:
+        """How `source` should point at the copy at `target` (a path inside the snapshot)."""
+        if source.suffix == ".css":  # url() resolves against the stylesheet itself
+            return os.path.relpath(snapshot / target, source.parent).replace(os.sep, "/")
+        if cfg.get("root_paths"):
+            return "/" + target
+        if source.suffix in MARKUP_SUFFIXES:
+            return os.path.relpath(snapshot / target, source.parent).replace(os.sep, "/")
+        return target  # scripts resolve against the page, which sits at the snapshot root
+
+    def copy(url: str) -> str | None:
+        if url in copies:
+            return copies[url]
+        copies[url] = None  # also stops a stylesheet that imports itself
+        try:
+            data, kind = fetch_remote(repo, url)
+        except MBError as err:
+            skipped.append({"url": url, "reason": str(err)})
+            return None
+        suffix = asset_suffix(url, kind)
+        dest = assets / (hashlib.sha256(url.encode()).hexdigest()[:16] + suffix)
+        assets.mkdir(parents=True, exist_ok=True)
+        if suffix == ".css":  # a hosted stylesheet, such as Google Fonts CSS, points at more files
+            dest.write_text(rewrite(data.decode("utf-8", "replace"), dest))
+        else:
+            dest.write_bytes(data)
+        copies[url] = dest.relative_to(snapshot).as_posix()
+        return copies[url]
+
+    def rewrite(text: str, source: Path) -> str:
+        def swap(match: re.Match) -> str:
+            url = match.group(0)
+            target = copy(html.unescape(url) if source.suffix in MARKUP_SUFFIXES else url)
+            return reference(target, source) if target else url
+        return pattern.sub(swap, text)
+
+    files = []
+    for path in sorted(snapshot.rglob("*")):
+        if path.suffix.lower() not in LOCALIZE_SUFFIXES or not path.is_file() or assets in path.parents:
+            continue
+        text = path.read_text("utf-8", errors="surrogateescape")
+        if not any(host in text for host in hosts):
+            continue
+        new = rewrite(text, path)
+        if new != text:
+            path.write_text(new, "utf-8", errors="surrogateescape")
+            files.append(path.relative_to(snapshot).as_posix())
+    return {"hosts": hosts, "assets": sum(1 for v in copies.values() if v), "files": files, "skipped": skipped[:20]}
+
+
+def prepare_snapshot(repo: Repo, cfg: dict[str, Any], snapshot: Path) -> dict[str, Any]:
+    report: dict[str, Any] = {}
+    if cfg.get("scrub"):
+        report["scrubbed"] = scrub_snapshot(snapshot, cfg["scrub"])
+    if cfg.get("localize"):
+        report["localized"] = localize_snapshot(repo, cfg, snapshot)
+    return report
+
+
+def serve_board(root: str, port: int) -> None:
+    """The board's server: the state folder on 127.0.0.1, and each frame at the root of r<N>-t<M>.localhost."""
+
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        def translate_path(self, path: str) -> str:
+            match = FRAME_HOST.match((self.headers.get("Host") or "").rsplit(":", 1)[0].lower())
+            if match:
+                hits = sorted((Path(root) / "frames").glob(f"r{match[1]}-*/t{match[2]}-*"))
+                self.directory = str(hits[0]) if len(hits) == 1 else str(Path(root) / "frames" / ".none")
+            return super().translate_path(path)
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", port), functools.partial(Handler, directory=root))
+    server.serve_forever()
+
+
 # ---------------------------------------------------------------- commands
 
 
@@ -492,10 +805,26 @@ def cmd_init(repo: Repo, args: argparse.Namespace) -> dict[str, Any]:
             if not trunk:
                 raise MBError("the main checkout is on a detached HEAD", hint="pass --trunk <branch>")
             cfg["trunk"] = trunk
+        if args.preset:
+            cfg.update(design_studio_preset(Path(repo.main_worktree)), preset=args.preset)
         for key in ("name", "build", "out", "entry", "setup", "canvas", "twombly_version", "takes_dir", "twombly_port"):
             value = getattr(args, key, None)
             if value is not None:
                 cfg[key] = None if value == "" else value
+        if args.root_paths is not None:
+            cfg["root_paths"] = args.root_paths
+        if args.localize is not None:
+            cfg["localize"] = [h.strip().lower() for h in args.localize.split(",") if h.strip()]
+        if args.localize_fonts:
+            cfg["localize"] = list(dict.fromkeys([*cfg["localize"], *GOOGLE_FONT_HOSTS]))
+        bad = [h for h in cfg["localize"] if not re.fullmatch(r"[a-z0-9-]+(\.[a-z0-9-]+)+", h)]
+        if bad:
+            raise MBError(f"not a host name: {', '.join(bad)}", hint="pass bare hosts, e.g. --localize images.example.com")
+        if args.scrub is not None:
+            cfg["scrub"] = [r.strip() for r in args.scrub.split(",") if r.strip()]
+        unknown = [r for r in cfg["scrub"] if r not in SCRUB_RULES]
+        if unknown:
+            raise MBError(f"unknown scrub rule: {', '.join(unknown)}", hint=f"known: {', '.join(SCRUB_RULES)}")
         if args.max_takes is not None:
             if not 1 <= args.max_takes <= MAX_TAKES_CEILING:
                 raise MBError(f"--max-takes must be between 1 and {MAX_TAKES_CEILING}")
@@ -527,16 +856,21 @@ def cmd_round_new(repo: Repo, args: argparse.Namespace) -> dict[str, Any]:
         base_ref = args.from_ref or state["config"]["trunk"]
         if not repo.ref_exists(base_ref):
             raise MBError(f"'{base_ref}' is not a commit")
-        rnd = add_round(state, args.slug, args.question, git("rev-parse", base_ref, cwd=repo.cwd), base_ref, None)
-        return {"ok": True, "round": rnd}
+        warning = check_view(repo, state["config"], args.view, ref=base_ref)
+        rnd = add_round(state, args, git("rev-parse", base_ref, cwd=repo.cwd), base_ref, None)
+        return {"ok": True, "round": rnd, **if_set("warning", warning)}
 
 
-def add_round(state: dict[str, Any], slug: str, question: str, base: str, base_ref: str, built_on: str | None) -> dict[str, Any]:
+def add_round(state: dict[str, Any], args: argparse.Namespace, base: str, base_ref: str, built_on: str | None,
+              inherit: dict[str, Any] | None = None) -> dict[str, Any]:
     n = len(state["rounds"]) + 1
-    rid = f"r{n}-{slugify(slug)}"
+    slug = slugify(args.slug)
+    rid = f"r{n}-{slug}"
+    inherit = inherit or {}
     rnd = {
-        "id": rid, "n": n, "slug": slugify(slug), "question": question, "base": base, "base_ref": base_ref,
+        "id": rid, "n": n, "slug": slug, "question": args.question, "base": base, "base_ref": base_ref,
         "built_on": built_on, "status": "open", "picked": None, "created_at": now(), "takes": {},
+        "entry": args.entry or inherit.get("entry"), "view": args.view or inherit.get("view"),
     }
     state["rounds"][rid] = rnd
     return rnd
@@ -546,8 +880,10 @@ def cmd_round_next(repo: Repo, args: argparse.Namespace) -> dict[str, Any]:
     with locked_state(repo) as state:
         src_round, take = resolve_take(state, args.take)
         ref = take_ref(repo, take)
-        rnd = add_round(state, args.slug, args.question, git("rev-parse", ref, cwd=repo.cwd), ref, f"{src_round['id']}/{take['id']}")
-        return {"ok": True, "round": rnd}
+        warning = check_view(repo, state["config"], args.view, ref=ref)
+        inherit = {"entry": take.get("entry") or src_round.get("entry"), "view": take.get("view") or src_round.get("view")}
+        rnd = add_round(state, args, git("rev-parse", ref, cwd=repo.cwd), ref, f"{src_round['id']}/{take['id']}", inherit)
+        return {"ok": True, "round": rnd, **if_set("warning", warning)}
 
 
 def take_ref(repo: Repo, take: dict[str, Any]) -> str:
@@ -573,6 +909,7 @@ def cmd_take_new(repo: Repo, args: argparse.Namespace) -> dict[str, Any]:
         if args.from_take:
             _, src = resolve_take(state, args.from_take, round_hint=rnd["id"])
             base, from_take = git("rev-parse", take_ref(repo, src), cwd=repo.cwd), src["id"]
+        warning = check_view(repo, cfg, args.view, ref=base)  # before any branch exists
         n, slug = len(rnd["takes"]) + 1, slugify(args.slug)
         tid = f"t{n}-{slug}"
         branch = f"mb/{rnd['id']}/{tid}"
@@ -584,11 +921,12 @@ def cmd_take_new(repo: Repo, args: argparse.Namespace) -> dict[str, Any]:
         take = {
             "id": tid, "n": n, "slug": slug, "branch": branch, "worktree": str(path), "base": base,
             "from_take": from_take, "note": args.note or "", "status": "open", "commit": None, "frame": None,
-            "archive_tag": None, "created_at": now(),
+            "archive_tag": None, "created_at": now(), "entry": args.entry, "view": args.view,
         }
         rnd["takes"][tid] = take
-    setup = run_setup(cfg.get("setup"), take, take_env(repo, rnd, take))
-    return {"ok": True, "round": rnd["id"], "take": take, "label": label(rnd, take), "setup": setup}
+    setup = run_setup(repo, cfg.get("setup"), take, take_env(repo, rnd, take))
+    return {"ok": True, "round": rnd["id"], "take": take, "label": label(rnd, take), "setup": setup,
+            **if_set("warning", warning)}
 
 
 def take_env(repo: Repo, rnd: dict[str, Any], take: dict[str, Any]) -> dict[str, str]:
@@ -597,14 +935,43 @@ def take_env(repo: Repo, rnd: dict[str, Any], take: dict[str, Any]) -> dict[str,
                 MB_MAIN=str(repo.main_worktree))
 
 
-def run_setup(cmd: str | None, take: dict[str, Any], env: dict[str, str]) -> dict[str, Any] | None:
+def run_setup(repo: Repo, cmd: str | None, take: dict[str, Any], env: dict[str, str]) -> dict[str, Any] | None:
     if not cmd:
         return None
     proc = subprocess.run(cmd, shell=True, cwd=take["worktree"], text=True, capture_output=True, env=env)
     if proc.returncode != 0:
         raise MBError(f"setup failed in {take['worktree']}", hint="fix the setup command with `mb.py init --setup`",
                       stderr=proc.stderr.strip()[-2000:])
-    return {"command": cmd, "ok": True}
+    return {"command": cmd, "ok": True, "ignored_links": ignore_setup_links(repo, Path(take["worktree"]))}
+
+
+def ignore_setup_links(repo: Repo, worktree: Path) -> list[str]:
+    """Keep symlinks that setup made out of take commits.
+
+    `.gitignore` entries like `node_modules/` match folders only, so a linked
+    node_modules would otherwise be committed. The links go into the repo's
+    local `info/exclude`, which is never committed or pushed.
+    """
+    out = git("ls-files", "-z", "--others", "--exclude-standard", cwd=worktree)
+    links = [p for p in out.split("\0") if p and (worktree / p).is_symlink()]
+    exclude = repo.common_dir / "info" / "exclude"
+    text = exclude.read_text() if exclude.exists() else ""
+    lines = text.splitlines()
+    patterns = ["/" + re.sub(r"([\\*?\[!#])", r"\\\1", p) for p in links]  # match each link literally
+    new = [line for line in dict.fromkeys(patterns) if line not in lines]
+    if not new:
+        return links
+    block = []
+    if text and not text.endswith("\n"):
+        block.append("")
+    if EXCLUDE_HEADER not in lines:
+        if lines:
+            block.append("")
+        block.append(EXCLUDE_HEADER)
+    exclude.parent.mkdir(parents=True, exist_ok=True)
+    with open(exclude, "a") as fh:
+        fh.write("\n".join(block + new) + "\n")
+    return links
 
 
 def cmd_open(repo: Repo, args: argparse.Namespace) -> dict[str, Any]:
@@ -648,29 +1015,34 @@ def cmd_publish(repo: Repo, args: argparse.Namespace) -> dict[str, Any]:
     out_dir = (worktree / cfg["out"]).resolve()
     if not out_dir.is_dir():
         raise MBError(f"build output '{cfg['out']}' does not exist in the take", hint="set the right folder with `mb.py init --out`")
-    if not (out_dir / cfg["entry"]).exists():
-        raise MBError(f"'{cfg['entry']}' is missing from the build output", hint="set the entry file with `mb.py init --entry`")
+    entry, view = frame_entry(cfg, rnd, take, out_dir)
+    if not (out_dir / entry_file(entry)).exists():
+        raise MBError(f"'{entry_file(entry)}' is missing from the build output",
+                      hint="set the entry with `mb.py init --entry`, or per round with `round new --entry`")
     snapshot = repo.state_dir / "frames" / rnd["id"] / take["id"]
     if snapshot.exists():
         shutil.rmtree(snapshot)
     snapshot.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(out_dir, snapshot, ignore=shutil.ignore_patterns(*FRAME_IGNORE))
+    prepared = prepare_snapshot(repo, cfg, snapshot)
     failure: MBError | None = None
     with locked_state(repo) as fresh:
         f_rnd = fresh["rounds"][rnd["id"]]
         stored = f_rnd["takes"][take["id"]]
         try:
-            frame = adapter_for(repo, fresh, args.canvas).publish(f_rnd, stored, snapshot)
+            frame = adapter_for(repo, fresh, args.canvas).publish(f_rnd, stored, snapshot, entry)
             status = "published"
         except MBError as err:
             failure, status = err, "rejected"
             frame = {**(stored.get("frame") or {}), "adapter": "board", "path": str(snapshot.relative_to(repo.state_dir))}
-        frame.update(published_at=now(), commit=commit)
+        frame.update(published_at=now(), commit=commit, entry=entry, view=view)
         stored.update(status=status, commit=commit, frame=frame)
         BoardAdapter(repo, fresh).render()  # the local board mirrors every canvas
     if failure:
+        failure.extra.setdefault("prepared", prepared)
         raise failure
-    return {"ok": True, "label": label(rnd, take), "committed": committed, "commit": commit, "frame": frame}
+    return {"ok": True, "label": label(rnd, take), "committed": committed, "commit": commit, "frame": frame,
+            **if_set("prepared", prepared)}
 
 
 def commit_take(worktree: Path, rnd: dict[str, Any], take: dict[str, Any], message: str | None) -> bool:
@@ -800,6 +1172,20 @@ def cmd_feedback(repo: Repo, args: argparse.Namespace) -> dict[str, Any]:
         return {"ok": True, "takes_by_label": labels, **result}
 
 
+def cmd_views(repo: Repo, args: argparse.Namespace) -> dict[str, Any]:
+    state = read_state(repo)
+    if state["config"].get("preset") != "design-studio":
+        raise MBError("views lists Design Studio views", hint="run `mb.py init --preset design-studio` in a Design Studio folder")
+    if args.take:
+        _, take = resolve_take(state, args.take)
+        files, source = prototype_files(repo, worktree=Path(take["worktree"])), take["worktree"]
+    else:
+        ref = args.from_ref or state["config"]["trunk"]
+        files, source = prototype_files(repo, ref=ref), ref
+    views = design_studio_views(files)
+    return {"ok": True, "source": source, "count": len(views), "views": views}
+
+
 # ---------------------------------------------------------------- cli
 
 
@@ -820,6 +1206,12 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--twombly-version")
     init.add_argument("--twombly-port", type=int, help="local port for Twombly (default 4848)")
     init.add_argument("--takes-dir")
+    init.add_argument("--preset", choices=PRESETS, help="fill in build, output and setup for a known kind of project")
+    init.add_argument("--root-paths", action=argparse.BooleanOptionalAction, default=None,
+                      help="the build uses root paths like /assets/; the board serves each frame on its own origin")
+    init.add_argument("--localize", help="comma-separated hosts whose assets are copied into each frame ('' for none)")
+    init.add_argument("--localize-fonts", action="store_true", help="add the Google Fonts hosts to --localize")
+    init.add_argument("--scrub", help=f"comma-separated scrub rules ('' for none): {', '.join(SCRUB_RULES)}")
     init.set_defaults(func=cmd_init)
 
     st = sub.add_parser("status", help="rounds, takes, branches and frames")
@@ -832,11 +1224,14 @@ def build_parser() -> argparse.ArgumentParser:
     rn.add_argument("slug")
     rn.add_argument("--question", required=True)
     rn.add_argument("--from", dest="from_ref", help="base commit or branch (default: trunk)")
-    rn.set_defaults(func=cmd_round_new)
     rx = rsub.add_parser("next", help="start a round from a take without merging it")
     rx.add_argument("take")
     rx.add_argument("slug")
     rx.add_argument("--question", required=True)
+    for parser in (rn, rx):
+        parser.add_argument("--entry", help="entry for this round's frames, e.g. 'index.html?variant=b'")
+        parser.add_argument("--view", help="Design Studio view the frames open on, e.g. '<prototype>/<path>.tsx'")
+    rn.set_defaults(func=cmd_round_new)
     rx.set_defaults(func=cmd_round_next)
     rc = rsub.add_parser("close", help="archive every take without picking one")
     rc.add_argument("round")
@@ -849,6 +1244,8 @@ def build_parser() -> argparse.ArgumentParser:
     tn.add_argument("slug")
     tn.add_argument("--note")
     tn.add_argument("--from", dest="from_take", help="branch from another take instead of the round base")
+    tn.add_argument("--entry", help="entry for this take's frame (default: the round's)")
+    tn.add_argument("--view", help="Design Studio view for this take's frame (default: the round's)")
     tn.set_defaults(func=cmd_take_new)
 
     pub = sub.add_parser("publish", help="commit, build, snapshot and place a take on the canvas")
@@ -874,10 +1271,19 @@ def build_parser() -> argparse.ArgumentParser:
     fb = sub.add_parser("feedback", help="what the person is looking at and their comments")
     fb.add_argument("--canvas", choices=sorted(ADAPTERS))
     fb.set_defaults(func=cmd_feedback)
+
+    vw = sub.add_parser("views", help="list Design Studio views a round can open on")
+    vw.add_argument("--from", dest="from_ref", help="commit or branch to list (default: trunk)")
+    vw.add_argument("--take", help="list a take's files instead, including new views")
+    vw.set_defaults(func=cmd_views)
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["_board-serve"]:  # internal: the board's server process
+        serve_board(argv[1], int(argv[2]))
+        return 0
     args = build_parser().parse_args(argv)
     try:
         repo = Repo(Path.cwd())
@@ -903,7 +1309,7 @@ h1{{font-size:20px;margin:0 0 4px}}h2{{font-size:16px;margin:32px 0 2px}}.meta,.
 .viewport{{position:relative;overflow:hidden;border-top:1px solid var(--line);background:#fff}}.viewport iframe{{border:0;transform-origin:0 0;position:absolute;inset:0 auto auto 0}}
 .viewport.empty{{height:120px;display:grid;place-items:center;color:var(--muted);background:transparent}}
 .note{{margin:0;padding:8px 12px 0;color:var(--muted)}}a{{color:var(--accent)}}
-</style></head><body><h1>{title}</h1><p class="updated">Local board · updated {updated} · reload to refresh</p>{body}</body></html>
+</style></head><body><h1>{title}</h1><p class="updated">Local board · updated {updated} · reload to refresh</p>{body}<script>for(const el of document.querySelectorAll("[data-frame-host]"))el.setAttribute(el.dataset.attr,location.protocol+"//"+el.dataset.frameHost+".localhost:"+location.port+"/"+el.dataset.entry)</script></body></html>
 """
 
 if __name__ == "__main__":

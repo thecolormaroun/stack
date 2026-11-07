@@ -8,15 +8,16 @@ The refactor began with 150 callable skills. Nine personal-operations and
 knowledge-management workflows were integrated into their existing native
 owners and removed from Stack, leaving 141 capabilities. The full Emil Kowalski
 collection (15 more pinned imports under `skills/imported/emil/`) and Stewdio's
-`blank-page` (`skills/imported/stewdio/`) bring the catalog to 157 capabilities:
-149 active capabilities and eight deprecated compatibility routes.
+`blank-page` (`skills/imported/stewdio/`) and the Stack-owned `micro-branch`
+(`skills/design/micro-branch/`) bring the catalog to 158 capabilities:
+150 active capabilities and eight deprecated compatibility routes.
 
 | Family | Capabilities |
 | --- | ---: |
 | Core | 5 |
 | Product | 6 |
 | Planning | 7 |
-| Design | 29 |
+| Design | 30 |
 | Engineering | 71 |
 | Orchestration | 11 |
 | Review | 5 |

@@ -617,6 +617,11 @@
       "source": "skills/studio/menu/SKILL.md"
     },
     {
+      "canonical_name": "micro-branch",
+      "destination": "skills/design/micro-branch/SKILL.md",
+      "source": "skills/design/micro-branch/SKILL.md"
+    },
+    {
       "canonical_name": "muller-brockmann-grid-systems",
       "destination": "skills/knowledge/muller-brockmann-grid-systems/SKILL.md",
       "source": "skills/muller-brockmann-grid-systems/SKILL.md"

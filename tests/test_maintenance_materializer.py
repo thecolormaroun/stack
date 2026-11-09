@@ -21,6 +21,46 @@ def _module():
 
 
 class MaintenanceMaterializerTests(unittest.TestCase):
+    def test_missing_mapped_directory_requires_explicit_deletion_approval(self) -> None:
+        import tempfile
+
+        materializer = _module()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            stage, checkout = root / "stage", root / "checkout"
+            target = stage / "skills/imported/david/david-agent-self-scheduling"
+            (target / "references").mkdir(parents=True)
+            checkout.mkdir()
+            license_bytes = b"MIT License\nPermission is hereby granted, free of charge\n"
+            (checkout / "LICENSE").write_bytes(license_bytes)
+            old_pin, new_pin = "a" * 40, "b" * 40
+            (target / "SKILL.md").write_text("preserve existing bytes\n", encoding="utf-8")
+            (target / "references/source.md").write_text(
+                f"- Upstream path: `skills/agent-orchestration/agent-self-scheduling`\n- Inspected commit: `{old_pin}`\n",
+                encoding="utf-8",
+            )
+            provider = {
+                "id": "david",
+                "canonical_source": "https://github.com/davidondrej/skills.git",
+                "pin": {"type": "git-commit", "value": old_pin},
+                "license_sha256": hashlib.sha256(license_bytes).hexdigest(),
+            }
+            rule = {
+                "id": "david", "display_name": "David Ondrej",
+                "mapping": "existing-source-markdown", "license": "MIT",
+                "target_root": "skills/imported/david", "target_prefix": "david-",
+                "source_metadata": "references/source.md",
+                "retained_targets": [{
+                    "source": "skills/ops-and-setup/cyber-audit",
+                    "target": "skills/imported/david/david-cyber-audit",
+                    "pin": old_pin,
+                }],
+            }
+
+            with self.assertRaisesRegex(materializer.ProposalError, "upstream_deletion_requires_approval"):
+                materializer.materialize_provider(stage, checkout, provider, rule, new_pin)
+            self.assertEqual((target / "SKILL.md").read_text(encoding="utf-8"), "preserve existing bytes\n")
+
     def test_import_normalizes_whitespace_only_lines_without_changing_markdown_breaks(self) -> None:
         import tempfile
 

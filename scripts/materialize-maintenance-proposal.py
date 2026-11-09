@@ -381,9 +381,15 @@ def materialize_provider(stage: Path, checkout: Path, provider: dict[str, Any], 
         source_root = checkout / source_relative
         target_root = stage / target_relative
         if not source_root.is_dir():
-            retained_pin = retained_targets.get((source_relative, target_relative))
-            if retained_pin is None or inspected_pin != retained_pin or not target_root.is_dir():
+            if not target_root.is_dir():
                 raise ProposalError("mapped_skill_missing")
+            retained_pin = retained_targets.get((source_relative, target_relative))
+            if retained_pin is None or inspected_pin != retained_pin:
+                # A mapped target disappearing upstream is a removal decision,
+                # not an unexplained mapping failure. Keep the existing target
+                # bytes untouched and fail closed until retention/removal is
+                # explicitly represented in the curated import rule.
+                raise ProposalError("upstream_deletion_requires_approval")
             continue
         if not target_root.is_dir():
             raise ProposalError("mapped_skill_missing")

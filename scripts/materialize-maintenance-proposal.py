@@ -251,7 +251,48 @@ def materialized_skill(source: Path, *, target_name: str, display_name: str, com
     return wrapper.encode("utf-8")
 
 
-def source_metadata_markdown(*, target_name: str, upstream_name: str, source: str, source_path: str, commit: str, license_text: str, retained_files: list[str], retained_pin: str) -> bytes:
+def retained_file_origins(metadata: Path, mapping: str) -> dict[str, str]:
+    """Recover provenance from the previously committed import metadata."""
+    if mapping == "explicit-source-json":
+        entries = read_object(metadata, "retained_file_metadata_invalid").get("retained_files", [])
+        if not isinstance(entries, list) or any(not isinstance(row, dict) for row in entries):
+            raise ProposalError("retained_file_metadata_invalid")
+        pairs = [(row.get("path"), row.get("inspected_commit")) for row in entries]
+    else:
+        lines = metadata.read_text(encoding="utf-8").splitlines()
+        pairs = []
+        for line in lines:
+            if line.startswith("- Retained file: "):
+                match = re.fullmatch(r"- Retained file: `([^`]+)` at `([a-f0-9]{40})`", line)
+                if match is None:
+                    raise ProposalError("retained_file_metadata_invalid")
+                pairs.append((match.group(1), match.group(2)))
+        legacy_files = [line for line in lines if line.startswith("- Retained removed files:")]
+        legacy_pins = [line for line in lines if line.startswith("- Retained files inspected commit:")]
+        if legacy_files or legacy_pins:
+            if len(legacy_files) != 1 or len(legacy_pins) != 1:
+                raise ProposalError("retained_file_metadata_invalid")
+            files_match = re.fullmatch(r"- Retained removed files: `([^`]+)`", legacy_files[0])
+            pin_match = re.fullmatch(r"- Retained files inspected commit: `([a-f0-9]{40})`", legacy_pins[0])
+            if files_match is None or pin_match is None:
+                raise ProposalError("retained_file_metadata_invalid")
+            legacy = [(path, pin_match.group(1)) for path in files_match.group(1).split(", ")]
+            if pairs and dict(pairs) != dict(legacy):
+                raise ProposalError("retained_file_metadata_invalid")
+            if not pairs:
+                pairs = legacy
+    origins: dict[str, str] = {}
+    for path, pin in pairs:
+        if not isinstance(path, str) or not isinstance(pin, str) or SHA1.fullmatch(pin) is None:
+            raise ProposalError("retained_file_metadata_invalid")
+        relative = safe_relative(path).as_posix()
+        if relative in origins:
+            raise ProposalError("retained_file_metadata_invalid")
+        origins[relative] = pin
+    return origins
+
+
+def source_metadata_markdown(*, target_name: str, upstream_name: str, source: str, source_path: str, commit: str, license_text: str, retained_files: Mapping[str, str]) -> bytes:
     rows = [
             "# Source Metadata",
             "",
@@ -262,13 +303,14 @@ def source_metadata_markdown(*, target_name: str, upstream_name: str, source: st
             f"- Inspected commit: `{commit}`",
             "- License: MIT",
     ]
-    if retained_files:
+    if retained_files and len(set(retained_files.values())) == 1:
         rows.extend(
             [
                 f"- Retained removed files: `{', '.join(retained_files)}`",
-                f"- Retained files inspected commit: `{retained_pin}`",
+                f"- Retained files inspected commit: `{next(iter(retained_files.values()))}`",
             ]
         )
+    rows.extend(f"- Retained file: `{path}` at `{pin}`" for path, pin in sorted(retained_files.items()))
     rows.extend(
         [
             "",
@@ -284,7 +326,7 @@ def source_metadata_markdown(*, target_name: str, upstream_name: str, source: st
     return value.encode("utf-8")
 
 
-def source_metadata_json(*, source: str, source_path: str, commit: str, files: list[str], retained_files: list[str], retained_pin: str) -> bytes:
+def source_metadata_json(*, source: str, source_path: str, commit: str, files: list[str], retained_files: Mapping[str, str]) -> bytes:
     return canonical_json(
         {
             "source_repo": source.removesuffix(".git"),
@@ -293,8 +335,8 @@ def source_metadata_json(*, source: str, source_path: str, commit: str, files: l
             "latest_commit": {"sha": commit},
             "files": files,
             "retained_files": [
-                {"path": path, "inspected_commit": retained_pin}
-                for path in retained_files
+                {"path": path, "inspected_commit": pin}
+                for path, pin in sorted(retained_files.items())
             ],
         }
     ).encode("utf-8")
@@ -427,6 +469,8 @@ def materialize_provider(stage: Path, checkout: Path, provider: dict[str, Any], 
         if any(path not in retained_files for path in removed_files):
             raise ProposalError("upstream_deletion_requires_approval")
         metadata_target = target_relative / metadata_relative
+        previous_origins = retained_file_origins(target_root / metadata_relative, str(rule.get("mapping"))) if removed_files else {}
+        retained_origins = {path.as_posix(): previous_origins.get(path.as_posix(), inspected_pin) for path in removed_files}
         upstream_file_names = [path.relative_to(checkout).as_posix() for path in source_files]
         if rule.get("mapping") == "existing-source-markdown":
             outputs[metadata_target.as_posix()] = source_metadata_markdown(
@@ -436,8 +480,7 @@ def materialize_provider(stage: Path, checkout: Path, provider: dict[str, Any], 
                 source_path=source_relative.as_posix(),
                 commit=commit,
                 license_text=license_text,
-                retained_files=[path.as_posix() for path in removed_files],
-                retained_pin=str(provider["pin"]["value"]),
+                retained_files=retained_origins,
             )
         else:
             outputs[metadata_target.as_posix()] = source_metadata_json(
@@ -445,8 +488,7 @@ def materialize_provider(stage: Path, checkout: Path, provider: dict[str, Any], 
                 source_path=source_relative.as_posix(),
                 commit=commit,
                 files=upstream_file_names,
-                retained_files=[path.as_posix() for path in removed_files],
-                retained_pin=str(provider["pin"]["value"]),
+                retained_files=retained_origins,
             )
     return outputs
 

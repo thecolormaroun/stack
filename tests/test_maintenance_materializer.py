@@ -267,6 +267,88 @@ class MaintenanceMaterializerTests(unittest.TestCase):
                 {},
             )
 
+    def test_retained_files_keep_each_origin_across_consecutive_advances(self) -> None:
+        import tempfile
+
+        materializer = _module()
+        for mapping in ("existing-source-markdown", "explicit-source-json"):
+            with self.subTest(mapping=mapping), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                stage, checkout = root / "stage", root / "checkout"
+                source_relative = Path("skills/engineering/domain-modeling")
+                target_relative = Path("skills/imported/matt/matt-domain-modeling")
+                source, target = checkout / source_relative, stage / target_relative
+                source.mkdir(parents=True)
+                (target / "references").mkdir(parents=True)
+                license_bytes = b"MIT License\nPermission is hereby granted, free of charge\n"
+                (checkout / "LICENSE").write_bytes(license_bytes)
+                (source / "SKILL.md").write_text("---\nname: domain-modeling\ndescription: x\n---\nbody\n")
+                (source / "later.md").write_bytes(b"second retained file\n")
+                (target / "SKILL.md").write_text("existing imported skill\n")
+                (target / "capability.json").write_text("{}\n")
+                (target / "legacy.md").write_bytes(b"first retained file\n")
+                (target / "later.md").write_bytes(b"second retained file\n")
+                metadata_relative = Path("references/source.md" if mapping == "existing-source-markdown" else "references/source.json")
+                metadata = target / metadata_relative
+                if mapping == "existing-source-markdown":
+                    metadata.write_text(f"- Upstream path: `{source_relative}`\n- Inspected commit: `{'a' * 40}`\n")
+                else:
+                    metadata.write_text("{}\n")
+                provider = {
+                    "pin": {"type": "git-commit", "value": "a" * 40},
+                    "canonical_source": "https://github.com/mattpocock/skills.git",
+                    "license_sha256": hashlib.sha256(license_bytes).hexdigest(),
+                }
+                rule = {
+                    "mapping": mapping, "license": "MIT", "display_name": "Matt Pocock",
+                    "target_root": "skills/imported/matt", "target_prefix": "matt-",
+                    "source_metadata": metadata_relative.as_posix(),
+                    "retained_files": ["legacy.md", "later.md"],
+                    "targets": [{"source": source_relative.as_posix(), "target": target_relative.as_posix()}],
+                }
+                for pin in ("b" * 40, "c" * 40, "d" * 40):
+                    if pin == "c" * 40:
+                        (source / "later.md").unlink()
+                    outputs = materializer.materialize_provider(stage, checkout, provider, rule, pin)
+                    self.assertNotIn((target_relative / "legacy.md").as_posix(), outputs)
+                    for relative, content in outputs.items():
+                        path = stage / relative
+                        path.parent.mkdir(parents=True, exist_ok=True)
+                        path.write_bytes(content)
+                    provider["pin"]["value"] = pin
+                    expected = {"legacy.md": "a" * 40}
+                    if pin != "b" * 40:
+                        expected["later.md"] = "b" * 40
+                        self.assertNotIn((target_relative / "later.md").as_posix(), outputs)
+                    self.assertEqual(materializer.retained_file_origins(metadata, mapping), expected)
+                    self.assertEqual((target / "legacy.md").read_bytes(), b"first retained file\n")
+                    self.assertEqual((target / "later.md").read_bytes(), b"second retained file\n")
+
+    def test_legacy_retained_file_metadata_and_malformed_origins(self) -> None:
+        import json
+        import tempfile
+
+        materializer = _module()
+        with tempfile.TemporaryDirectory() as temporary:
+            metadata = Path(temporary) / "source.md"
+            metadata.write_text(
+                f"- Retained removed files: `old.md`\n- Retained files inspected commit: `{'a' * 40}`\n"
+            )
+            self.assertEqual(materializer.retained_file_origins(metadata, "existing-source-markdown"), {"old.md": "a" * 40})
+            for text in (
+                "- Retained removed files: `old.md`\n",
+                "- Retained files inspected commit: `bad`\n",
+                f"- Retained file: `old.md` at `{'a' * 40}`\n- Retained file: `old.md` at `{'b' * 40}`\n",
+            ):
+                metadata.write_text(text)
+                with self.assertRaisesRegex(materializer.ProposalError, "retained_file_metadata_invalid"):
+                    materializer.retained_file_origins(metadata, "existing-source-markdown")
+            metadata = Path(temporary) / "source.json"
+            for rows in (None, [{"path": "old.md", "inspected_commit": "bad"}], [{"path": "old.md", "inspected_commit": "a" * 40}] * 2):
+                metadata.write_text(json.dumps({"retained_files": rows}))
+                with self.assertRaisesRegex(materializer.ProposalError, "retained_file_metadata_invalid"):
+                    materializer.retained_file_origins(metadata, "explicit-source-json")
+
     def test_license_text_with_extra_restrictions_does_not_match_approved_digest(self) -> None:
         import tempfile
 

@@ -195,6 +195,28 @@ class UpstreamPackageTests(unittest.TestCase):
             | {f"skills/imported/emil/{name}" for name in EMIL_COLLECTION},
         )
 
+    def test_retained_targets_bind_existing_import_provenance(self) -> None:
+        rules = json.loads((ROOT / "registry/maintenance-imports.json").read_text())
+        for rule in rules["providers"]:
+            seen: set[str] = set()
+            for row in rule["retained_targets"]:
+                with self.subTest(provider=rule["id"], target=row["target"]):
+                    self.assertNotIn(row["target"], seen)
+                    seen.add(row["target"])
+                    target = ROOT / row["target"]
+                    target.resolve().relative_to((ROOT / rule["target_root"]).resolve())
+                    self.assertTrue((target / "SKILL.md").is_file())
+                    self.assertRegex(row["pin"], r"^[a-f0-9]{40}$")
+                    metadata = target / rule["source_metadata"]
+                    if rule["mapping"] == "existing-source-markdown":
+                        text = metadata.read_text()
+                        self.assertIn(f"- Upstream path: `{row['source']}`", text)
+                        self.assertIn(f"- Inspected commit: `{row['pin']}`", text)
+                    else:
+                        source = json.loads(metadata.read_text())
+                        self.assertEqual(source["upstream_skill_path"], row["source"])
+                        self.assertEqual(source["latest_commit"]["sha"], row["pin"])
+
     def test_sync_preflight_fails_closed_for_a_missing_checkout(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             result = subprocess.run(["python3", "scripts/sync-upstreams.py", "--check-checkout", "gstack", temporary], cwd=ROOT, text=True, capture_output=True, check=False)

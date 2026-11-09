@@ -14,9 +14,14 @@
           "source": "skills/productivity/writing-great-skills",
           "target": "skills/imported/matt/matt-writing-great-skills",
           "pin": "391a2701dd948f94f56a39f7533f8eea9a859c87"
+        },
+        {
+          "source": "skills/engineering/resolving-merge-conflicts",
+          "target": "skills/imported/matt/matt-resolving-merge-conflicts",
+          "pin": "391a2701dd948f94f56a39f7533f8eea9a859c87"
         }
       ],
-      "retained_files": []
+      "retained_files": ["CONTEXT-FORMAT.md"]
     },
     {
       "id": "david",
@@ -30,6 +35,71 @@
         {
           "source": "skills/ops-and-setup/cyber-audit",
           "target": "skills/imported/david/david-cyber-audit",
+          "pin": "5c99080334072075eb9e0a17837f7d24e4f3e6ae"
+        },
+        {
+          "source": "skills/agent-orchestration/agent-self-scheduling",
+          "target": "skills/imported/david/david-agent-self-scheduling",
+          "pin": "5c99080334072075eb9e0a17837f7d24e4f3e6ae"
+        },
+        {
+          "source": "skills/thinking-and-docs/brain-to-docs",
+          "target": "skills/imported/david/david-brain-to-docs",
+          "pin": "5c99080334072075eb9e0a17837f7d24e4f3e6ae"
+        },
+        {
+          "source": "skills/skill-authoring/folder-specific-claude-and-agents-md",
+          "target": "skills/imported/david/david-folder-specific-claude-and-agents-md",
+          "pin": "5c99080334072075eb9e0a17837f7d24e4f3e6ae"
+        },
+        {
+          "source": "skills/ops-and-setup/google-safe-browsing",
+          "target": "skills/imported/david/david-google-safe-browsing",
+          "pin": "5c99080334072075eb9e0a17837f7d24e4f3e6ae"
+        },
+        {
+          "source": "skills/thinking-and-docs/level-up",
+          "target": "skills/imported/david/david-level-up",
+          "pin": "5c99080334072075eb9e0a17837f7d24e4f3e6ae"
+        },
+        {
+          "source": "skills/ops-and-setup/pi-custom-model",
+          "target": "skills/imported/david/david-pi-custom-model",
+          "pin": "5c99080334072075eb9e0a17837f7d24e4f3e6ae"
+        },
+        {
+          "source": "skills/research-and-web/pi-web-search",
+          "target": "skills/imported/david/david-pi-web-search",
+          "pin": "5c99080334072075eb9e0a17837f7d24e4f3e6ae"
+        },
+        {
+          "source": "skills/thinking-and-docs/prompt-me",
+          "target": "skills/imported/david/david-prompt-me",
+          "pin": "5c99080334072075eb9e0a17837f7d24e4f3e6ae"
+        },
+        {
+          "source": "skills/skill-authoring/push-skill-to-github",
+          "target": "skills/imported/david/david-push-skill-to-github",
+          "pin": "5c99080334072075eb9e0a17837f7d24e4f3e6ae"
+        },
+        {
+          "source": "skills/research-and-web/research-prompt",
+          "target": "skills/imported/david/david-research-prompt",
+          "pin": "5c99080334072075eb9e0a17837f7d24e4f3e6ae"
+        },
+        {
+          "source": "skills/agent-orchestration/run-deep-swe",
+          "target": "skills/imported/david/david-run-deep-swe",
+          "pin": "5c99080334072075eb9e0a17837f7d24e4f3e6ae"
+        },
+        {
+          "source": "skills/thinking-and-docs/short",
+          "target": "skills/imported/david/david-short",
+          "pin": "5c99080334072075eb9e0a17837f7d24e4f3e6ae"
+        },
+        {
+          "source": "skills/research-and-web/youtube-transcript",
+          "target": "skills/imported/david/david-youtube-transcript",
           "pin": "5c99080334072075eb9e0a17837f7d24e4f3e6ae"
         }
       ],

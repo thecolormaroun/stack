@@ -62,6 +62,7 @@ ASSET_TYPES = {
 }
 KNOWN_SUFFIXES = set(ASSET_TYPES.values()) | {".jpeg", ".ico", ".json"}
 PRESETS = ("design-studio",)
+FRAME_KEYS = ("path", "published_at", "commit", "entry", "view")
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "trunk": None,
@@ -204,12 +205,27 @@ def read_state(repo: Repo) -> dict[str, Any]:
     state = json.loads(repo.state_file.read_text())
     if state.get("version") != STATE_VERSION:
         raise MBError(f"state version {state.get('version')} is not supported by this script")
+    migrate(state)
+    return state
+
+
+def migrate(state: dict[str, Any]) -> None:
+    """Bring state written by an older version in line with this one; the board is the only canvas.
+
+    Settings, canvas records and frame fields this version doesn't know are dropped,
+    and takes another canvas refused become published, since the board shows them.
+    Any command that saves state (plain `init` will do) writes the result to disk.
+    """
     stored = state.get("config", {})
-    # Keys an older version wrote (such as a canvas choice) are dropped; the board is the only canvas.
     state["config"] = {key: stored.get(key, default) for key, default in DEFAULT_CONFIG.items()}
     board = (state.get("canvas") or {}).get("board")
     state["canvas"] = {"board": board} if board else {}
-    return state
+    for rnd in state.get("rounds", {}).values():
+        for take in rnd.get("takes", {}).values():
+            if take.get("frame"):
+                take["frame"] = {key: take["frame"][key] for key in FRAME_KEYS if key in take["frame"]}
+            if take.get("status") == "rejected":
+                take["status"] = "published"
 
 
 def resolve(state: dict[str, Any], ref: str, round_hint: str | None = None) -> tuple[dict[str, Any], dict[str, Any] | None]:

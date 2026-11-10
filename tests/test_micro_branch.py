@@ -250,20 +250,40 @@ class MicroBranchTest(unittest.TestCase):
             [sys.executable, str(MB), "publish", "r1/t1", "--canvas", "board"], cwd=self.sb.repo,
             env=self.sb.env, capture_output=True, text=True).stderr)
 
-    def test_state_from_an_older_version_drops_its_canvas_settings(self) -> None:
+    def test_state_from_the_twombly_version_is_rewritten_for_the_board(self) -> None:
+        self.sb.mb("round", "new", "before upgrade", "--question", "q")
+        self.cut("r1", "a", "<h1>a</h1>\n")
+        self.cut("r1", "b", "<h1>b</h1>\n")
+        self.sb.mb("publish", "r1/t1")
+        self.sb.mb("publish", "r1/t2")
+        self.sb.mb("canvas", "stop")
         path = self.sb.repo / ".git" / "micro-branch" / "state.json"
         state = json.loads(path.read_text())
-        state["config"].update(canvas="twombly", twombly_version="0.4.10", twombly_port=4848, scrub=["x"])
-        state["canvas"] = {"twombly": {"initialized": True, "port": 4848}}
+        state["config"].update(canvas="twombly", twombly_version="0.4.10", twombly_port=4848,
+                               scrub=["excalidraw-public-config"])
+        state["canvas"] = {"twombly": {"initialized": True, "port": 4848, "url": "http://localhost:4848/abc"}}
+        takes = state["rounds"]["r1-before-upgrade"]["takes"]
+        takes["t1-a"]["frame"].update(adapter="twombly", url="http://localhost:4848/abc", twombly={"id": "f1"})
+        takes["t2-b"]["status"] = "rejected"
         path.write_text(json.dumps(state))
-        status = self.sb.mb("status")
-        for key in ("canvas", "twombly_version", "twombly_port", "scrub"):
-            self.assertNotIn(key, status["config"])
-        self.assertEqual(status["canvas"], {})
-        self.sb.mb("round", "new", "after upgrade", "--question", "q")
-        self.cut("r1", "a", "<h1>a</h1>\n")
+        # reading tolerates the old state; plain init writes the cleaned version to disk
+        self.assertNotIn("canvas", self.sb.mb("status")["config"])
+        self.sb.mb("init")
+        text = path.read_text()
+        self.assertNotIn("twombly", text.lower())
+        self.assertNotIn("scrub", text)
+        clean = json.loads(text)
+        self.assertEqual(clean["canvas"], {})
+        takes = clean["rounds"]["r1-before-upgrade"]["takes"]
+        self.assertEqual(set(takes["t1-a"]["frame"]), {"path", "published_at", "commit", "entry", "view"})
+        self.assertEqual(takes["t2-b"]["status"], "published")
+        self.assertEqual(clean["config"]["trunk"], "main")
+        board = self.sb.mb("canvas", "open")
+        with urllib.request.urlopen(board["url"], timeout=5) as resp:
+            page = resp.read().decode()
+        self.assertIn("R1 · T1 a", page)
+        self.assertIn("R1 · T2 b", page)
         self.assertTrue(self.sb.mb("publish", "r1/t1")["ok"])
-        self.assertNotIn("twombly", json.dumps(self.sb.state()["config"]))
 
     def test_outside_git_repo_fails_cleanly(self) -> None:
         proc = subprocess.run([sys.executable, str(MB), "status"], cwd=self.sb.tmp, capture_output=True, text=True,

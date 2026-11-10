@@ -22,6 +22,7 @@ Every failure prints `"ok": false` with `error` and `hint`. Match the error here
 | `does not merge cleanly into <trunk>` | Trunk moved since the round started. In the take's worktree: `git merge <trunk>`, resolve, `publish`, then `pick` again. Trunk was left unchanged |
 | `has no changes against <trunk>` | The take is identical to trunk; nothing to pick |
 | `unrecognized arguments: --canvas ...` | The board is the only canvas now; drop the flag |
+| State from a version that had another canvas | Nothing to fix by hand. Old settings and frame fields are dropped when state loads; run `init` with no flags to write the cleaned state to disk |
 | `no single take matches` | Use the full id from `status`, e.g. `r2-type/t3-serif` |
 | Board frame is blank or assets 404 | The build uses root paths. Make them relative (`setup-recipes.md`) or `init --root-paths` |
 | `prepared.localized.skipped` is not empty | Those assets failed to download and the frame still points at the network. Check the host and that the person is online; the cache keeps what did download |

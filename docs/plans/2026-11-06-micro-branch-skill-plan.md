@@ -9,6 +9,14 @@ execution: code
 
 # micro-branch skill - Plan
 
+> **Update, 2026-11-10: Twombly dropped.** Twombly is a paid third-party product,
+> so Maroun took it out of Stack. The local board is now the only canvas. The
+> Design Studio preset, per-origin frames, `--view` and `--localize` stay. Gone: the
+> Twombly adapter, its version pin, port and privacy flags, canvas comments and
+> focus (`feedback`), and the Excalidraw scrub, which only existed to pass
+> Twombly's secret check. A test now fails if "twombly" appears under `skills/`.
+> The Twombly decisions below are left as written, as a record of what was built.
+
 ## Goal contract
 
 - **Objective:** ship a Stack-owned `micro-branch` skill that keeps every design iteration as its own git branch ("take"), lays takes out side by side on a canvas, and lets the person jump back to any take or pick one into trunk.

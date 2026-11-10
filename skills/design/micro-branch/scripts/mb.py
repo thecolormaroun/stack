@@ -3,12 +3,14 @@
 
 A round is one design question. A take is one answer to it, on its own branch
 and worktree, so takes never overwrite each other. Publishing a take builds it,
-snapshots the output and places it on a canvas. Picking a take squash-merges it
-into trunk and archives the round's takes as tags.
+snapshots the output and lays it out on a local board, next to the round's other
+takes. Picking a take squash-merges it into trunk and archives the round's takes
+as tags.
 
-Every command prints JSON. State lives in <git-common-dir>/micro-branch/, so it
-is shared by every worktree and never leaves the machine. Nothing here pushes,
-shares a canvas, or deletes a take without tagging it first.
+Every command prints JSON. State, snapshots and the board live in
+<git-common-dir>/micro-branch/, so they are shared by every worktree and never
+leave the machine. The board listens on 127.0.0.1 only. Nothing here pushes
+anything or deletes a take without tagging it first.
 """
 from __future__ import annotations
 
@@ -36,21 +38,12 @@ from pathlib import Path
 from typing import Any, Iterator
 
 STATE_VERSION = 1
-TWOMBLY_VERSION = "0.4.10"
 DEFAULT_MAX_TAKES = 4
 MAX_TAKES_CEILING = 8
 BOARD_PORT = 4780
-TWOMBLY_PORT = 4848  # Twombly's own default (4747) is often taken by other local tools
-TWOMBLY_ENV = {
-    "TWOMBLY_NO_USAGE": "1",
-    "TWOMBLY_NO_UPDATE_CHECK": "1",
-    "TWOMBLY_NO_INTERFACE_UPDATES": "1",
-    "TWOMBLY_NO_OPEN": "1",
-}
-TWOMBLY_BLOCKED = {"share", "unshare", "join", "login", "logout"}
-# Never copied into a frame: repo internals, dependencies, secrets and files Twombly's gates reject.
+# Never copied into a frame: repo internals, dependencies, secrets and project config.
 FRAME_IGNORE = (
-    ".git", "node_modules", ".micro-branch", ".twombly", ".DS_Store", ".env*", "*.map",
+    ".git", "node_modules", ".micro-branch", ".DS_Store", ".env*", "*.map",
     "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb", "tsconfig*.json",
 )
 # The board serves a frame on its own origin (r1-t2.localhost) when its build uses root paths like /assets/.
@@ -68,19 +61,6 @@ ASSET_TYPES = {
     "image/svg+xml": ".svg", "video/mp4": ".mp4", "video/webm": ".webm",
 }
 KNOWN_SUFFIXES = set(ASSET_TYPES.values()) | {".jpeg", ".ico", ".json"}
-# Named, narrow rewrites for strings that libraries bundle and Twombly's secret check flags.
-# Each rule only touches .js files that contain its marker.
-SCRUB_RULES: dict[str, dict[str, Any]] = {
-    # Excalidraw (Design Studio's canvas module) bundles the public Firebase client key of its own
-    # collaboration server, and a browser-storage key name that reads like a secret. Frames use neither.
-    "excalidraw-public-config": {
-        "marker": "excalidraw",
-        "rewrites": (
-            (re.compile(r'("apiKey":")AIza[0-9A-Za-z_\-]{35}(")'), r"\1placeholder\2"),
-            (re.compile(r"excalidraw-oai-api-key"), "placeholder-excalidraw-oai"),
-        ),
-    },
-}
 PRESETS = ("design-studio",)
 
 DEFAULT_CONFIG: dict[str, Any] = {
@@ -90,17 +70,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "out": ".",
     "entry": "index.html",
     "setup": None,
-    "canvas": "twombly",
     "max_takes": DEFAULT_MAX_TAKES,
     "frame_width": 1280,
     "frame_height": 800,
-    "twombly_version": TWOMBLY_VERSION,
-    "twombly_port": TWOMBLY_PORT,
     "takes_dir": None,
     "preset": None,
     "root_paths": False,
     "localize": [],
-    "scrub": [],
 }
 
 
@@ -228,9 +204,11 @@ def read_state(repo: Repo) -> dict[str, Any]:
     state = json.loads(repo.state_file.read_text())
     if state.get("version") != STATE_VERSION:
         raise MBError(f"state version {state.get('version')} is not supported by this script")
-    merged = dict(DEFAULT_CONFIG)
-    merged.update(state.get("config", {}))
-    state["config"] = merged
+    stored = state.get("config", {})
+    # Keys an older version wrote (such as a canvas choice) are dropped; the board is the only canvas.
+    state["config"] = {key: stored.get(key, default) for key, default in DEFAULT_CONFIG.items()}
+    board = (state.get("canvas") or {}).get("board")
+    state["canvas"] = {"board": board} if board else {}
     return state
 
 
@@ -270,20 +248,15 @@ def label(rnd: dict[str, Any], take: dict[str, Any]) -> str:
     return f"R{rnd['n']} · T{take['n']} {words}"
 
 
-# ---------------------------------------------------------------- canvas adapters
+# ---------------------------------------------------------------- board
 
 
-class BoardAdapter:
-    """A zero-dependency local page that shows every frame side by side."""
-
-    name = "board"
+class Board:
+    """A zero-dependency local page that shows every take's frame side by side."""
 
     def __init__(self, repo: Repo, state: dict[str, Any]) -> None:
         self.repo, self.state = repo, state
         self.root = repo.state_dir
-
-    def publish(self, rnd: dict[str, Any], take: dict[str, Any], snapshot: Path, entry: str) -> dict[str, Any]:
-        return {"adapter": self.name, "path": str(snapshot.relative_to(self.root))}
 
     def frame_link(self, rnd: dict[str, Any], take: dict[str, Any], attr: str) -> str:
         """`src`/`href` for a frame: a path on the board, or its own origin when the build uses root paths."""
@@ -338,7 +311,7 @@ class BoardAdapter:
         info = self.state["canvas"].get("board") or {}
         pid, port = info.get("pid"), info.get("port")
         if pid and port and pid_alive(pid) and port_open(port):
-            return {"adapter": self.name, "url": f"http://127.0.0.1:{port}/board/", "pid": pid, "started": False}
+            return {"url": f"http://127.0.0.1:{port}/board/", "pid": pid, "started": False}
         port = free_port(BOARD_PORT)
         log = open(self.root / "board.log", "a")
         proc = subprocess.Popen(
@@ -350,164 +323,14 @@ class BoardAdapter:
                 break
             time.sleep(0.1)
         self.state["canvas"]["board"] = {"pid": proc.pid, "port": port}
-        return {"adapter": self.name, "url": f"http://127.0.0.1:{port}/board/", "pid": proc.pid, "started": True}
+        return {"url": f"http://127.0.0.1:{port}/board/", "pid": proc.pid, "started": True}
 
     def stop(self) -> dict[str, Any]:
         info = self.state["canvas"].pop("board", None) or {}
         if info.get("pid") and pid_alive(info["pid"]):
             os.kill(info["pid"], signal.SIGTERM)
-            return {"adapter": self.name, "stopped": True}
-        return {"adapter": self.name, "stopped": False}
-
-    def feedback(self) -> dict[str, Any]:
-        return {"adapter": self.name, "supported": False, "hint": "the board has no comments; ask the person in chat"}
-
-
-class TwomblyAdapter:
-    """Drives the Twombly CLI at a pinned version, on localhost only.
-
-    Every call sets a fixed port and turns off Twombly's usage pings, update
-    checks and remote interface updates. Commands that sign in or share are
-    refused. The `update` nudge in Twombly's replies is dropped on purpose: the
-    version stays pinned until Stack moves it.
-    """
-
-    name = "twombly"
-
-    def __init__(self, repo: Repo, state: dict[str, Any]) -> None:
-        self.repo, self.state = repo, state
-        self.cwd = repo.state_dir / "twombly"
-        self.info = state["canvas"].setdefault("twombly", {})
-
-    def cmd(self) -> list[str]:
-        override = os.environ.get("MB_TWOMBLY_CMD")
-        if override:
-            return shlex.split(override)
-        return ["npx", "-y", f"twombly@{self.state['config']['twombly_version']}"]
-
-    def port(self) -> int:
-        start = int(self.info.get("port") or self.state["config"].get("twombly_port") or TWOMBLY_PORT)
-        for candidate in range(start, start + 20):
-            health = twombly_health(candidate)
-            if health is not None or not port_open(candidate):
-                self.info["port"] = candidate
-                if health:
-                    self.info["daemon"] = health.get("build")
-                return candidate
-        raise MBError(f"ports {start} to {start + 19} are all taken by something other than Twombly",
-                      hint="pass a free port with `mb.py init --twombly-port <port>`")
-
-    def call(self, *args: str, allow_fail: bool = False) -> Any:
-        if args and args[0] in TWOMBLY_BLOCKED:
-            raise MBError(f"micro-branch never runs `twombly {args[0]}`",
-                          hint="signing in and sharing are the person's call; they use the Twombly window themselves")
-        self.cwd.mkdir(parents=True, exist_ok=True)
-        env = dict(os.environ, **TWOMBLY_ENV, TWOMBLY_PORT=str(self.port()))
-        proc = subprocess.run([*self.cmd(), *args], cwd=self.cwd, env=env, text=True, capture_output=True)
-        data = parse_json(proc.stdout)
-        if isinstance(data, dict):
-            data.pop("update", None)
-        if proc.returncode != 0 and not (allow_fail and isinstance(data, dict)):
-            problems = data.get("problems") if isinstance(data, dict) else None
-            raise MBError(
-                f"twombly {args[0] if args else ''} failed",
-                hint="check `node --version` (Twombly needs Node 22+) and npm access for the first download; "
-                     "or switch with `mb.py init --canvas board`",
-                problems=problems, stderr=proc.stderr.strip()[-2000:], stdout=proc.stdout.strip()[-2000:],
-            )
-        return data
-
-    def ensure(self) -> dict[str, Any]:
-        """Create the canvas on first use; afterwards just report where it is."""
-        if not self.info.get("initialized"):
-            name = self.state["config"].get("name") or Path(self.repo.main_worktree).name
-            result = self.call("init", "--no-open", "--name", name) or {}
-            self.info.update(initialized=True, name=name, id=result.get("id"), url=result.get("local"))
-        else:
-            result = self.call("list") or {}
-            if isinstance(result, dict) and result.get("local"):
-                self.info["url"] = result["local"]
-        return {"adapter": self.name, "url": self.info.get("url"), "name": self.info.get("name"),
-                "port": self.info.get("port"), "daemon": self.info.get("daemon")}
-
-    def publish(self, rnd: dict[str, Any], take: dict[str, Any], snapshot: Path, entry: str) -> dict[str, Any]:
-        if not self.info.get("initialized"):
-            self.ensure()
-        cfg = self.state["config"]
-        flags = ["--title", label(rnd, take), "--width", str(cfg["frame_width"]),
-                 "--height", str(cfg["frame_height"]), "--entry", entry]
-        frame_id = ((take.get("frame") or {}).get("twombly") or {}).get("id")
-        result = self.call("update", frame_id, str(snapshot), *flags, allow_fail=True) if frame_id else None
-        if result is None or (not result.get("ok") and not result.get("problems")):
-            result = self.call("add", str(snapshot), *flags, allow_fail=True)
-        if not result.get("ok") or result.get("placed") is False:
-            raise MBError(
-                "Twombly did not place the frame",
-                hint="fix each problem (see references/twombly.md), then publish again; the local board still shows this take",
-                problems=result.get("problems") or result.get("error"), warnings=result.get("warnings"),
-            )
-        frame = result.get("frame") or {}
-        url = (result.get("canvas") or {}).get("local") or self.info.get("url")
-        self.info["url"] = url
-        return {
-            "adapter": self.name, "path": str(snapshot.relative_to(self.repo.state_dir)), "url": url,
-            "twombly": {"id": frame.get("id") or frame_id, "title": frame.get("title")},
-            "screenshot": result.get("screenshot"), "warnings": result.get("warnings") or [],
-        }
-
-    def stop(self) -> dict[str, Any]:
-        result = self.call("stop", allow_fail=True)
-        return {"adapter": self.name, "stopped": bool(isinstance(result, dict) and result.get("ok")),
-                "note": "this stops Twombly's local server for every canvas on the machine"}
-
-    def feedback(self) -> dict[str, Any]:
-        if not self.info.get("initialized"):
-            self.ensure()
-        by_frame = {
-            ((t.get("frame") or {}).get("twombly") or {}).get("id"): f"{r['id']}/{t['id']}"
-            for r in self.state["rounds"].values() for t in r["takes"].values()
-        }
-        by_frame.pop(None, None)
-        context = self.call("context") or {}
-        threads = (self.call("comments") or {}).get("comments", [])
-        for thread in threads:
-            thread["take"] = by_frame.get((thread.get("frame") or {}).get("id"))
-        viewing = [by_frame.get(f.get("id")) for f in (context.get("frames") or []) if isinstance(f, dict)]
-        return {"adapter": self.name, "supported": True, "looking": context.get("looking"), "via": context.get("via"),
-                "viewing_takes": [v for v in viewing if v], "comments": threads, "takes_by_frame": by_frame}
-
-
-def twombly_health(port: int) -> dict[str, Any] | None:
-    """Return Twombly's /health reply when Twombly owns the port, else None."""
-    try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=0.5) as resp:
-            data = json.loads(resp.read().decode() or "{}")
-    except (OSError, ValueError):
-        return None
-    return data if isinstance(data, dict) and str(data.get("build", "")).count("+") == 1 and "api" in data else None
-
-
-ADAPTERS = {"board": BoardAdapter, "twombly": TwomblyAdapter}
-
-
-def adapter_for(repo: Repo, state: dict[str, Any], name: str | None = None):
-    name = name or state["config"]["canvas"]
-    if name not in ADAPTERS:
-        raise MBError(f"unknown canvas '{name}'", hint=f"choose one of: {', '.join(ADAPTERS)}")
-    return ADAPTERS[name](repo, state)
-
-
-def parse_json(text: str) -> Any:
-    text = text.strip()
-    if not text:
-        return None
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        for line in reversed(text.splitlines()):
-            with contextlib.suppress(json.JSONDecodeError):
-                return json.loads(line)
-        return {"raw": text[-2000:]}
+            return {"stopped": True}
+        return {"stopped": False}
 
 
 def pid_alive(pid: int) -> bool:
@@ -552,7 +375,7 @@ def design_studio_preset(main: Path) -> dict[str, Any]:
         raise MBError("Design Studio's dependencies are not installed in the main checkout",
                       hint="run `pnpm install` there once; every take links to them")
     return {"build": DESIGN_STUDIO_BUILD, "out": "dist", "entry": "index.html", "setup": DESIGN_STUDIO_SETUP,
-            "root_paths": True, "scrub": ["excalidraw-public-config"]}
+            "root_paths": True}
 
 
 def design_studio_views(paths: list[str]) -> list[dict[str, str]]:
@@ -661,27 +484,6 @@ def entry_file(entry: str) -> str:
     return re.split(r"[?#]", entry, maxsplit=1)[0]
 
 
-def scrub_snapshot(snapshot: Path, rules: list[str]) -> list[dict[str, Any]]:
-    hits = []
-    for path in sorted(snapshot.rglob("*")):
-        if path.suffix not in (".js", ".mjs") or not path.is_file():
-            continue
-        text = original = path.read_text("utf-8", errors="surrogateescape")
-        for name in rules:
-            rule = SCRUB_RULES[name]
-            if rule["marker"] not in text:
-                continue
-            count = 0
-            for pattern, replacement in rule["rewrites"]:
-                text, n = pattern.subn(replacement, text)
-                count += n
-            if count:
-                hits.append({"rule": name, "file": path.relative_to(snapshot).as_posix(), "replaced": count})
-        if text != original:
-            path.write_text(text, "utf-8", errors="surrogateescape")
-    return hits
-
-
 def fetch_remote(repo: Repo, url: str) -> tuple[bytes, str]:
     """Download one asset, cached in the state folder so republishing works offline."""
     cache = repo.state_dir / "cache" / "remote"
@@ -772,8 +574,6 @@ def localize_snapshot(repo: Repo, cfg: dict[str, Any], snapshot: Path) -> dict[s
 
 def prepare_snapshot(repo: Repo, cfg: dict[str, Any], snapshot: Path) -> dict[str, Any]:
     report: dict[str, Any] = {}
-    if cfg.get("scrub"):
-        report["scrubbed"] = scrub_snapshot(snapshot, cfg["scrub"])
     if cfg.get("localize"):
         report["localized"] = localize_snapshot(repo, cfg, snapshot)
     return report
@@ -807,7 +607,7 @@ def cmd_init(repo: Repo, args: argparse.Namespace) -> dict[str, Any]:
             cfg["trunk"] = trunk
         if args.preset:
             cfg.update(design_studio_preset(Path(repo.main_worktree)), preset=args.preset)
-        for key in ("name", "build", "out", "entry", "setup", "canvas", "twombly_version", "takes_dir", "twombly_port"):
+        for key in ("name", "build", "out", "entry", "setup", "takes_dir"):
             value = getattr(args, key, None)
             if value is not None:
                 cfg[key] = None if value == "" else value
@@ -820,11 +620,6 @@ def cmd_init(repo: Repo, args: argparse.Namespace) -> dict[str, Any]:
         bad = [h for h in cfg["localize"] if not re.fullmatch(r"[a-z0-9-]+(\.[a-z0-9-]+)+", h)]
         if bad:
             raise MBError(f"not a host name: {', '.join(bad)}", hint="pass bare hosts, e.g. --localize images.example.com")
-        if args.scrub is not None:
-            cfg["scrub"] = [r.strip() for r in args.scrub.split(",") if r.strip()]
-        unknown = [r for r in cfg["scrub"] if r not in SCRUB_RULES]
-        if unknown:
-            raise MBError(f"unknown scrub rule: {', '.join(unknown)}", hint=f"known: {', '.join(SCRUB_RULES)}")
         if args.max_takes is not None:
             if not 1 <= args.max_takes <= MAX_TAKES_CEILING:
                 raise MBError(f"--max-takes must be between 1 and {MAX_TAKES_CEILING}")
@@ -832,8 +627,6 @@ def cmd_init(repo: Repo, args: argparse.Namespace) -> dict[str, Any]:
         if args.frame_size:
             w, _, h = args.frame_size.partition("x")
             cfg["frame_width"], cfg["frame_height"] = int(w), int(h)
-        if cfg["canvas"] not in ADAPTERS:
-            raise MBError(f"unknown canvas '{cfg['canvas']}'", hint=f"choose one of: {', '.join(ADAPTERS)}")
         if not repo.ref_exists(cfg["trunk"]):
             raise MBError(f"trunk '{cfg['trunk']}' has no commits yet", hint="commit something first")
         return {"ok": True, "config": cfg, "state_dir": str(repo.state_dir), "takes_dir": str(repo.takes_root(cfg))}
@@ -1025,24 +818,14 @@ def cmd_publish(repo: Repo, args: argparse.Namespace) -> dict[str, Any]:
     snapshot.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(out_dir, snapshot, ignore=shutil.ignore_patterns(*FRAME_IGNORE))
     prepared = prepare_snapshot(repo, cfg, snapshot)
-    failure: MBError | None = None
     with locked_state(repo) as fresh:
-        f_rnd = fresh["rounds"][rnd["id"]]
-        stored = f_rnd["takes"][take["id"]]
-        try:
-            frame = adapter_for(repo, fresh, args.canvas).publish(f_rnd, stored, snapshot, entry)
-            status = "published"
-        except MBError as err:
-            failure, status = err, "rejected"
-            frame = {**(stored.get("frame") or {}), "adapter": "board", "path": str(snapshot.relative_to(repo.state_dir))}
-        frame.update(published_at=now(), commit=commit, entry=entry, view=view)
-        stored.update(status=status, commit=commit, frame=frame)
-        BoardAdapter(repo, fresh).render()  # the local board mirrors every canvas
-    if failure:
-        failure.extra.setdefault("prepared", prepared)
-        raise failure
+        stored = fresh["rounds"][rnd["id"]]["takes"][take["id"]]
+        frame = {"path": str(snapshot.relative_to(repo.state_dir)), "published_at": now(), "commit": commit,
+                 "entry": entry, "view": view}
+        stored.update(status="published", commit=commit, frame=frame)
+        board = Board(repo, fresh).ensure()  # renders the board and starts its server if needed
     return {"ok": True, "label": label(rnd, take), "committed": committed, "commit": commit, "frame": frame,
-            **if_set("prepared", prepared)}
+            "board": board["url"], **if_set("prepared", prepared)}
 
 
 def commit_take(worktree: Path, rnd: dict[str, Any], take: dict[str, Any], message: str | None) -> bool:
@@ -1149,27 +932,17 @@ def archive_round(repo: Repo, rnd: dict[str, Any], picked: str | None) -> list[d
 
 def refresh_board(repo: Repo, state: dict[str, Any]) -> None:
     if (repo.state_dir / "board").exists():
-        BoardAdapter(repo, state).render()
+        Board(repo, state).render()
 
 
 def cmd_canvas(repo: Repo, args: argparse.Namespace) -> dict[str, Any]:
     with locked_state(repo) as state:
-        adapter = adapter_for(repo, state, args.canvas)
+        board = Board(repo, state)
         if args.action == "stop":
-            return {"ok": True, **adapter.stop()}
-        if args.action == "board":
-            return {"ok": True, "path": str(BoardAdapter(repo, state).render())}
-        return {"ok": True, **adapter.ensure()}
-
-
-def cmd_feedback(repo: Repo, args: argparse.Namespace) -> dict[str, Any]:
-    with locked_state(repo) as state:
-        result = adapter_for(repo, state, args.canvas).feedback()
-        labels = {
-            label(rnd, take): f"{rnd['id']}/{take['id']}"
-            for rnd in state["rounds"].values() for take in rnd["takes"].values()
-        }
-        return {"ok": True, "takes_by_label": labels, **result}
+            return {"ok": True, **board.stop()}
+        if args.action == "render":
+            return {"ok": True, "path": str(board.render())}
+        return {"ok": True, **board.ensure()}
 
 
 def cmd_views(repo: Repo, args: argparse.Namespace) -> dict[str, Any]:
@@ -1195,23 +968,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     init = sub.add_parser("init", help="set up or update micro-branch in this repo")
     init.add_argument("--trunk")
-    init.add_argument("--name", help="canvas name (default: repo folder name)")
+    init.add_argument("--name", help="board title (default: repo folder name)")
     init.add_argument("--build", help="build command run in each take ('' for none)")
     init.add_argument("--out", help="folder the build writes, relative to the take (default '.')")
     init.add_argument("--entry", help="entry file inside the output (default index.html)")
     init.add_argument("--setup", help="command run once in each new take, e.g. 'npm ci'")
-    init.add_argument("--canvas", choices=sorted(ADAPTERS))
     init.add_argument("--max-takes", type=int)
     init.add_argument("--frame-size", help="WIDTHxHEIGHT, e.g. 390x844")
-    init.add_argument("--twombly-version")
-    init.add_argument("--twombly-port", type=int, help="local port for Twombly (default 4848)")
     init.add_argument("--takes-dir")
     init.add_argument("--preset", choices=PRESETS, help="fill in build, output and setup for a known kind of project")
     init.add_argument("--root-paths", action=argparse.BooleanOptionalAction, default=None,
                       help="the build uses root paths like /assets/; the board serves each frame on its own origin")
     init.add_argument("--localize", help="comma-separated hosts whose assets are copied into each frame ('' for none)")
     init.add_argument("--localize-fonts", action="store_true", help="add the Google Fonts hosts to --localize")
-    init.add_argument("--scrub", help=f"comma-separated scrub rules ('' for none): {', '.join(SCRUB_RULES)}")
     init.set_defaults(func=cmd_init)
 
     st = sub.add_parser("status", help="rounds, takes, branches and frames")
@@ -1248,10 +1017,9 @@ def build_parser() -> argparse.ArgumentParser:
     tn.add_argument("--view", help="Design Studio view for this take's frame (default: the round's)")
     tn.set_defaults(func=cmd_take_new)
 
-    pub = sub.add_parser("publish", help="commit, build, snapshot and place a take on the canvas")
+    pub = sub.add_parser("publish", help="commit, build, snapshot and lay a take out on the board")
     pub.add_argument("take")
     pub.add_argument("--message")
-    pub.add_argument("--canvas", choices=sorted(ADAPTERS))
     pub.set_defaults(func=cmd_publish)
 
     op = sub.add_parser("open", help="print or restore a take's worktree")
@@ -1263,14 +1031,10 @@ def build_parser() -> argparse.ArgumentParser:
     pk.add_argument("--no-squash", action="store_true", help="keep the take's commits with a merge commit")
     pk.set_defaults(func=cmd_pick)
 
-    cv = sub.add_parser("canvas", help="start the canvas and print its URL")
-    cv.add_argument("action", nargs="?", default="open", choices=["open", "stop", "board"])
-    cv.add_argument("--canvas", choices=sorted(ADAPTERS))
+    cv = sub.add_parser("canvas", help="start the local board and print its URL")
+    cv.add_argument("action", nargs="?", default="open", choices=["open", "stop", "render"],
+                    help="open (default) starts or reuses the server; render only rewrites the page")
     cv.set_defaults(func=cmd_canvas)
-
-    fb = sub.add_parser("feedback", help="what the person is looking at and their comments")
-    fb.add_argument("--canvas", choices=sorted(ADAPTERS))
-    fb.set_defaults(func=cmd_feedback)
 
     vw = sub.add_parser("views", help="list Design Studio views a round can open on")
     vw.add_argument("--from", dest="from_ref", help="commit or branch to list (default: trunk)")

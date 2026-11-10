@@ -21,14 +21,14 @@ Every failure prints `"ok": false` with `error` and `hint`. Match the error here
 | `trunk checkout ... has uncommitted changes` | Ask the person whether to commit or stash their trunk changes. Never discard them |
 | `does not merge cleanly into <trunk>` | Trunk moved since the round started. In the take's worktree: `git merge <trunk>`, resolve, `publish`, then `pick` again. Trunk was left unchanged |
 | `has no changes against <trunk>` | The take is identical to trunk; nothing to pick |
-| `twombly <command> failed` | Check `node --version` (22 or newer) and that npm can reach the registry for the first download. If it still fails, `init --canvas board` and carry on |
-| `micro-branch never shares a canvas` | Expected. The person clicks Share in Twombly |
+| `unrecognized arguments: --canvas ...` | The board is the only canvas now; drop the flag |
+| State from a version that had another canvas | Nothing to fix by hand. Old settings and frame fields are dropped when state loads; run `init` with no flags to write the cleaned state to disk |
 | `no single take matches` | Use the full id from `status`, e.g. `r2-type/t3-serif` |
 | Board frame is blank or assets 404 | The build uses root paths. Make them relative (`setup-recipes.md`) or `init --root-paths` |
 | `prepared.localized.skipped` is not empty | Those assets failed to download and the frame still points at the network. Check the host and that the person is online; the cache keeps what did download |
 | A take's commit contains a `node_modules` link | Made before the exclude fix. Remove it in the take with `git rm --cached node_modules`, then publish |
 | A take's folder was deleted by hand | `open <take>` recreates it from the branch or the archive tag |
-| The canvas shows an old version of a take | `publish` the take again; the snapshot is replaced |
+| The board shows an old version of a take | `publish` the take again; the snapshot is replaced |
 
 ## Inspecting state
 

@@ -5,17 +5,17 @@ output lands (`--out`), and what each new worktree needs before it can build
 (`--setup`). Read `package.json` scripts, the lockfile and the framework config
 before choosing.
 
-Frames are served from a subfolder on the board and as standalone folders in
-Twombly, so **asset paths should be relative**. A blank frame or 404s for
-`/assets/...` on the board means the build wrote root paths. If the build can't
-change, `init --root-paths` makes the board serve each frame at the root of its own
-address (`r1-t2.localhost`), which Chrome, Edge and Firefox resolve locally.
+The board serves each frame from a subfolder, so **asset paths should be
+relative**. A blank frame or 404s for `/assets/...` means the build wrote root
+paths. If the build can't change, `init --root-paths` makes the board serve each
+frame at the root of its own address (`r1-t2.localhost`), which Chrome, Edge and
+Firefox resolve locally.
 
 | Stack | `--build` | `--out` | Notes |
 |---|---|---|---|
 | Plain HTML, CSS, JS | `""` (none) | `.` or the folder holding `index.html` | The whole folder is copied, minus `.git` and `node_modules` |
 | Vite (React, Vue, Svelte, vanilla) | `npm run build -- --base=./` | `dist` | `--base=./` makes asset paths relative |
-| Next.js | `npx next build` with `output: 'export'` in `next.config` | `out` | Needs static export; set `images.unoptimized: true`. If `/_next/` assets 404 on the board, use Twombly or ask before changing `assetPrefix` |
+| Next.js | `npx next build` with `output: 'export'` in `next.config` | `out` | Needs static export; set `images.unoptimized: true`. If `/_next/` assets 404 on the board, use `init --root-paths`, or ask before changing `assetPrefix` |
 | Astro | `npm run build` | `dist` | If assets 404 on the board, set `base` in `astro.config` |
 | SvelteKit | `npm run build` with `adapter-static` | `build` | `paths.relative` must stay `true` |
 | Create React App | `PUBLIC_URL=. npm run build` | `build` | |
@@ -58,7 +58,7 @@ become frames directly. In order of preference:
 1. Add a static export for the screens under exploration, if the framework supports it.
 2. Build a small static harness page in the take that renders the component with
    mock data, and point `--out` at it.
-3. Skip the canvas: cut takes as usual, run the dev server in each take's worktree
+3. Skip the board: cut takes as usual, run the dev server in each take's worktree
    on its own port, and share the URLs with the person.
 
 ## Frame size

@@ -19,8 +19,7 @@ $MB init --preset design-studio [--localize-fonts] [--localize <host>,<host>]
 | `--build` | `node src/platform/node/build/build-manifest.js --deploy && ./node_modules/.bin/vite build` | The manifest and Vite only, about 10 seconds. `pnpm build` adds release checks and typechecking, which reject work in progress |
 | `--out` | `dist` | |
 | `--setup` | Links `node_modules` and each `src/systems/*/node_modules` from the main checkout | Instant. A fresh `pnpm install` in each take takes about a minute |
-| `--root-paths` | on | The build loads `/assets/...`. Twombly serves each frame at its own root, and the board serves it at `r<N>-t<M>.localhost` |
-| `--scrub` | `excalidraw-public-config` | See "What changes in the snapshot" |
+| `--root-paths` | on | The build loads `/assets/...`, so the board serves each frame at the root of its own address, `r<N>-t<M>.localhost` |
 
 Trunk is the branch checked out when init runs. In a Design Studio folder that is
 often a feature branch, not `main`. Pass `--trunk` to choose.
@@ -44,23 +43,16 @@ Design Studio's preview address (`index.html?studio-preview=1&...`). The studio
 uses that address to embed views itself. It renders one view with no navigation
 or chrome.
 
-## What changes in the snapshot
+## Remote assets
 
-Snapshots are copies. The take's own files never change.
-
-- **Two Excalidraw strings.** Design Studio's canvas module bundles Excalidraw,
-  which ships the public Firebase client key of its own collaboration server and a
-  browser-storage key named `excalidraw-oai-api-key`. Twombly's secret check flags
-  both. The `excalidraw-public-config` rule rewrites exactly those two strings to
-  placeholders, in files that mention Excalidraw. Frames use neither. `publish`
-  lists each rewrite under `prepared.scrubbed`.
-- **Remote assets.** Frames can't reach the network. If a design system loads
-  Google Fonts, or a prototype shows images from a media host, name the hosts at
-  init: `--localize-fonts` for Google Fonts, `--localize <host>` for the rest. Each
-  asset is downloaded once over https and cached in
-  `<git-common-dir>/micro-branch/cache/remote/`. The script copies it into the
-  frame's `mb-assets/` folder and rewrites the references.
-  `prepared.localized.skipped` lists anything that failed to download.
+A frame on the board loads fonts and images from the network like any page. To keep
+frames working offline, and the same every time they are opened, name the hosts at
+init: `--localize-fonts` for Google Fonts, `--localize <host>` for the rest. Each
+asset is downloaded once over https and cached in
+`<git-common-dir>/micro-branch/cache/remote/`. The script copies it into the
+frame's `mb-assets/` folder and rewrites the snapshot's references. Snapshots are
+copies, so the take's own files never change. `prepared.localized.skipped` lists
+anything that failed to download.
 
 ## Limits
 

@@ -26,39 +26,6 @@ GIT_ENV = {
     "GIT_CONFIG_NOSYSTEM": "1",
 }
 
-FAKE_TWOMBLY = textwrap.dedent(
-    """
-    import json, os, sys
-    args = sys.argv[1:]
-    with open(os.environ["FAKE_TWOMBLY_LOG"], "a") as log:
-        log.write(json.dumps({"args": args, "port": os.environ.get("TWOMBLY_PORT"),
-                              "no_usage": os.environ.get("TWOMBLY_NO_USAGE")}) + "\\n")
-    cmd = args[0] if args else ""
-    local = "http://localhost:4848/abc123"
-    if cmd == "init":
-        print(json.dumps({"ok": True, "id": "abc123", "name": args[args.index("--name") + 1], "local": local, "frames": []}))
-    elif cmd in ("add", "update"):
-        title = args[args.index("--title") + 1]
-        if "reject" in title:
-            print(json.dumps({"ok": False, "placed": False, "problems": [
-                {"code": "EXTERNAL_REQUEST", "message": "fonts.example.com", "fix": "copy the font locally"}]}))
-            sys.exit(1)
-        fid = args[1] if cmd == "update" else "f" + str(sum(map(ord, title)))
-        print(json.dumps({"ok": True, "placed": True, "frame": {"id": fid, "title": title},
-                          "canvas": {"local": local}, "warnings": [], "update": "use twombly@latest"}))
-    elif cmd == "list":
-        print(json.dumps({"ok": True, "local": local}))
-    elif cmd == "context":
-        print(json.dumps({"ok": True, "looking": "frame", "via": "selected", "frames": [{"id": os.environ["FAKE_FOCUS"]}]}))
-    elif cmd == "comments":
-        print(json.dumps({"ok": True, "comments": [{"id": "c1", "frame": {"id": os.environ["FAKE_FOCUS"]},
-                                                     "comments": [{"by": "me", "text": "shorter"}]}]}))
-    else:
-        print(json.dumps({"ok": True}))
-    """
-)
-
-
 FAKE_STUDIO_BUILD = textwrap.dedent(
     """
     import hashlib, json, pathlib
@@ -125,10 +92,10 @@ class MicroBranchTest(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         self.sb = Sandbox(Path(self._tmp.name).resolve())
-        self.sb.mb("init", "--canvas", "board", "--build", "mkdir -p dist && cp index.html dist/", "--out", "dist")
+        self.sb.mb("init", "--build", "mkdir -p dist && cp index.html dist/", "--out", "dist")
 
     def tearDown(self) -> None:
-        self.sb.mb("canvas", "stop", "--canvas", "board")
+        self.sb.mb("canvas", "stop")
         self._tmp.cleanup()
 
     def cut(self, rnd: str, slug: str, html: str, **kw: str) -> dict:
@@ -239,65 +206,11 @@ class MicroBranchTest(unittest.TestCase):
         self.assertEqual((Path(take["take"]["worktree"]) / ".mb-main").read_text(), f"{self.sb.repo}|r1-deps")
 
     def test_board_server_starts_and_stops(self) -> None:
-        out = self.sb.mb("canvas", "open", "--canvas", "board")
+        out = self.sb.mb("canvas", "open")
         self.assertTrue(out["url"].startswith("http://127.0.0.1:"))
-        again = self.sb.mb("canvas", "open", "--canvas", "board")
+        again = self.sb.mb("canvas", "open")
         self.assertFalse(again["started"])
-        self.assertTrue(self.sb.mb("canvas", "stop", "--canvas", "board")["stopped"])
-
-    def test_twombly_adapter_is_pinned_local_and_never_shares(self) -> None:
-        fake = self.sb.tmp / "fake_twombly.py"
-        fake.write_text(FAKE_TWOMBLY)
-        log = self.sb.tmp / "twombly.log"
-        env = {"MB_TWOMBLY_CMD": f"{sys.executable} {fake}", "FAKE_TWOMBLY_LOG": str(log)}
-        self.sb.mb("init", "--canvas", "twombly", "--name", "Sample", "--twombly-port", "4861")
-        self.sb.mb("round", "new", "cta", "--question", "CTA?")
-        self.cut("r1", "solid", "<button>solid</button>\n")
-        self.cut("r1", "inline", "<button>inline</button>\n")
-        first = self.sb.mb("publish", "r1/t1", env=env)
-        self.assertEqual(first["frame"]["url"], "http://localhost:4848/abc123")
-        self.assertNotIn("update", json.dumps(first["frame"]))
-        second = self.sb.mb("publish", "r1/t2", env=env)
-        env["FAKE_FOCUS"] = second["frame"]["twombly"]["id"]
-        # republishing a take updates its frame instead of adding a second one
-        self.sb.write("index.html", "<button>solid v2</button>\n", root=Path(self.sb.state()["rounds"]["r1-cta"]["takes"]["t1-solid"]["worktree"]))
-        again = self.sb.mb("publish", "r1/t1", env=env)
-        self.assertEqual(again["frame"]["twombly"]["id"], first["frame"]["twombly"]["id"])
-        fb = self.sb.mb("feedback", env=env)
-        self.assertEqual(fb["viewing_takes"], ["r1-cta/t2-inline"])
-        self.assertEqual(fb["comments"][0]["take"], "r1-cta/t2-inline")
-        self.assertEqual(fb["takes_by_label"]["R1 · T2 inline"], "r1-cta/t2-inline")
-        calls = [json.loads(line) for line in log.read_text().splitlines()]
-        self.assertEqual([c["args"][0] for c in calls], ["init", "add", "add", "update", "context", "comments"])
-        self.assertEqual(calls[0]["args"], ["init", "--no-open", "--name", "Sample"])
-        self.assertEqual({c["port"] for c in calls}, {"4861"})
-        self.assertEqual({c["no_usage"] for c in calls}, {"1"})
-        self.assertIn("R1 · T1 solid", calls[1]["args"])
-        self.assertEqual(self.sb.state()["config"]["twombly_version"], "0.4.10")
-
-    def test_twombly_refuses_share_and_records_gate_rejections(self) -> None:
-        fake = self.sb.tmp / "fake_twombly.py"
-        fake.write_text(FAKE_TWOMBLY)
-        log = self.sb.tmp / "twombly.log"
-        env = {"MB_TWOMBLY_CMD": f"{sys.executable} {fake}", "FAKE_TWOMBLY_LOG": str(log)}
-        self.sb.mb("init", "--canvas", "twombly", "--twombly-port", "4861")
-        self.sb.mb("round", "new", "fonts", "--question", "Type?")
-        self.cut("r1", "reject me", "<h1>remote font</h1>\n")
-        err = self.sb.mb("publish", "r1/t1", expect=2, env=env)
-        self.assertEqual(err["problems"][0]["code"], "EXTERNAL_REQUEST")
-        take = self.sb.state()["rounds"]["r1-fonts"]["takes"]["t1-reject-me"]
-        self.assertEqual(take["status"], "rejected")
-        board = (self.sb.repo / ".git" / "micro-branch" / "board" / "index.html").read_text()
-        self.assertIn("R1 · T1 reject me", board)
-        sys.path.insert(0, str(MB.parent))
-        try:
-            import mb  # noqa: PLC0415
-        finally:
-            sys.path.pop(0)
-        for blocked in ("share", "login", "join"):
-            with self.assertRaises(mb.MBError):
-                mb.TwomblyAdapter.call(object.__new__(mb.TwomblyAdapter), blocked)
-        self.assertNotIn("share", log.read_text())
+        self.assertTrue(self.sb.mb("canvas", "stop")["stopped"])
 
     def test_round_entry_with_query_reaches_frame_and_board(self) -> None:
         self.sb.mb("round", "new", "variant", "--question", "q", "--entry", "index.html?variant=b")
@@ -325,6 +238,53 @@ class MicroBranchTest(unittest.TestCase):
         self.assertNotIn("linked-deps", self.sb.git("status", "--porcelain", cwd=tree))
         self.assertIn("/linked-deps", (self.sb.repo / ".git" / "info" / "exclude").read_text())
 
+    def test_publish_starts_the_board_and_returns_its_url(self) -> None:
+        self.sb.mb("round", "new", "hero", "--question", "q")
+        self.cut("r1", "a", "<h1>a</h1>\n")
+        out = self.sb.mb("publish", "r1/t1")
+        self.assertTrue(out["board"].startswith("http://127.0.0.1:"))
+        with urllib.request.urlopen(out["board"], timeout=5) as resp:
+            self.assertIn("R1 · T1 a", resp.read().decode())
+        self.assertTrue(self.sb.mb("canvas", "render")["path"].endswith("board/index.html"))
+        self.assertIn("unrecognized arguments", subprocess.run(
+            [sys.executable, str(MB), "publish", "r1/t1", "--canvas", "board"], cwd=self.sb.repo,
+            env=self.sb.env, capture_output=True, text=True).stderr)
+
+    def test_state_from_the_twombly_version_is_rewritten_for_the_board(self) -> None:
+        self.sb.mb("round", "new", "before upgrade", "--question", "q")
+        self.cut("r1", "a", "<h1>a</h1>\n")
+        self.cut("r1", "b", "<h1>b</h1>\n")
+        self.sb.mb("publish", "r1/t1")
+        self.sb.mb("publish", "r1/t2")
+        self.sb.mb("canvas", "stop")
+        path = self.sb.repo / ".git" / "micro-branch" / "state.json"
+        state = json.loads(path.read_text())
+        state["config"].update(canvas="twombly", twombly_version="0.4.10", twombly_port=4848,
+                               scrub=["excalidraw-public-config"])
+        state["canvas"] = {"twombly": {"initialized": True, "port": 4848, "url": "http://localhost:4848/abc"}}
+        takes = state["rounds"]["r1-before-upgrade"]["takes"]
+        takes["t1-a"]["frame"].update(adapter="twombly", url="http://localhost:4848/abc", twombly={"id": "f1"})
+        takes["t2-b"]["status"] = "rejected"
+        path.write_text(json.dumps(state))
+        # reading tolerates the old state; plain init writes the cleaned version to disk
+        self.assertNotIn("canvas", self.sb.mb("status")["config"])
+        self.sb.mb("init")
+        text = path.read_text()
+        self.assertNotIn("twombly", text.lower())
+        self.assertNotIn("scrub", text)
+        clean = json.loads(text)
+        self.assertEqual(clean["canvas"], {})
+        takes = clean["rounds"]["r1-before-upgrade"]["takes"]
+        self.assertEqual(set(takes["t1-a"]["frame"]), {"path", "published_at", "commit", "entry", "view"})
+        self.assertEqual(takes["t2-b"]["status"], "published")
+        self.assertEqual(clean["config"]["trunk"], "main")
+        board = self.sb.mb("canvas", "open")
+        with urllib.request.urlopen(board["url"], timeout=5) as resp:
+            page = resp.read().decode()
+        self.assertIn("R1 · T1 a", page)
+        self.assertIn("R1 · T2 b", page)
+        self.assertTrue(self.sb.mb("publish", "r1/t1")["ok"])
+
     def test_outside_git_repo_fails_cleanly(self) -> None:
         proc = subprocess.run([sys.executable, str(MB), "status"], cwd=self.sb.tmp, capture_output=True, text=True,
                               env={**os.environ, **GIT_ENV})
@@ -349,11 +309,11 @@ class DesignStudioPresetTest(unittest.TestCase):
         (sb.repo / "src" / "systems" / "demo" / "node_modules").mkdir()
         sb.git("add", "-A")
         sb.git("commit", "-q", "-m", "studio")
-        self.init = sb.mb("init", "--preset", "design-studio", "--canvas", "board", "--build", "python3 build.py",
+        self.init = sb.mb("init", "--preset", "design-studio", "--build", "python3 build.py",
                           "--localize-fonts")
 
     def tearDown(self) -> None:
-        self.sb.mb("canvas", "stop", "--canvas", "board")
+        self.sb.mb("canvas", "stop")
         self._tmp.cleanup()
 
     def cache(self, url: str, data: bytes, kind: str) -> str:
@@ -367,7 +327,6 @@ class DesignStudioPresetTest(unittest.TestCase):
     def test_preset_views_frame_entry_and_snapshot(self) -> None:
         cfg = self.init["config"]
         self.assertEqual((cfg["preset"], cfg["out"], cfg["root_paths"]), ("design-studio", "dist", True))
-        self.assertEqual(cfg["scrub"], ["excalidraw-public-config"])
         self.assertEqual(cfg["localize"], ["fonts.googleapis.com", "fonts.gstatic.com"])
         views = [v["view"] for v in self.sb.mb("views")["views"]]
         self.assertEqual(views, ["shop/Screens/cart.tsx", "shop/Screens/home.tsx", "blog/Screens/home.tsx"])
@@ -393,8 +352,7 @@ class DesignStudioPresetTest(unittest.TestCase):
         self.assertEqual(out["frame"]["view"], "shop/Screens/cart.tsx")
         snap = self.sb.repo / ".git" / "micro-branch" / "frames" / "r2-cart" / "t1-dense"
         js = (snap / "assets" / "app.js").read_text()
-        self.assertIn('"apiKey":"placeholder"', js)
-        self.assertNotIn("excalidraw-oai-api-key", js)
+        self.assertIn('"apiKey":"AIza', js)  # bundled strings are left as they are
         self.assertIn(f'"/mb-assets/{woff_a}.woff2"', js)
         self.assertIn("`https://fonts.gstatic.com/${f}`", js)  # template literals stay as they are
         self.assertIn(f"url(../mb-assets/{woff_a}.woff2)", (snap / "assets" / "app.css").read_text())
@@ -402,7 +360,7 @@ class DesignStudioPresetTest(unittest.TestCase):
         self.assertIn(f"url({woff_b}.woff2)", (snap / "mb-assets" / f"{sheet}.css").read_text())
         self.assertEqual((snap / "mb-assets" / f"{woff_b}.woff2").read_bytes(), b"wOF2-b")
         self.assertEqual(out["prepared"]["localized"]["assets"], 3)
-        self.assertEqual(out["prepared"]["scrubbed"][0]["replaced"], 2)
+        self.assertEqual(set(out["prepared"]), {"localized"})
         self.assertNotIn("node_modules", self.sb.git("ls-tree", "-r", "--name-only", "HEAD", cwd=tree))
 
     def test_unknown_view_fails_publish_and_board_serves_frames_on_their_own_origin(self) -> None:
@@ -415,7 +373,7 @@ class DesignStudioPresetTest(unittest.TestCase):
         self.cache("https://fonts.googleapis.com/css2?family=Demo&display=swap", b"", "text/css")
         self.assertIn("no view matches", self.sb.mb("publish", "r1/t2", expect=2)["error"])
         self.sb.mb("publish", "r1/t1")
-        board = self.sb.mb("canvas", "open", "--canvas", "board")
+        board = self.sb.mb("canvas", "open")
         port = urllib.parse.urlsplit(board["url"]).port
         page = (self.sb.repo / ".git" / "micro-branch" / "board" / "index.html").read_text()
         self.assertIn('data-frame-host="r1-t1"', page)
@@ -427,6 +385,15 @@ class DesignStudioPresetTest(unittest.TestCase):
 
 
 class MicroBranchPortabilityTest(unittest.TestCase):
+    def test_no_skill_mentions_twombly(self) -> None:
+        """Twombly is a paid third-party product and was taken out of Stack on 2026-11-10."""
+        banned = re.compile(r"twombly", re.IGNORECASE)
+        for path in (ROOT / "skills").rglob("*"):
+            if path.is_file():
+                text = path.read_text(errors="ignore")
+                self.assertIsNone(banned.search(text) or banned.search(path.name),
+                                  f"{path.relative_to(ROOT)} mentions Twombly")
+
     def test_skill_names_no_employer_or_private_system(self) -> None:
         banned = re.compile(r"change\.org|sunrise|corgi|@change/|change-prototypes", re.IGNORECASE)
         for path in SKILL.rglob("*"):

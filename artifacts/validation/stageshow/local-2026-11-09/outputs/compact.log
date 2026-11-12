@@ -1,0 +1,7 @@
+still -> /home/maroun.guest/validation/outputs/compact.png
+coverage stage-1: 1 frames, 0.00s, largest gap 0.0ms (complete)
+[stage-1] lopsided: span.fe-button "Create accountCreati" has 67px on the left and 73px on the right (still)
+[stage-1] framing: div.ss-window ends 16px short of the right edge; give it a full gutter (28px) or run it well past the edge so it is clearly masked (still)
+[stage-1] framing: div.ss-window shows 326x392, narrower than tall for a desktop window; change the crop (bleed it) or the layout rather than squash the app (still)
+film: issues; still capture only, motion was not judged
+rehearsal failed: 2 never-intentional line(s) above

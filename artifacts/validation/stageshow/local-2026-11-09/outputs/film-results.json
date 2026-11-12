@@ -1,0 +1,22 @@
+[
+  {
+    "case": "representative-still",
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "case": "representative-compact",
+    "exitCode": 0,
+    "expectedFailure": false
+  },
+  {
+    "case": "representative-loop",
+    "exitCode": 2,
+    "expectedFailure": false
+  },
+  {
+    "case": "failure",
+    "exitCode": 1,
+    "expectedFailure": true
+  }
+]

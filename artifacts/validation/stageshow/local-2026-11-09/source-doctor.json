@@ -1,0 +1,1 @@
+{"dry_run": false, "errors": [], "mode": "report", "schema_version": 1, "source": {"commit": "98e092be7b4e77d8dd6aa4dbea5f88aa963e7a08", "dirty": true}, "status": "ok", "summary": {"active_capabilities": 151, "commands": 13, "families": 11, "providers": 7}}

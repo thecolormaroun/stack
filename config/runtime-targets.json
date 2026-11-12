@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_digest": "aa9bf5a311f1ada9ee219cc5d40c93b1928808a04d40ed97e0d3654a9fe1762a",
+  "catalog_digest": "f5aea9cb9218e379ee2b5c03a9b0967dd7701c840e5a5cdd48bddfe7c6ec9a8a",
   "targets": [
     {
       "name": "claude",

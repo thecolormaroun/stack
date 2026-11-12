@@ -6,7 +6,7 @@
   "rules": [
     {"command": "stack.explore", "intents": ["explore", "idea", "strategy", "research"]},
     {"command": "stack.plan", "intents": ["plan", "brainstorm", "specification"]},
-    {"command": "stack.design", "intents": ["design", "ui", "motion", "critique"]},
+    {"command": "stack.design", "intents": ["design", "ui", "motion", "critique", "stageshow", "showcase video", "showcase work", "showcase our work", "showcase my work", "product demo", "ui walkthrough", "demo video"]},
     {"command": "stack.design.intelligence", "subcommand": "collect", "intents": ["collect design inspiration", "collect design intelligence", "collect bookmarks"]},
     {"command": "stack.design.intelligence", "subcommand": "digest", "intents": ["digest design intelligence", "weekly design digest", "summarize design inspiration"]},
     {"command": "stack.design.intelligence", "subcommand": "retrieve", "intents": ["retrieve inspiration", "relevant inspiration", "show me relevant inspiration", "inspiration for this screen", "task context retrieval"], "requires_context": ["task-context"]},

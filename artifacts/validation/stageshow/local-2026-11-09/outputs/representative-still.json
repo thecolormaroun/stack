@@ -1,0 +1,28 @@
+{
+  "status": "no-issues-detected",
+  "mode": "still",
+  "stages": [
+    {
+      "key": "stage-1",
+      "label": "ss-fit validation-scene",
+      "coverage": {
+        "status": "complete",
+        "frames": 1,
+        "durationMs": 0,
+        "maxGapMs": 0,
+        "reasons": [],
+        "framingSamples": 1,
+        "layout": {
+          "controls": 1,
+          "paddedContainers": 1,
+          "compositionCrops": 0
+        }
+      },
+      "findings": [],
+      "manual": []
+    }
+  ],
+  "errors": [],
+  "manualReviewRequired": false,
+  "exitCode": 0
+}

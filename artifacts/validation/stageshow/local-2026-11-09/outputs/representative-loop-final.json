@@ -1,0 +1,31 @@
+{
+  "status": "no-issues-detected",
+  "mode": "motion",
+  "stages": [
+    {
+      "key": "stage-1",
+      "label": "ss-fit validation-scene",
+      "coverage": {
+        "status": "complete",
+        "frames": 468,
+        "durationMs": 7779,
+        "medianMs": 16.699999999953434,
+        "maxGapMs": 23.400000000023283,
+        "skippedGaps": 0,
+        "cameraFrames": 0,
+        "reasons": [],
+        "framingSamples": 8,
+        "layout": {
+          "controls": 1,
+          "paddedContainers": 1,
+          "compositionCrops": 0
+        }
+      },
+      "findings": [],
+      "manual": []
+    }
+  ],
+  "errors": [],
+  "manualReviewRequired": true,
+  "exitCode": 0
+}

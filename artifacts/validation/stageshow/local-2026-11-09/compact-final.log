@@ -1,0 +1,4 @@
+still -> /home/maroun.guest/validation/outputs/representative-compact.png
+coverage stage-1: 1 frames, 0.00s, largest gap 0.0ms (complete)
+film: no-issues-detected; still capture only, motion was not judged
+rehearsal passed (necessary, not sufficient: references/verify.md and the fresh eye in review.md still stand)

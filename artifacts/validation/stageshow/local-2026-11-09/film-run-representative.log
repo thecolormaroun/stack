@@ -1,0 +1,8 @@
+{"case": "representative-still", "exitCode": 0, "expectedFailure": false}
+{"case": "representative-compact", "exitCode": 0, "expectedFailure": false}
+{"case": "representative-loop", "exitCode": 2, "expectedFailure": false}
+{"case": "failure", "exitCode": 1, "expectedFailure": true}
+Traceback (most recent call last):
+  File "/home/maroun.guest/validation/runtime/../run-films.py", line 39, in <module>
+    assert all(case['exitCode'] == 0 for case in results[:-1]), results
+AssertionError: [{'case': 'representative-still', 'exitCode': 0, 'expectedFailure': False}, {'case': 'representative-compact', 'exitCode': 0, 'expectedFailure': False}, {'case': 'representative-loop', 'exitCode': 2, 'expectedFailure': False}, {'case': 'failure', 'exitCode': 1, 'expectedFailure': True}]

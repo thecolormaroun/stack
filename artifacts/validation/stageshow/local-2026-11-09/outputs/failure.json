@@ -1,0 +1,35 @@
+{
+  "status": "issues",
+  "mode": "motion",
+  "stages": [
+    {
+      "key": "stage-1",
+      "label": "ss-fit",
+      "coverage": {
+        "status": "complete",
+        "frames": 181,
+        "durationMs": 2999.29999999993,
+        "medianMs": 16.599999999976717,
+        "maxGapMs": 21.20000000006985,
+        "skippedGaps": 0,
+        "cameraFrames": 0,
+        "reasons": [],
+        "framingSamples": 4,
+        "layout": {
+          "controls": 0,
+          "paddedContainers": 0,
+          "compositionCrops": 0
+        }
+      },
+      "findings": [
+        "unclipped: span runs 120px past the stage's right edge and nothing clips it; give the stage overflow: hidden so the crop is yours (4 frames from open)",
+        "framing: target span \"bad\" is cut by the crop; what the story touches stays whole in frame (4 frames from open)",
+        "framing: real words span \"Clipped action\" are cut by the crop; only filler bleeds, so pull them inside or make them a placeholder (4 frames from open)"
+      ],
+      "manual": []
+    }
+  ],
+  "errors": [],
+  "manualReviewRequired": true,
+  "exitCode": 1
+}

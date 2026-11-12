@@ -1,0 +1,11 @@
+.validation-scene .ss-stage{background:#f0efed;overflow:hidden}
+.validation-window{position:absolute;left:28px;top:28px;width:600px;height:340px}
+.validation-content{width:440px;padding:24px;box-sizing:border-box}
+.validation-content h2{font:600 20px system-ui;margin:0 0 12px;color:#242424}
+.validation-content p{font:13px system-ui;margin:0 0 24px;color:#666}
+.validation-track{height:8px;background:#e8e7e5;border-radius:4px;margin-bottom:24px;overflow:hidden}
+.validation-progress{height:8px;background:#20865d;transform-origin:left;transition:transform .6s ease}
+.validation-save{height:40px;width:100%;border:0;border-radius:8px;background:#2872df;color:white;display:grid;place-items:center;font:600 13px system-ui;position:relative}
+.validation-save span{grid-area:1/1;transition:opacity .3s ease}
+.validation-card{position:absolute;left:24px;top:24px;width:310px;height:300px;background:white;border-radius:12px}
+.validation-card .validation-content{width:100%}

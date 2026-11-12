@@ -1,0 +1,71 @@
+{
+  "artifact_type": "skill",
+  "audit_status": "reviewed",
+  "canonical_name": "stageshow",
+  "commands": [
+    "stack.design"
+  ],
+  "context": {
+    "inputs": [
+      "request",
+      "project-design-contract",
+      "permitted-content"
+    ],
+    "outputs": [
+      "product-illustration-source",
+      "verification-limitations"
+    ]
+  },
+  "disposition": {
+    "evidence_gap": null,
+    "next_review_trigger": "Revalidate on helper, dependency/browser, safety contract or runtime export changes; rehearse each project copy.",
+    "status": "keep"
+  },
+  "domain": "design",
+  "family": "design",
+  "lifecycle": "active",
+  "overlaps": [
+    "emil-design-eng",
+    "review-animations",
+    "design-intelligence"
+  ],
+  "ownership": {
+    "package": "imported-skills",
+    "provider": "benjitaylor",
+    "source_path": "skills/imported/benjitaylor/stageshow/SKILL.md"
+  },
+  "provenance": {
+    "license": "MIT; retained artwork has separate MIT/Apache-2.0/CC0 notices; excluded artwork and trademark rights are not covered",
+    "posture": "imported-upstream",
+    "source_identity": "github:benjitaylor/skills:stageshow@802057409787133703c56001080169e347305572"
+  },
+  "purpose": "Create authored still or animated product UI illustrations and cursor stories with the pinned Stageshow React kit and permitted references.",
+  "role": "workflow",
+  "runtimes": {
+    "publish_targets": [
+      "claude",
+      "codex"
+    ],
+    "supported": [
+      "claude",
+      "codex"
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "skill_path": "skills/imported/benjitaylor/stageshow/SKILL.md"
+  },
+  "trust_class": "local-mutation",
+  "validation": {
+    "evidence": [
+      "skills/imported/benjitaylor/stageshow/STACK-REVIEW.md",
+      "skills/imported/benjitaylor/stageshow/source.json",
+      "tests/test_stageshow_intake.py",
+      "tests/test_stageshow_browser_launcher.py",
+      "artifacts/validation/stageshow/2026-11-09-accepted.json"
+    ],
+    "status": "validated"
+  },
+  "validation_class": "representative-route",
+  "visibility": "extended"
+}

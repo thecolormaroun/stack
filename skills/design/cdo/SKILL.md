@@ -15,6 +15,11 @@ Enrich plan files with design specifications for compound-engineering execution.
 
 ---
 
+For product demos, UI walkthroughs and videos showcasing product work, consider
+Stageshow automatically through the runtime skill catalog. Read the showcase
+video route in `instructions/skill-routing.md`; actual video needs recording,
+decoding and visual inspection beyond PNG filming.
+
 ## Input
 
 CDO reads a **plan file** from CPO:

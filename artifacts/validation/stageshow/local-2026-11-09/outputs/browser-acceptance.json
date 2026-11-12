@@ -1,0 +1,110 @@
+{
+  "browser": "130.0.6723.31",
+  "sandbox": {
+    "renderers": [
+      {
+        "pid": "1323",
+        "command": [
+          "/home/maroun.guest/validation/browsers/chromium-1140/chrome-linux/chrome --type=renderer --headless=old --disable-dev-shm-usage --disable-back-forward-cache --disable-background-timer-throttling --disable-breakpad --enable-automation --force-color-profile=srgb --remote-debugging-pipe --allow-pre-commit-input --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --ozone-platform=headless --disable-databases --lang=en-US --num-raster-threads=2 --enable-main-frame-before-activation --renderer-client-id=4 --time-ticks-at-unix-epoch=-1794251841367838 --launch-time-ticks=291130229 --shared-files",
+          ""
+        ],
+        "status": "Name:\tchrome\nUmask:\t0022\nState:\tS (sleeping)\nTgid:\t1323\nNgid:\t0\nPid:\t1323\nPPid:\t1289\nTracerPid:\t0\nUid:\t502\t502\t502\t502\nGid:\t1000\t1000\t1000\t1000\nFDSize:\t128\nGroups:\t1000 \nNStgid:\t1323\t4\t1\nNSpid:\t1323\t4\t1\nNSpgid:\t1283\t0\t0\nNSsid:\t1283\t0\t0\nVmPeak:\t1212526620 kB\nVmSize:\t1211691176 kB\nVmLck:\t       0 kB\nVmPin:\t       0 kB\nVmHWM:\t   95732 kB\nVmRSS:\t   95732 kB\nRssAnon:\t   17572 kB\nRssFile:\t   78160 kB\nRssShmem:\t       0 kB\nVmData:\t  341044 kB\nVmStk:\t     268 kB\nVmExe:\t  175088 kB\nVmLib:\t   30076 kB\nVmPTE:\t     668 kB\nVmSwap:\t       0 kB\nHugetlbPages:\t       0 kB\nCoreDumping:\t0\nTHP_enabled:\t1\nThreads:\t9\nSigQ:\t0/15389\nSigPnd:\t0000000000000000\nShdPnd:\t0000000000000000\nSigBlk:\t0000000000000000\nSigIgn:\t0000000000001002\nSigCgt:\t0000000140014eed\nCapInh:\t0000000000000000\nCapPrm:\t0000000000000000\nCapEff:\t0000000000000000\nCapBnd:\t000001ffffffffff\nCapAmb:\t0000000000000000\nNoNewPrivs:\t1\nSeccomp:\t2\nSeccomp_filters:\t2\nSpeculation_Store_Bypass:\tvulnerable\nSpeculationIndirectBranch:\tunknown\nCpus_allowed:\tf\nCpus_allowed_list:\t0-3\nMems_allowed:\t0001\nMems_allowed_list:\t0\nvoluntary_ctxt_switches:\t18\nnonvoluntary_ctxt_switches:\t25\n"
+      }
+    ],
+    "verified": "renderer PID namespace + additional Chromium seccomp filter + NNP, no sandbox-disabling flags"
+  },
+  "network": [
+    {
+      "host": "1.1.1.1",
+      "error": "EPERM"
+    },
+    {
+      "host": "::1",
+      "error": "EPERM"
+    }
+  ],
+  "pages": [
+    {
+      "at": 239,
+      "state": "app.northwind.co/signup\nCreate your account\nWork email\nWe'll send a link to confirm it\nAdd the domain, like name@company.com\nPassword\n••••••••••••••\nCreate account\nCreating account\nAccount created"
+    },
+    {
+      "at": 3005,
+      "state": "app.northwind.co/signup\nCreate your account\nWork email\nmaya@northwind\nWe'll send a link to confirm it\nAdd the domain, like name@company.com\nPassword\n••••••••••••••\nCreate account\nCreating account\nAccount created"
+    },
+    {
+      "at": 7009,
+      "state": "app.northwind.co/signup\nCreate your account\nWork email\nmaya@northwind.co\nWe'll send a link to confirm it\nAdd the domain, like name@company.com\nPassword\n••••••••••••••\nCreate account\nCreating account\nAccount created"
+    },
+    {
+      "at": 11006,
+      "state": "app.northwind.co/signup\nCreate your account\nWork email\nmaya@northwind.co\nWe'll send a link to confirm it\nAdd the domain, like name@company.com\nPassword\n••••••••••••••\nCreate account\nCreating account\nAccount created"
+    },
+    {
+      "reduced": true,
+      "width": 640,
+      "layout": "wide",
+      "state": "true",
+      "stable": true
+    },
+    {
+      "reduced": true,
+      "width": 390,
+      "layout": "compact",
+      "state": "true",
+      "stable": true
+    }
+  ],
+  "durationTargetMs": 12000,
+  "commandLine": [
+    "/home/maroun.guest/validation/browsers/chromium-1140/chrome-linux/chrome",
+    "--disable-field-trial-config",
+    "--disable-background-networking",
+    "--disable-background-timer-throttling",
+    "--disable-backgrounding-occluded-windows",
+    "--disable-back-forward-cache",
+    "--disable-breakpad",
+    "--disable-client-side-phishing-detection",
+    "--disable-component-extensions-with-background-pages",
+    "--disable-component-update",
+    "--no-default-browser-check",
+    "--disable-default-apps",
+    "--disable-dev-shm-usage",
+    "--disable-extensions",
+    "--disable-features=ImprovedCookieControls,LazyFrameLoading,GlobalMediaControls,DestroyProfileOnBrowserClose,MediaRouter,DialMediaRouteProvider,AcceptCHFrame,AutoExpandDetailsElement,CertificateTransparencyComponentUpdater,AvoidUnnecessaryBeforeUnloadCheckSync,Translate,HttpsUpgrades,PaintHolding,ThirdPartyStoragePartitioning,LensOverlay,PlzDedicatedWorker",
+    "--allow-pre-commit-input",
+    "--disable-hang-monitor",
+    "--disable-ipc-flooding-protection",
+    "--disable-popup-blocking",
+    "--disable-prompt-on-repost",
+    "--disable-renderer-backgrounding",
+    "--force-color-profile=srgb",
+    "--metrics-recording-only",
+    "--no-first-run",
+    "--enable-automation",
+    "--password-store=basic",
+    "--use-mock-keychain",
+    "--no-service-autorun",
+    "--export-tagged-pdf",
+    "--disable-search-engine-choice-screen",
+    "--unsafely-disable-devtools-self-xss-warnings",
+    "--headless=old",
+    "--hide-scrollbars",
+    "--mute-audio",
+    "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4",
+    "--user-data-dir=/tmp/playwright_chromiumdev_profile-VHJKHY",
+    "--remote-debugging-pipe",
+    "--no-startup-window",
+    "--use-gl=angle",
+    "--use-angle=swiftshader-webgl",
+    "--ozone-platform=headless",
+    "--allow-pre-commit-input"
+  ],
+  "recordedWallMs": 12018,
+  "resources": [
+    "file:///home/maroun.guest/validation/runtime/acceptance.html"
+  ],
+  "pageErrors": [],
+  "passed": true,
+  "browserClosed": true
+}

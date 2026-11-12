@@ -1,0 +1,20 @@
+[
+  {
+    "path": "artifacts/validation/stageshow/local-2026-11-09/vm-final.json",
+    "original_sha256": "8fe9cb0b5a9f65ac1cf7ce55b04ba1920fc7ea94f3253628b20f8969d99b7dc4",
+    "published_sha256": "24a1e4627b52300169ca453dcc52a3f4af642122e60899f9785384470793d854",
+    "redaction": "host home path replaced by literal $HOME; raw local evidence retained in original local-only commit"
+  },
+  {
+    "path": "artifacts/validation/stageshow/local-2026-11-09/vm-start.log",
+    "original_sha256": "635ae64e0af5a36068995bc340ba823c176f9c30617bd851910a01ef1021b3d8",
+    "published_sha256": "50877a796aff049d2323b2e451bc4302fe8797b28b067dfd7186057e1bad0c2c",
+    "redaction": "host home path replaced by literal $HOME; raw local evidence retained in original local-only commit"
+  },
+  {
+    "path": "artifacts/validation/stageshow/local-2026-11-09/vm-restart.log",
+    "original_sha256": "0f754d89c3fa1eae5597454cc04d8df6c31dc87f357c785a3b4546bc345ec6f7",
+    "published_sha256": "e0234777cc5e45e64370d2142404216db4d100a57b7acf8812ccf4b319304920",
+    "redaction": "host home path replaced by literal $HOME; raw local evidence retained in original local-only commit"
+  }
+]

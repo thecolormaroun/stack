@@ -39,6 +39,7 @@
       "skills/engineering/react-doctor/SKILL.md": "skills/engineering/react-doctor/capability.json",
       "skills/engineering/simplify/SKILL.md": "skills/engineering/simplify/capability.json",
       "skills/engineering/tdd/SKILL.md": "skills/engineering/tdd/capability.json",
+      "skills/imported/benjitaylor/stageshow/SKILL.md": "skills/imported/benjitaylor/stageshow/capability.json",
       "skills/imported/david/david-agent-self-scheduling/SKILL.md": "skills/imported/david/david-agent-self-scheduling/capability.json",
       "skills/imported/david/david-anti-sleep/SKILL.md": "skills/imported/david/david-anti-sleep/capability.json",
       "skills/imported/david/david-brain-to-docs/SKILL.md": "skills/imported/david/david-brain-to-docs/capability.json",
@@ -199,6 +200,7 @@
       "skills/engineering/react-doctor/SKILL.md",
       "skills/engineering/simplify/SKILL.md",
       "skills/engineering/tdd/SKILL.md",
+      "skills/imported/benjitaylor/stageshow/SKILL.md",
       "skills/imported/david/david-agent-self-scheduling/SKILL.md",
       "skills/imported/david/david-anti-sleep/SKILL.md",
       "skills/imported/david/david-brain-to-docs/SKILL.md",
@@ -330,8 +332,8 @@
     "missing": []
   },
   "counts": {
-    "callable_skills": 158,
-    "manifests": 158,
+    "callable_skills": 159,
+    "manifests": 159,
     "package_exports": 20,
     "private_declarations": 1,
     "unclassified": 0

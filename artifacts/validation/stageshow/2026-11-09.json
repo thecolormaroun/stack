@@ -1,0 +1,53 @@
+{
+  "activation_performed": false,
+  "authorization": "User requested local availability in Claude and Codex. Isolated validation and local installation are authorized; no additional confirmation of those actions is required.",
+  "browser_video_test": "not run",
+  "capability": "stageshow",
+  "observed_blockers": [
+    {
+      "check": "dependency setup",
+      "result": "curl exit 6: registry.npmjs.org could not be resolved"
+    },
+    {
+      "check": "offline validation assets",
+      "result": "No cached matching browser or Lima VM image; package node_modules absent"
+    },
+    {
+      "check": "normal runtime compiler",
+      "result": "refusing to stage a dirty source tree"
+    },
+    {
+      "check": "runtime stage write probe",
+      "result": "Operation not permitted"
+    },
+    {
+      "check": "Claude runtime parent write probe",
+      "result": "Operation not permitted"
+    },
+    {
+      "check": "Codex runtime parent write probe",
+      "result": "Operation not permitted"
+    },
+    {
+      "check": "runtime receipt write probe",
+      "result": "Operation not permitted"
+    }
+  ],
+  "preserved": {
+    "browser_sandbox_required": true,
+    "candidate_lifecycle": true,
+    "isolated_video_acceptance_required": true,
+    "prior_changes": true,
+    "prior_receipt": "artifacts/validation/stageshow/2026-11-01.json"
+  },
+  "recorded_at": "2026-11-09T19:09:17.331164+00:00",
+  "resume": [
+    "Run setup with access to official dependency and browser-image hosts, or supply verified offline assets.",
+    "Validate a real synthetic UI video in isolation with the browser sandbox enabled and test network access denied.",
+    "Prepare a clean isolated source commit containing only the reviewed integration changes; preserve the dirty working checkout.",
+    "Use the normal compiler and atomic installer with permitted runtime staging, Claude/Codex target and receipt writes."
+  ],
+  "runtime_installation_performed": false,
+  "schema_version": 1,
+  "status": "blocked-by-execution-environment"
+}

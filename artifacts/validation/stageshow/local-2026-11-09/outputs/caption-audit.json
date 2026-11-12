@@ -1,0 +1,11 @@
+{
+  "payloads": [
+    "open",
+    "</figcaption><img src=x onerror=\"window.__captionExecuted=1\"> & 'single' \"double\"",
+    "</figcaption><img src=x onerror=\"window.__captionExecuted=1\"> & 'single' \"double\" +0.7s",
+    "end 2.20s"
+  ],
+  "injected": 0,
+  "executed": 0,
+  "escaped": true
+}

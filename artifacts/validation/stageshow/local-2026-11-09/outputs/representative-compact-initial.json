@@ -1,0 +1,30 @@
+{
+  "status": "issues",
+  "mode": "still",
+  "stages": [
+    {
+      "key": "stage-1",
+      "label": "ss-fit validation-scene",
+      "coverage": {
+        "status": "complete",
+        "frames": 1,
+        "durationMs": 0,
+        "maxGapMs": 0,
+        "reasons": [],
+        "framingSamples": 1,
+        "layout": {
+          "controls": 1,
+          "paddedContainers": 1,
+          "compositionCrops": 0
+        }
+      },
+      "findings": [
+        "unclipped: div.validation-card runs 44px past the stage's bottom edge and nothing clips it; give the stage overflow: hidden so the crop is yours (still)"
+      ],
+      "manual": []
+    }
+  ],
+  "errors": [],
+  "manualReviewRequired": false,
+  "exitCode": 0
+}

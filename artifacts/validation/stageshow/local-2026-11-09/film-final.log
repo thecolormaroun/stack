@@ -1,0 +1,4 @@
+8 frames every 1000ms -> /home/maroun.guest/validation/outputs/representative-loop-final.png
+coverage stage-1: 468 frames, 7.78s, largest gap 23.4ms (complete)
+film: no-issues-detected; watch the motion and inspect every image before approval
+rehearsal passed (necessary, not sufficient: references/verify.md and the fresh eye in review.md still stand)

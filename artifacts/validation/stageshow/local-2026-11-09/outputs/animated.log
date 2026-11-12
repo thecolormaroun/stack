@@ -1,0 +1,9 @@
+16 frames every 700ms -> /home/maroun.guest/validation/outputs/animated.png
+coverage stage-1: 674 frames, 11.63s, largest gap 170.3ms (inconclusive)
+  incomplete: 10 sampling gap(s) exceeded 27ms; motion during those gaps was not judged
+[stage-1] lopsided: span.fe-button "Create accountCreati" has 106px on the left and 112px on the right (8 frames from 5.6s)
+[stage-1] jump: ss-field__chars "m" width +8.0px in one frame at 1.04s [type], 12 times
+[stage-1] jump: ss-field__text width -22.0px in one frame at 3.80s [fix]
+[stage-1] appears with no entrance: svg.ss-field__ok shows at full size and opacity in one frame; fade it in, or grow it out of what it comes from (a chip budding off a value scales from it as it fades in: Fly with held), never pop it in whole
+film: inconclusive; watch the motion and inspect every image before approval
+rehearsal not passed: inconclusive

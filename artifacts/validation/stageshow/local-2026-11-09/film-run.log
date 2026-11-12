@@ -1,0 +1,17 @@
+{"case": "still", "exitCode": 0, "expectedFailure": false}
+{"case": "compact", "exitCode": 1, "expectedFailure": false}
+{"case": "poster", "exitCode": 0, "expectedFailure": false}
+{"case": "animated", "exitCode": 2, "expectedFailure": false}
+{"case": "loop", "exitCode": 2, "expectedFailure": false}
+{"case": "failure", "exitCode": 2, "expectedFailure": true}
+Traceback (most recent call last):
+  File "/home/maroun.guest/validation/runtime/../run-films.py", line 33, in <module>
+    caption = json.loads((out / 'caption-audit.json').read_text())
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/pathlib.py", line 1059, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/pathlib.py", line 1045, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/maroun.guest/validation/outputs/caption-audit.json'

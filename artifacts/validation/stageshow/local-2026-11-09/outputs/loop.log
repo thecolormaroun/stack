@@ -1,0 +1,7 @@
+24 frames every 600ms -> /home/maroun.guest/validation/outputs/loop.png
+coverage stage-1: 869 frames, 14.65s, largest gap 54.6ms (inconclusive)
+  incomplete: 33 sampling gap(s) exceeded 27ms; motion during those gaps was not judged
+[stage-1] framing: div.ss-window ends 16px short of the right edge; give it a full gutter (40px) or run it well past the edge so it is clearly masked (24 frames from 0.0s)
+[stage-1] framing: div.ss-window shows 326x360, narrower than tall for a desktop window; change the crop (bleed it) or the layout rather than squash the app (24 frames from 0.0s)
+film: inconclusive; watch the motion and inspect every image before approval
+rehearsal failed: 2 never-intentional line(s) above

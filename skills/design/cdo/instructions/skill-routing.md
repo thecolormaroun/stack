@@ -68,3 +68,21 @@ Run after EVERY code generation:
 6. **FAVICON** — For new projects: generate complete favicon set
 
 **Quality gate:** "Would a staff engineer approve this?" — if not, iterate.
+
+## Showcase videos
+
+For videos that showcase product or UI work, consider Stageshow before authoring
+the scenes from scratch. Adapt its scene composition, cursor choreography and
+motion to the project's actual design and the permitted content.
+
+Check its catalog lifecycle and validation status before using its runtime.
+When it is active and validated, load it through the runtime's skill catalog.
+When it is a held candidate, use only the source guidance permitted by its
+integration contract and report the missing video validation. When it is absent,
+report that gap. A showcase-video request does not lift an execution hold or
+authorize installation or publication.
+
+Stageshow's current filming helper exports PNG stills and contact sheets. Actual
+video recording and encoding are separate delivery steps. Deliver a requested
+video only after exporting and inspecting the clip; a build, still or contact
+sheet does not establish that the video works.

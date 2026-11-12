@@ -64,6 +64,26 @@ class IntentRoutingTests(unittest.TestCase):
         self.assertEqual(result["candidates"], ["stack.design", "stack.review"])
         self.assertIsNone(result["logical_command"])
 
+    def test_product_showcase_requests_route_to_design_without_execution_authority(self) -> None:
+        resolver = self.resolver()
+        for request in (
+            "Create a video to showcase work",
+            "Make a showcase video for the new feature",
+            "Make a video to showcase our work",
+            "Create a product demo",
+            "Make a UI walkthrough",
+            "Use Stageshow for this launch",
+        ):
+            with self.subTest(request=request):
+                result = resolver.resolve(request)
+                self.assertEqual(result["status"], "resolved")
+                self.assertEqual(result["logical_command"], "stack.design")
+                self.assertEqual(result["trust_class"], "read-only")
+                self.assertFalse(result["effect_vector"]["external_write"])
+
+        # Stageshow authors product UI scenes; unrelated film editing keeps its route.
+        self.assertEqual(resolver.resolve("Trim my family vacation video")["status"], "unknown")
+
     def test_task_context_retrieval_selects_extended_intelligence_route(self) -> None:
         result = self.resolver().resolve(
             "Show me relevant inspiration for this screen",

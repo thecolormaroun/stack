@@ -1,0 +1,27 @@
+{
+  "samples": [
+    null,
+    null,
+    "saved",
+    "saved",
+    "saved",
+    "reset",
+    "reset",
+    "saved",
+    "saved",
+    "saved",
+    "reset",
+    "reset",
+    "saved"
+  ],
+  "marks": [
+    "saved",
+    "reset",
+    "saved",
+    "reset",
+    "saved"
+  ],
+  "errors": [],
+  "targetDurationMs": 8000,
+  "passed": true
+}

@@ -1,0 +1,98 @@
+{
+  "artifact_root": "artifacts/validation/stageshow/local-2026-11-09",
+  "artifacts_sha256": {
+    "outputs/browser-acceptance.json": "83abf1e2f03d92f7af74fb45c010440c320787ea28f7afd91ddddb64d3326ae9",
+    "outputs/caption-audit.json": "7d97a352845fc22bcf3c53b00108e159d965beacd2e1ba222a7d70ce078e040d",
+    "outputs/failure.json": "4d472b836a19c52239e078dbf26ef565705b0b697c07326dbe65babf8b7adedd",
+    "outputs/loop-probe-final.json": "3e03a910ad32941a329985ee5e77b558bfbdfc2c61076f7d69024341c69c37fb",
+    "outputs/loop-ui.mp4": "d06a9415c941242b355bcfe0cb253582cd54671153e6a96cd4a18444981cbd82",
+    "outputs/loop-video.json": "69ee8648dc6cadf67de36cff4966eb0d4935872bbdfb7874cd0dddaf4355e09f",
+    "outputs/representative-compact.json": "7230a75fd54713b135cb75ddee4c803643ea983971038b1abee92807131c7f1d",
+    "outputs/representative-loop-final.json": "4182b772d8fe7d1e627a496359d636cbf6287b52957eb912b67f2a985a3f6246",
+    "outputs/representative-still.json": "7230a75fd54713b135cb75ddee4c803643ea983971038b1abee92807131c7f1d",
+    "outputs/sample-ui.mp4": "407a130327cdce1833285fbe592c4c0ff95b2ac7e004718a756032204be8b320",
+    "outputs/video-probe-final.json": "6e85b73639860f8a240a93510aa5a147b08318ebab8cae488e57fdc8bc02088b"
+  },
+  "capability": "stageshow",
+  "checks": {
+    "build": "passed offline in VM",
+    "caption_escape": "markup label round-tripped; zero inserted tags or executed handlers",
+    "compact": "390px, 358px design, no overflow; passed gate",
+    "dependencies": "exact lockfile npm ci --ignore-scripts; Debian signed-index version pins and SHA-256 list retained",
+    "failed_rehearsal": "exit 1 preserved in process and report; no success claim",
+    "official_node_sha256": "1c4a9933a5e45bc88f54f70b5f91232c127ec49f1a5989d23fb85824c7adf9b7",
+    "output_containment": "all named exports under approved validation outputs; no source helper/lockfile mutation, output symlink or HTTP listener; arbitrary hostile --out paths are not a supported safety boundary",
+    "reduced_motion": "wide and compact posters stable; final success state",
+    "representative_loop": "complete sampling, no findings, rehearsal passed with unchanged thresholds",
+    "representative_still": "passed gate",
+    "shutdown": "no remaining browser/node/listener processes; VM stopped",
+    "typecheck": "passed offline in VM",
+    "video": {
+      "decode": "both entire streams decoded without errors",
+      "loop": {
+        "codec": "h264",
+        "decoded_frames": 200,
+        "dimensions": [
+          640,
+          360
+        ],
+        "duration_seconds": 8,
+        "fps": 25,
+        "states": "saved/reset twice"
+      },
+      "native_recording": "official Playwright VP8 encoder; native tail trimmed when producing declared-duration H.264 exports",
+      "sample": {
+        "codec": "h264",
+        "decoded_frames": 300,
+        "dimensions": [
+          640,
+          480
+        ],
+        "duration_seconds": 12,
+        "final_state": "Account created",
+        "fps": 25
+      },
+      "visual_inspection": "decoded sequence, final frame and loop contact sheets inspected by primary; fresh independent review recorded separately"
+    },
+    "visual_review": "Primary decoded-frame inspection and independent Sol High review verified both MP4s; corrected still/compact evidence reviewed separately before install."
+  },
+  "isolation": {
+    "chromium_sandbox": "verified PID namespace and additional renderer seccomp; no unsandboxed retry",
+    "content": "fully inlined synthetic local file pages; no listener",
+    "environment": "allowlisted env -i",
+    "host_mounts": [],
+    "image_digest": "sha512:52eb678130e85a9bf9f3cf4f7181e060fa60a5db45373717474c5ff9305645c5e6cab8b05ca042bcfa7921d2ca29cf9fd2e815f75abe2d168557ad7207af127b",
+    "network_probes": {
+      "external_browser_navigation": "denied",
+      "ipv4": "EPERM",
+      "ipv6": "EPERM"
+    },
+    "private_credentials": false,
+    "privilege_elevation_used": false,
+    "signed_in_state": false,
+    "test_network": "inherited seccomp denies all non-UNIX/non-netlink sockets and io_uring_setup; NNP; no inherited sockets",
+    "vm": "Lima 2.2.0 VZ Debian 12 arm64"
+  },
+  "limitations": [
+    "Representative routes only; full retained example catalog not certified.",
+    "Exploratory form/loading helper scans reported sampling gaps and/or compact framing findings; preserved as failed/inconclusive.",
+    "film.mjs exports PNGs; encoded video remains a separate recording/decode step.",
+    "Host-side preparatory typecheck/build ran before VM acceptance; authoritative typecheck/build were repeated under the VM offline rule."
+  ],
+  "recorded_date": "2026-11-09",
+  "schema_version": 1,
+  "scope": "representative synthetic browser/video validation; local runtime installation separately receipted",
+  "source": {
+    "browser_revision": "1140",
+    "browser_version": "130.0.6723.31",
+    "helper_sha256": {
+      "package-lock.json": "092ee4aa51f4f38df3c5ba35708ef288a533a6c9b7078fcb5b71897d6ac5e731",
+      "scripts/browser.mjs": "48e9ee06dc76b378bf6f3b701f72a844a2db33f5056086cd5ab2642fa394d271",
+      "scripts/film.mjs": "354200847958a4573eeb0da9ba4e061fc4f2ec1eecebf3df9b91f05e747f08a3"
+    },
+    "playwright_core": "1.48.2",
+    "upstream_revision": "802057409787133703c56001080169e347305572"
+  },
+  "status": "passed",
+  "thread_id": "01a1c1bb-c674-7013-a1ee-dcaf8ede8354"
+}

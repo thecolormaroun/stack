@@ -732,6 +732,11 @@
       "source": "skills/stack-refresh-pr-mode/SKILL.md"
     },
     {
+      "canonical_name": "stageshow",
+      "destination": "skills/imported/benjitaylor/stageshow/SKILL.md",
+      "source": "skills/imported/benjitaylor/stageshow/SKILL.md"
+    },
+    {
       "canonical_name": "taste-skill-suite-taste-skill",
       "destination": "skills/imported/taste-skill-suite/taste-skill/SKILL.md",
       "source": "skills/taste-skill-suite/taste-skill/SKILL.md"

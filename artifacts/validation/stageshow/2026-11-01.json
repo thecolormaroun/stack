@@ -1,0 +1,134 @@
+{
+  "activation": {
+    "lifecycle": "candidate",
+    "performed": false,
+    "publish_targets": [],
+    "validation_status": "blocked"
+  },
+  "browser_launcher_sha256": "48e9ee06dc76b378bf6f3b701f72a844a2db33f5056086cd5ab2642fa394d271",
+  "browser_video_acceptance": {
+    "limitation": "film.mjs exports PNG stills/contact sheets; an actual video-recording and decode/visual inspection step is still required",
+    "required_checks": [
+      "matching official browser for locked playwright-core 1.48.2",
+      "browser sandbox active",
+      "no host mounts or private content",
+      "test network denial proven",
+      "representative still and loop",
+      "compact layout",
+      "reduced motion",
+      "truthful failed rehearsal status",
+      "caption escaping at runtime",
+      "video decodes with expected duration, dimensions, changing frames and final state",
+      "output containment",
+      "browser/server shutdown",
+      "independent visual review"
+    ],
+    "status": "not run",
+    "video_artifact": null,
+    "visual_review": "not performed"
+  },
+  "capability": "stageshow",
+  "changes": [
+    "Preserved existing candidate, notices, omitted-asset policy, lockfile and two film.mjs patches.",
+    "Enabled chromiumSandbox explicitly for both browser-selection paths; no weaker retry.",
+    "Updated source hashes and validation-status prose without changing candidate lifecycle or publication targets."
+  ],
+  "checks": [
+    {
+      "browser_launched": false,
+      "failures": 3,
+      "name": "launcher regression before fix",
+      "status": "expected failure",
+      "tests": 4
+    },
+    {
+      "browser_launched": false,
+      "command": "PATH=/opt/homebrew/opt/python@3.11/libexec/bin:$PATH /opt/homebrew/bin/python3.11 -m unittest tests.test_stageshow_intake tests.test_stageshow_browser_launcher tests.test_capability_registry tests.test_audit_capabilities tests.test_compile_runtime tests.test_install_runtime tests.test_documented_commands",
+      "failures": 0,
+      "name": "focused Stack tests",
+      "python": "3.11.15",
+      "status": "passed",
+      "tests": 59
+    },
+    {
+      "command": "node --check skills/imported/benjitaylor/stageshow/scripts/browser.mjs",
+      "name": "JavaScript syntax",
+      "status": "passed"
+    },
+    {
+      "command": "python3 scripts/build-capability-registry.py --check",
+      "name": "capability registry",
+      "status": "passed"
+    },
+    {
+      "command": "git diff --check -- skills/imported/benjitaylor/stageshow tests/test_stageshow_browser_launcher.py",
+      "name": "patch whitespace",
+      "status": "passed"
+    },
+    {
+      "name": "fresh-reader check",
+      "scope": "changed integration-contract prose and validation follow-up; one ambiguous phrase clarified",
+      "status": "passed"
+    },
+    {
+      "failures": 1,
+      "name": "initial default-Python test run",
+      "reason": "Python 3.9 lacked tomllib for an existing documented command; Python 3.11 rerun passed",
+      "status": "failed",
+      "tests": 59
+    },
+    {
+      "name": "bun skill guards",
+      "reason": "This Stack repository uses Python unittest and has no root Bun package or test:skill-guards script.",
+      "status": "not applicable"
+    },
+    {
+      "name": "Claude/Codex behavioral skill evaluation",
+      "reason": "Candidate remains inactive; changed prose records validation status and the sandbox patch. Cross-runtime video acceptance requires the blocked isolated setup.",
+      "status": "not run"
+    }
+  ],
+  "imported_file_hashes_digest": "a9c16b987382624e4d7e80eec0990376488f73da1b3808e0000d725b6f1916ef",
+  "isolation_attempt": {
+    "booted": false,
+    "browser_launched": false,
+    "cleanup": "Unbooted VM definition deleted; Lima reports no instance",
+    "container_runtime": false,
+    "download_probes": [
+      {
+        "result": "curl exit 6: could not resolve host",
+        "url": "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-arm64.qcow2"
+      },
+      {
+        "result": "curl exit 6: could not resolve host",
+        "url": "https://mcr.microsoft.com/v2/playwright/manifests/v1.48.2-jammy"
+      }
+    ],
+    "host_mounts": [],
+    "host_public_key_loading": false,
+    "proxy_environment_propagation": false,
+    "result": "VM creation stopped on a denied default image-cache write",
+    "ssh_agent_forwarding": false,
+    "test_listener_started": false,
+    "vm": "Lima plain-mode Debian 12 arm64"
+  },
+  "prior_validation": {
+    "browser_video": "user-reported incomplete after guest DNS failure; prior VM removed",
+    "checked_in_review": "skills/imported/benjitaylor/stageshow/STACK-REVIEW.md",
+    "install_typecheck_build": "user-reported pass; newer receipts not located; not independently rerun",
+    "prohibited_diagnostic": "not retried; no privilege elevation or bypass attempted"
+  },
+  "recorded_at": "2026-11-01T22:24:22.668125+00:00",
+  "resume_requirements": [
+    "Use a supported runner that permits setup-only official VM/browser/dependency downloads and VM image-cache writes, or supply a verified offline image/bundle.",
+    "Bind browser and dependency assets to the existing lockfile and verify their identity before executing them.",
+    "Copy only the pinned candidate and synthetic fixture into a fresh isolated environment; enforce and prove network denial before any test execution.",
+    "Keep the browser sandbox enabled and stop on isolation failure; do not reuse signed-in browsers, alter host security controls or retry the denied diagnostic.",
+    "Record and inspect a real video before changing the hold. Review catalog activation separately from runtime publication; publication is prohibited in this task."
+  ],
+  "schema_version": 1,
+  "source_state": "existing staged candidate plus uncommitted follow-up; no commit or publication performed",
+  "stack_base_commit": "0da4f2e3c8598bbb807db2a90e014366094124eb",
+  "status": "blocked-before-browser-video-validation",
+  "upstream_revision": "802057409787133703c56001080169e347305572"
+}

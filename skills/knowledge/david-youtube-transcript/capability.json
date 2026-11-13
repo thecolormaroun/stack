@@ -1,0 +1,63 @@
+{
+  "artifact_type": "skill",
+  "audit_status": "reviewed",
+  "canonical_name": "david-youtube-transcript",
+  "commands": [
+    "stack.learn"
+  ],
+  "context": {
+    "inputs": [
+      "request",
+      "workspace-context"
+    ],
+    "outputs": [
+      "capability-result"
+    ]
+  },
+  "disposition": {
+    "evidence_gap": null,
+    "next_review_trigger": "Reassess on source, export, or runtime-target change.",
+    "status": "keep"
+  },
+  "domain": "knowledge",
+  "family": "knowledge",
+  "lifecycle": "active",
+  "overlaps": [],
+  "ownership": {
+    "package": "stack",
+    "provider": "stack",
+    "source_path": "skills/knowledge/david-youtube-transcript/SKILL.md"
+  },
+  "provenance": {
+    "license": "MIT",
+    "posture": "repository-local",
+    "source_identity": "stack:skills/david-youtube-transcript"
+  },
+  "purpose": "Stack-owned, adapted from David Ondrej agent skills: Use whenever the user",
+  "role": "leaf",
+  "runtimes": {
+    "publish_targets": [
+      "claude",
+      "codex"
+    ],
+    "supported": [
+      "claude",
+      "codex"
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "skill_path": "skills/knowledge/david-youtube-transcript/SKILL.md"
+  },
+  "trust_class": "read-only",
+  "validation": {
+    "evidence": [
+      "reviewed-estate-refactor",
+      "structural-classification",
+      "primary-runtime-parity"
+    ],
+    "status": "validated"
+  },
+  "validation_class": "representative-route",
+  "visibility": "extended"
+}

@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DOCUMENTS = (
     ROOT / "README.md",
-    ROOT / "config/CLAUDE.md",
+    ROOT / "AGENTS.md",
     ROOT / "docs/architecture.md",
     ROOT / "docs/capability-lifecycle.md",
     ROOT / "docs/bookmark-curation.md",
@@ -20,6 +20,10 @@ DOCUMENTS = (
     ROOT / "docs/weekly-intelligence-operations.md",
     ROOT / "docs/private-overlay.md",
     ROOT / "docs/stack-maintenance.md",
+    ROOT / "docs/upstream-policy.md",
+    ROOT / "docs/context/state.md",
+    ROOT / "docs/context/decisions.md",
+    ROOT / "docs/context/handoff.md",
     ROOT / "templates/periodic-reassessment.md",
     ROOT / "templates/stack-maintenance-reconciliation.md",
 )

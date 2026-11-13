@@ -138,7 +138,7 @@
     },
     {
       "canonical_name": "david-anti-sleep",
-      "destination": "skills/imported/david/david-anti-sleep/SKILL.md",
+      "destination": "skills/engineering/david-anti-sleep/SKILL.md",
       "source": "skills/david-anti-sleep/SKILL.md"
     },
     {
@@ -148,17 +148,17 @@
     },
     {
       "canonical_name": "david-browser-harness",
-      "destination": "skills/imported/david/david-browser-harness/SKILL.md",
+      "destination": "skills/qa/david-browser-harness/SKILL.md",
       "source": "skills/david-browser-harness/SKILL.md"
     },
     {
       "canonical_name": "david-cmux",
-      "destination": "skills/imported/david/david-cmux/SKILL.md",
+      "destination": "skills/orchestration/david-cmux/SKILL.md",
       "source": "skills/david-cmux/SKILL.md"
     },
     {
       "canonical_name": "david-codex-subagent",
-      "destination": "skills/imported/david/david-codex-subagent/SKILL.md",
+      "destination": "skills/orchestration/david-codex-subagent/SKILL.md",
       "source": "skills/david-codex-subagent/SKILL.md"
     },
     {
@@ -173,22 +173,22 @@
     },
     {
       "canonical_name": "david-deep-research",
-      "destination": "skills/imported/david/david-deep-research/SKILL.md",
+      "destination": "skills/knowledge/david-deep-research/SKILL.md",
       "source": "skills/david-deep-research/SKILL.md"
     },
     {
       "canonical_name": "david-deepapi",
-      "destination": "skills/imported/david/david-deepapi/SKILL.md",
+      "destination": "skills/engineering/david-deepapi/SKILL.md",
       "source": "skills/david-deepapi/SKILL.md"
     },
     {
       "canonical_name": "david-effective-agent-skills",
-      "destination": "skills/imported/david/david-effective-agent-skills/SKILL.md",
+      "destination": "skills/platform/david-effective-agent-skills/SKILL.md",
       "source": "skills/david-effective-agent-skills/SKILL.md"
     },
     {
       "canonical_name": "david-fable-safe-prompt",
-      "destination": "skills/imported/david/david-fable-safe-prompt/SKILL.md",
+      "destination": "skills/engineering/david-fable-safe-prompt/SKILL.md",
       "source": "skills/david-fable-safe-prompt/SKILL.md"
     },
     {
@@ -198,7 +198,7 @@
     },
     {
       "canonical_name": "david-goal-loop",
-      "destination": "skills/imported/david/david-goal-loop/SKILL.md",
+      "destination": "skills/orchestration/david-goal-loop/SKILL.md",
       "source": "skills/david-goal-loop/SKILL.md"
     },
     {
@@ -208,7 +208,7 @@
     },
     {
       "canonical_name": "david-handoff",
-      "destination": "skills/imported/david/david-handoff/SKILL.md",
+      "destination": "skills/orchestration/david-handoff/SKILL.md",
       "source": "skills/david-handoff/SKILL.md"
     },
     {
@@ -218,7 +218,7 @@
     },
     {
       "canonical_name": "david-read-all-adrs",
-      "destination": "skills/imported/david/david-read-all-adrs/SKILL.md",
+      "destination": "skills/engineering/david-read-all-adrs/SKILL.md",
       "source": "skills/david-read-all-adrs/SKILL.md"
     },
     {
@@ -228,7 +228,7 @@
     },
     {
       "canonical_name": "david-setup-help",
-      "destination": "skills/imported/david/david-setup-help/SKILL.md",
+      "destination": "skills/platform/david-setup-help/SKILL.md",
       "source": "skills/david-setup-help/SKILL.md"
     },
     {

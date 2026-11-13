@@ -533,6 +533,9 @@ def materialize(root: Path, receipt: Path, output: Path) -> Path:
             provider = providers[provider_id]
             if provider.get("pin", {}).get("type") != "git-commit":
                 raise ProposalError("observed_provider_invalid")
+            if provider.get("tracking") != "weekly":
+                # Only weekly providers follow upstream (docs/upstream-policy.md).
+                raise ProposalError("provider_not_tracked")
             old_pin = provider["pin"]["value"]
             if old_pin == commit:
                 raise ProposalError("observed_provider_not_changed")

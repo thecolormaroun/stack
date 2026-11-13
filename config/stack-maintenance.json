@@ -103,7 +103,6 @@
     "tests/test_fresh_clone.py",
     "registry/capabilities.json",
     "skills/imported/matt/",
-    "skills/imported/david/",
     "skills/imported/emil/",
     "skills/imported/stewdio/",
     "skills/design/review-animations/",

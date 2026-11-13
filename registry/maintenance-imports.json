@@ -19,17 +19,6 @@
       "retained_files": ["CONTEXT-FORMAT.md"]
     },
     {
-      "id": "david",
-      "display_name": "David Ondrej",
-      "target_root": "skills/imported/david",
-      "target_prefix": "david-",
-      "mapping": "existing-source-markdown",
-      "source_metadata": "references/source.md",
-      "license": "MIT",
-      "retained_targets": [],
-      "retained_files": ["agents/openai.yaml"]
-    },
-    {
       "id": "emil",
       "display_name": "Emil Kowalski",
       "target_root": ".",

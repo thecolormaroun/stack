@@ -260,7 +260,14 @@ maintenance diff allowlist.
 | `david-folder-specific-claude-and-agents-md` | `skills/platform/` | `davidondrej/skills` skill-authoring |
 | `matt-resolving-merge-conflicts` | `skills/planning/` | `mattpocock/skills` engineering; upstream removed the skill (CHANGELOG, PR 1120) and keeps only an archived docs page |
 
-The David skills that still exist upstream stay on the maintenance lane.
+Later the same day `davidondrej/skills` became `pick-only` under
+`docs/upstream-policy.md`. Its 12 remaining skills (`david-anti-sleep`,
+`david-browser-harness`, `david-cmux`, `david-codex-subagent`,
+`david-deep-research`, `david-deepapi`, `david-effective-agent-skills`,
+`david-fable-safe-prompt`, `david-goal-loop`, `david-handoff`,
+`david-read-all-adrs`, `david-setup-help`) became Stack-owned the same way, at
+their last inspected commit. David has no import rule and no allowlisted root.
+The lane records the provider as `pick_only` and never observes or proposes it.
 
 `prepare` creates a disposable candidate clone outside the caller checkout
 from that recorded `origin/main` SHA. Only explicit policy-allowlisted files

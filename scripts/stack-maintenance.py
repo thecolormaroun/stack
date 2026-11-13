@@ -59,6 +59,7 @@ DISCOVERY_RISK_CLASSES = {
     "cost-or-scope",
     "unknown",
 }
+TRACKING_MODES = frozenset({"weekly", "pick-only"})
 DISPOSITIONS = {
     "catalog-managed-provider",
     "repository-owned-capability",
@@ -544,6 +545,11 @@ def validate_upstream_metadata(
                     raise PolicyError("upstream_export_path_invalid")
         if not isinstance(provider.get("license"), str) or not provider["license"].strip():
             raise PolicyError("upstream_license_missing")
+        if provider.get("tracking") not in TRACKING_MODES:
+            # docs/upstream-policy.md: every provider states whether the weekly
+            # lane follows it ("weekly") or Stack only picks reviewed skills from
+            # it once ("pick-only").
+            raise PolicyError("upstream_tracking_invalid")
         if pin_type == "git-commit":
             license_digest = provider.get("license_sha256")
             if not isinstance(license_digest, str) or SHA256_PATTERN.fullmatch(license_digest) is None:
@@ -783,13 +789,31 @@ def observe_upstream_heads(
         for provider_id, provider in providers.items()
         if provider.get("pin", {}).get("type") == "git-commit"
     }
-    if supplied and set(supplied) != git_provider_ids:
+    tracked_git_ids = {
+        provider_id for provider_id in git_provider_ids
+        if providers[provider_id].get("tracking") != "pick-only"
+    }
+    # Supplied refs must cover every tracked provider; refs for pick-only
+    # providers are accepted and ignored so callers may pass either set.
+    if supplied and not tracked_git_ids <= set(supplied) <= git_provider_ids:
         raise PolicyError("observed_provider_set_invalid")
     observations: list[dict[str, Any]] = []
     for provider_id, provider in sorted(providers.items()):
         pin = provider.get("pin", {})
         pin_type = pin.get("type")
         pin_value = str(pin.get("value", ""))
+        if pin_type == "git-commit" and provider.get("tracking") == "pick-only":
+            # Pick-only providers are never observed or proposed: their picked
+            # skills are Stack-owned and no longer follow upstream.
+            observations.append(
+                {
+                    "provider_id": provider_id,
+                    "pin": pin_value,
+                    "observed_head": None,
+                    "status": "pick_only",
+                }
+            )
+            continue
         if pin_type != "git-commit":
             observations.append(
                 {

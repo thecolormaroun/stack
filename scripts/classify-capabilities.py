@@ -93,11 +93,11 @@ def family_for(name: str, path: str) -> str:
             return family
     if name in {"agent-operating-stack", "mega-workflow", "departments"}:
         return "core"
-    if path.startswith("skills/orchestration/") or name in {"goal-validation-threads", "david-codex-subagent", "david-cmux", "david-handoff", "david-goal-loop", "matt-handoff"}:
+    if path.startswith("skills/orchestration/") or name in {"goal-validation-threads", "matt-handoff"}:
         return "orchestration"
     if path.startswith("skills/studio/product/") or name in {"cpo", "ideate", "matt-to-spec", "matt-to-tickets", "matt-triage", "matt-wayfinder"}:
         return "product"
-    if path.startswith("skills/studio/research/") or name in {"field-theory-bookmark-synthesis", "fieldbook-source-split", "david-deep-research", "matt-research", "muller-brockmann-grid-systems", "userinterface-wiki"}:
+    if path.startswith("skills/studio/research/") or name in {"field-theory-bookmark-synthesis", "fieldbook-source-split", "matt-research", "muller-brockmann-grid-systems", "userinterface-wiki"}:
         return "knowledge"
     if path.startswith(("skills/studio/design/", "skills/impeccable/", "skills/ui-skills/", "skills/cdo/")) or name in {"cdo", "emil-design-eng", "illo", "better-icons", "review-animations", "ui-design-brain", "make-interfaces-feel-better", "design-intelligence", "rams", "deslop", "taste-skill-suite-soft-skill", "taste-skill-suite-redesign-skill", "cdo-taste-skill"} or name in PINNED_DESIGN_IMPORTS:
         return "design"
@@ -105,11 +105,11 @@ def family_for(name: str, path: str) -> str:
         return "engineering"
     if name in {"matt-code-review", "scratch-eval-promotion-gate", "agent-verification-ladder"}:
         return "review"
-    if name in {"emil-break-ui", "david-browser-harness", "live-site-health-check", "review-animations", "fixing-accessibility", "fixing-metadata", "fixing-motion-performance"} or "accessibility" in name:
+    if name in {"emil-break-ui", "live-site-health-check", "review-animations", "fixing-accessibility", "fixing-metadata", "fixing-motion-performance"} or "accessibility" in name:
         return "qa"
     if path.startswith("skills/studio/ship/") or name in {"stack-refresh-pr-mode"}:
         return "delivery"
-    if name in {"local-tracker-dashboard", "reclaude", "david-setup-help", "david-effective-agent-skills"}:
+    if name in {"local-tracker-dashboard", "reclaude"}:
         return "platform"
     return "planning" if name.startswith("matt-") else "engineering"
 

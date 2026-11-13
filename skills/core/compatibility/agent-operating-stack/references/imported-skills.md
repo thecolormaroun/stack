@@ -28,9 +28,11 @@ These are the concrete namespaced imports added from the Meng To recommendation.
 | `$matt-teach` | `teach` | `skills/productivity/teach` |
 | `$matt-writing-great-skills` | `writing-great-skills` | `skills/productivity/writing-great-skills` |
 
-## David Ondrej Agent Skills
+## Stack-owned Former Imports
 
-| Local skill | Upstream skill | Upstream path |
+These started as imports. Stack owns them as of 2026-11-13 and no longer tracks upstream: their upstream copies were removed or moved, or their provider is pick-only (`davidondrej/skills`; see `docs/upstream-policy.md`). Each keeps its origin and MIT notice in `references/source.md`.
+
+| Local skill | Origin skill | Origin path |
 | --- | --- | --- |
 | `$david-cmux` | `cmux` | `skills/agent-orchestration/cmux` |
 | `$david-codex-subagent` | `codex-subagent` | `skills/agent-orchestration/codex-subagent` |
@@ -44,13 +46,6 @@ These are the concrete namespaced imports added from the Meng To recommendation.
 | `$david-deepapi` | `deepapi` | `skills/research-and-web/deepapi` |
 | `$david-effective-agent-skills` | `effective-agent-skills` | `skills/skill-authoring/effective-agent-skills` |
 | `$david-read-all-adrs` | `read-all-adrs` | `skills/thinking-and-docs/read-all-adrs` |
-
-## Stack-owned Former Imports
-
-These started as imports but their upstream copies were removed or moved. Stack owns them as of 2026-11-13 and no longer tracks upstream; each keeps its origin and MIT notice in `references/source.md`.
-
-| Local skill | Origin skill | Origin path |
-| --- | --- | --- |
 | `$matt-resolving-merge-conflicts` | `resolving-merge-conflicts` | `skills/engineering/resolving-merge-conflicts` |
 | `$david-agent-self-scheduling` | `agent-self-scheduling` | `skills/agent-orchestration/agent-self-scheduling` |
 | `$david-create-readonly-db-role` | `create-readonly-db-role` | `skills/ops-and-setup/create-readonly-db-role` |
@@ -67,4 +62,4 @@ Retired on 2026-11-13 (reasons in `docs/stack-maintenance.md`): `david-pi-web-se
 ## Source Pins
 
 - Matt Pocock skills: `391a2701dd948f94f56a39f7533f8eea9a859c87`
-- David Ondrej skills: `5c99080334072075eb9e0a17837f7d24e4f3e6ae`
+- David Ondrej skills (pick-only; last inspected): `5c99080334072075eb9e0a17837f7d24e4f3e6ae`

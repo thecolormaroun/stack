@@ -1,7 +1,8 @@
 """Contracts for the 2026-11-13 David/Matt import cleanup.
 
 Eight David imports were retired. Ten David/Matt imports whose upstream copies
-were removed or moved became Stack-owned and left the maintenance lane.
+were removed or moved became Stack-owned and left the maintenance lane, and so
+did the 12 remaining David imports once davidondrej/skills became pick-only.
 """
 from __future__ import annotations
 
@@ -37,6 +38,19 @@ CONVERTED = {
     "david-agent-self-scheduling": "skills/orchestration/david-agent-self-scheduling",
     "david-folder-specific-claude-and-agents-md": "skills/platform/david-folder-specific-claude-and-agents-md",
     "matt-resolving-merge-conflicts": "skills/planning/matt-resolving-merge-conflicts",
+    # davidondrej/skills became pick-only (docs/upstream-policy.md).
+    "david-anti-sleep": "skills/engineering/david-anti-sleep",
+    "david-deepapi": "skills/engineering/david-deepapi",
+    "david-fable-safe-prompt": "skills/engineering/david-fable-safe-prompt",
+    "david-read-all-adrs": "skills/engineering/david-read-all-adrs",
+    "david-browser-harness": "skills/qa/david-browser-harness",
+    "david-cmux": "skills/orchestration/david-cmux",
+    "david-codex-subagent": "skills/orchestration/david-codex-subagent",
+    "david-goal-loop": "skills/orchestration/david-goal-loop",
+    "david-handoff": "skills/orchestration/david-handoff",
+    "david-deep-research": "skills/knowledge/david-deep-research",
+    "david-effective-agent-skills": "skills/platform/david-effective-agent-skills",
+    "david-setup-help": "skills/platform/david-setup-help",
 }
 
 

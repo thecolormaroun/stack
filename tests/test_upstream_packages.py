@@ -185,10 +185,10 @@ class UpstreamPackageTests(unittest.TestCase):
     def test_maintenance_import_rules_are_curated_and_complete(self) -> None:
         rules = json.loads((ROOT / "registry/maintenance-imports.json").read_text())
         providers = {row["id"]: row for row in rules["providers"]}
-        self.assertEqual(set(providers), {"matt", "david", "emil", "stewdio"})
+        # davidondrej/skills is pick-only, so it has no tracked import rule.
+        self.assertEqual(set(providers), {"matt", "emil", "stewdio"})
         self.assertTrue(all(row["license"] == "MIT" for row in providers.values()))
         self.assertEqual(providers["matt"]["mapping"], "existing-source-markdown")
-        self.assertEqual(providers["david"]["mapping"], "existing-source-markdown")
         self.assertEqual(
             {row["target"] for row in providers["emil"]["targets"]},
             {"skills/imported/emil/emil-design-eng", "skills/design/review-animations"}

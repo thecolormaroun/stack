@@ -992,6 +992,8 @@ def discover_upstream_update(
     provider = providers.get(provider_id)
     if provider is None:
         raise DiscoveryPolicyError("provider_not_registered")
+    if provider.get("tracking") != "weekly":
+        raise DiscoveryPolicyError("provider_not_tracked")
     source_rows = _source_rows(sources, provider_id)
     if not source_rows:
         raise DiscoveryPolicyError("provider_not_in_maintenance_inventory")

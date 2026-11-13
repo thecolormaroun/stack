@@ -1748,16 +1748,16 @@
       "lifecycle": "active",
       "overlaps": [],
       "ownership": {
-        "package": "imported-skills",
-        "provider": "david",
-        "source_path": "skills/imported/david/david-anti-sleep/SKILL.md"
+        "package": "stack",
+        "provider": "stack",
+        "source_path": "skills/engineering/david-anti-sleep/SKILL.md"
       },
       "provenance": {
-        "license": "unknown",
-        "posture": "imported-upstream",
-        "source_identity": "upstream:skills/david-anti-sleep"
+        "license": "MIT",
+        "posture": "repository-local",
+        "source_identity": "stack:skills/david-anti-sleep"
       },
-      "purpose": "Namespaced import of David Ondrej agent skills: Keep the user''s MacBook",
+      "purpose": "Stack-owned, adapted from David Ondrej agent skills: Keep the user''s MacBook",
       "role": "leaf",
       "runtimes": {
         "publish_targets": [
@@ -1771,7 +1771,7 @@
       },
       "schema_version": 1,
       "source": {
-        "skill_path": "skills/imported/david/david-anti-sleep/SKILL.md"
+        "skill_path": "skills/engineering/david-anti-sleep/SKILL.md"
       },
       "trust_class": "local-mutation",
       "validation": {
@@ -1874,16 +1874,16 @@
       "lifecycle": "active",
       "overlaps": [],
       "ownership": {
-        "package": "imported-skills",
-        "provider": "david",
-        "source_path": "skills/imported/david/david-browser-harness/SKILL.md"
+        "package": "stack",
+        "provider": "stack",
+        "source_path": "skills/qa/david-browser-harness/SKILL.md"
       },
       "provenance": {
-        "license": "unknown",
-        "posture": "imported-upstream",
-        "source_identity": "upstream:skills/david-browser-harness"
+        "license": "MIT",
+        "posture": "repository-local",
+        "source_identity": "stack:skills/david-browser-harness"
       },
-      "purpose": "Namespaced import of David Ondrej agent skills: Direct browser control",
+      "purpose": "Stack-owned, adapted from David Ondrej agent skills: Direct browser control",
       "role": "leaf",
       "runtimes": {
         "publish_targets": [
@@ -1897,7 +1897,7 @@
       },
       "schema_version": 1,
       "source": {
-        "skill_path": "skills/imported/david/david-browser-harness/SKILL.md"
+        "skill_path": "skills/qa/david-browser-harness/SKILL.md"
       },
       "trust_class": "read-only",
       "validation": {
@@ -1937,16 +1937,16 @@
       "lifecycle": "active",
       "overlaps": [],
       "ownership": {
-        "package": "imported-skills",
-        "provider": "david",
-        "source_path": "skills/imported/david/david-cmux/SKILL.md"
+        "package": "stack",
+        "provider": "stack",
+        "source_path": "skills/orchestration/david-cmux/SKILL.md"
       },
       "provenance": {
-        "license": "unknown",
-        "posture": "imported-upstream",
-        "source_identity": "upstream:skills/david-cmux"
+        "license": "MIT",
+        "posture": "repository-local",
+        "source_identity": "stack:skills/david-cmux"
       },
-      "purpose": "Namespaced import of David Ondrej agent skills: MUST be read ANY time",
+      "purpose": "Stack-owned, adapted from David Ondrej agent skills: MUST be read ANY time",
       "role": "workflow",
       "runtimes": {
         "publish_targets": [
@@ -1960,7 +1960,7 @@
       },
       "schema_version": 1,
       "source": {
-        "skill_path": "skills/imported/david/david-cmux/SKILL.md"
+        "skill_path": "skills/orchestration/david-cmux/SKILL.md"
       },
       "trust_class": "local-mutation",
       "validation": {
@@ -2000,16 +2000,16 @@
       "lifecycle": "active",
       "overlaps": [],
       "ownership": {
-        "package": "imported-skills",
-        "provider": "david",
-        "source_path": "skills/imported/david/david-codex-subagent/SKILL.md"
+        "package": "stack",
+        "provider": "stack",
+        "source_path": "skills/orchestration/david-codex-subagent/SKILL.md"
       },
       "provenance": {
-        "license": "unknown",
-        "posture": "imported-upstream",
-        "source_identity": "upstream:skills/david-codex-subagent"
+        "license": "MIT",
+        "posture": "repository-local",
+        "source_identity": "stack:skills/david-codex-subagent"
       },
-      "purpose": "Namespaced import of David Ondrej agent skills: Launch OpenAI Codex",
+      "purpose": "Stack-owned, adapted from David Ondrej agent skills: Launch OpenAI Codex",
       "role": "workflow",
       "runtimes": {
         "publish_targets": [
@@ -2023,7 +2023,7 @@
       },
       "schema_version": 1,
       "source": {
-        "skill_path": "skills/imported/david/david-codex-subagent/SKILL.md"
+        "skill_path": "skills/orchestration/david-codex-subagent/SKILL.md"
       },
       "trust_class": "local-mutation",
       "validation": {
@@ -2189,16 +2189,16 @@
       "lifecycle": "active",
       "overlaps": [],
       "ownership": {
-        "package": "imported-skills",
-        "provider": "david",
-        "source_path": "skills/imported/david/david-deep-research/SKILL.md"
+        "package": "stack",
+        "provider": "stack",
+        "source_path": "skills/knowledge/david-deep-research/SKILL.md"
       },
       "provenance": {
-        "license": "unknown",
-        "posture": "imported-upstream",
-        "source_identity": "upstream:skills/david-deep-research"
+        "license": "MIT",
+        "posture": "repository-local",
+        "source_identity": "stack:skills/david-deep-research"
       },
-      "purpose": "Namespaced import of David Ondrej agent skills: Run a deep, source-backed",
+      "purpose": "Stack-owned, adapted from David Ondrej agent skills: Run a deep, source-backed",
       "role": "leaf",
       "runtimes": {
         "publish_targets": [
@@ -2212,7 +2212,7 @@
       },
       "schema_version": 1,
       "source": {
-        "skill_path": "skills/imported/david/david-deep-research/SKILL.md"
+        "skill_path": "skills/knowledge/david-deep-research/SKILL.md"
       },
       "trust_class": "read-only",
       "validation": {
@@ -2252,16 +2252,16 @@
       "lifecycle": "active",
       "overlaps": [],
       "ownership": {
-        "package": "imported-skills",
-        "provider": "david",
-        "source_path": "skills/imported/david/david-deepapi/SKILL.md"
+        "package": "stack",
+        "provider": "stack",
+        "source_path": "skills/engineering/david-deepapi/SKILL.md"
       },
       "provenance": {
-        "license": "unknown",
-        "posture": "imported-upstream",
-        "source_identity": "upstream:skills/david-deepapi"
+        "license": "MIT",
+        "posture": "repository-local",
+        "source_identity": "stack:skills/david-deepapi"
       },
-      "purpose": "Namespaced import of David Ondrej agent skills: Use DeepAPI for scraping",
+      "purpose": "Stack-owned, adapted from David Ondrej agent skills: Use DeepAPI for scraping",
       "role": "leaf",
       "runtimes": {
         "publish_targets": [
@@ -2275,7 +2275,7 @@
       },
       "schema_version": 1,
       "source": {
-        "skill_path": "skills/imported/david/david-deepapi/SKILL.md"
+        "skill_path": "skills/engineering/david-deepapi/SKILL.md"
       },
       "trust_class": "local-mutation",
       "validation": {
@@ -2315,16 +2315,16 @@
       "lifecycle": "active",
       "overlaps": [],
       "ownership": {
-        "package": "imported-skills",
-        "provider": "david",
-        "source_path": "skills/imported/david/david-effective-agent-skills/SKILL.md"
+        "package": "stack",
+        "provider": "stack",
+        "source_path": "skills/platform/david-effective-agent-skills/SKILL.md"
       },
       "provenance": {
-        "license": "unknown",
-        "posture": "imported-upstream",
-        "source_identity": "upstream:skills/david-effective-agent-skills"
+        "license": "MIT",
+        "posture": "repository-local",
+        "source_identity": "stack:skills/david-effective-agent-skills"
       },
-      "purpose": "Namespaced import of David Ondrej agent skills: How to write effective",
+      "purpose": "Stack-owned, adapted from David Ondrej agent skills: How to write effective",
       "role": "leaf",
       "runtimes": {
         "publish_targets": [
@@ -2338,7 +2338,7 @@
       },
       "schema_version": 1,
       "source": {
-        "skill_path": "skills/imported/david/david-effective-agent-skills/SKILL.md"
+        "skill_path": "skills/platform/david-effective-agent-skills/SKILL.md"
       },
       "trust_class": "local-mutation",
       "validation": {
@@ -2378,16 +2378,16 @@
       "lifecycle": "active",
       "overlaps": [],
       "ownership": {
-        "package": "imported-skills",
-        "provider": "david",
-        "source_path": "skills/imported/david/david-fable-safe-prompt/SKILL.md"
+        "package": "stack",
+        "provider": "stack",
+        "source_path": "skills/engineering/david-fable-safe-prompt/SKILL.md"
       },
       "provenance": {
-        "license": "unknown",
-        "posture": "imported-upstream",
-        "source_identity": "upstream:skills/david-fable-safe-prompt"
+        "license": "MIT",
+        "posture": "repository-local",
+        "source_identity": "stack:skills/david-fable-safe-prompt"
       },
-      "purpose": "Namespaced import of David Ondrej agent skills: Rewrite a user''s prompt",
+      "purpose": "Stack-owned, adapted from David Ondrej agent skills: Rewrite a user''s prompt",
       "role": "leaf",
       "runtimes": {
         "publish_targets": [
@@ -2401,7 +2401,7 @@
       },
       "schema_version": 1,
       "source": {
-        "skill_path": "skills/imported/david/david-fable-safe-prompt/SKILL.md"
+        "skill_path": "skills/engineering/david-fable-safe-prompt/SKILL.md"
       },
       "trust_class": "local-mutation",
       "validation": {
@@ -2504,16 +2504,16 @@
       "lifecycle": "active",
       "overlaps": [],
       "ownership": {
-        "package": "imported-skills",
-        "provider": "david",
-        "source_path": "skills/imported/david/david-goal-loop/SKILL.md"
+        "package": "stack",
+        "provider": "stack",
+        "source_path": "skills/orchestration/david-goal-loop/SKILL.md"
       },
       "provenance": {
-        "license": "unknown",
-        "posture": "imported-upstream",
-        "source_identity": "upstream:skills/david-goal-loop"
+        "license": "MIT",
+        "posture": "repository-local",
+        "source_identity": "stack:skills/david-goal-loop"
       },
-      "purpose": "Namespaced import of David Ondrej agent skills: Explain and write effective",
+      "purpose": "Stack-owned, adapted from David Ondrej agent skills: Explain and write effective",
       "role": "workflow",
       "runtimes": {
         "publish_targets": [
@@ -2527,7 +2527,7 @@
       },
       "schema_version": 1,
       "source": {
-        "skill_path": "skills/imported/david/david-goal-loop/SKILL.md"
+        "skill_path": "skills/orchestration/david-goal-loop/SKILL.md"
       },
       "trust_class": "local-mutation",
       "validation": {
@@ -2630,16 +2630,16 @@
       "lifecycle": "active",
       "overlaps": [],
       "ownership": {
-        "package": "imported-skills",
-        "provider": "david",
-        "source_path": "skills/imported/david/david-handoff/SKILL.md"
+        "package": "stack",
+        "provider": "stack",
+        "source_path": "skills/orchestration/david-handoff/SKILL.md"
       },
       "provenance": {
-        "license": "unknown",
-        "posture": "imported-upstream",
-        "source_identity": "upstream:skills/david-handoff"
+        "license": "MIT",
+        "posture": "repository-local",
+        "source_identity": "stack:skills/david-handoff"
       },
-      "purpose": "Namespaced import of David Ondrej agent skills: Compact the current",
+      "purpose": "Stack-owned, adapted from David Ondrej agent skills: Compact the current",
       "role": "workflow",
       "runtimes": {
         "publish_targets": [
@@ -2653,7 +2653,7 @@
       },
       "schema_version": 1,
       "source": {
-        "skill_path": "skills/imported/david/david-handoff/SKILL.md"
+        "skill_path": "skills/orchestration/david-handoff/SKILL.md"
       },
       "trust_class": "local-mutation",
       "validation": {
@@ -2756,16 +2756,16 @@
       "lifecycle": "active",
       "overlaps": [],
       "ownership": {
-        "package": "imported-skills",
-        "provider": "david",
-        "source_path": "skills/imported/david/david-read-all-adrs/SKILL.md"
+        "package": "stack",
+        "provider": "stack",
+        "source_path": "skills/engineering/david-read-all-adrs/SKILL.md"
       },
       "provenance": {
-        "license": "unknown",
-        "posture": "imported-upstream",
-        "source_identity": "upstream:skills/david-read-all-adrs"
+        "license": "MIT",
+        "posture": "repository-local",
+        "source_identity": "stack:skills/david-read-all-adrs"
       },
-      "purpose": "Namespaced import of David Ondrej agent skills: Read every ADR markdown",
+      "purpose": "Stack-owned, adapted from David Ondrej agent skills: Read every ADR markdown",
       "role": "leaf",
       "runtimes": {
         "publish_targets": [
@@ -2779,7 +2779,7 @@
       },
       "schema_version": 1,
       "source": {
-        "skill_path": "skills/imported/david/david-read-all-adrs/SKILL.md"
+        "skill_path": "skills/engineering/david-read-all-adrs/SKILL.md"
       },
       "trust_class": "local-mutation",
       "validation": {
@@ -2882,16 +2882,16 @@
       "lifecycle": "active",
       "overlaps": [],
       "ownership": {
-        "package": "imported-skills",
-        "provider": "david",
-        "source_path": "skills/imported/david/david-setup-help/SKILL.md"
+        "package": "stack",
+        "provider": "stack",
+        "source_path": "skills/platform/david-setup-help/SKILL.md"
       },
       "provenance": {
-        "license": "unknown",
-        "posture": "imported-upstream",
-        "source_identity": "upstream:skills/david-setup-help"
+        "license": "MIT",
+        "posture": "repository-local",
+        "source_identity": "stack:skills/david-setup-help"
       },
-      "purpose": "Namespaced import of David Ondrej agent skills: Walk the user through",
+      "purpose": "Stack-owned, adapted from David Ondrej agent skills: Walk the user through",
       "role": "leaf",
       "runtimes": {
         "publish_targets": [
@@ -2905,7 +2905,7 @@
       },
       "schema_version": 1,
       "source": {
-        "skill_path": "skills/imported/david/david-setup-help/SKILL.md"
+        "skill_path": "skills/platform/david-setup-help/SKILL.md"
       },
       "trust_class": "local-mutation",
       "validation": {

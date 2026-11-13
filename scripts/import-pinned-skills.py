@@ -12,6 +12,10 @@ This command is the reviewed path for the other half:
   the exact commit with the same code the maintenance lane uses, bumps the pin,
   lock, and last-known-good digest, and rebuilds the generated catalog.
 
+Only a provider with ``"tracking": "weekly"`` that passes the admission check in
+``docs/upstream-policy.md`` can gain mappings; a pick-only provider is refused
+before any network access.
+
 It writes only to this checkout (and stages the new skill folders, because the
 catalog builder reads only indexed manifests). It never commits, pushes, opens
 a PR, installs a runtime, or publishes anything; the result still goes through
@@ -34,6 +38,50 @@ UPSTREAMS = ROOT / "registry" / "upstreams.json"
 IMPORTS = ROOT / "registry" / "maintenance-imports.json"
 SOURCES = ROOT / "registry" / "maintenance-sources.json"
 LOCK = ROOT / "upstreams.lock.json"
+
+# docs/upstream-policy.md: the machine-checkable half of the admission rule.
+OSI_LICENSES = frozenset({"MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "MPL-2.0", "0BSD"})
+LICENSE_FILES = ("LICENSE", "LICENSE.md", "LICENSE.txt", "COPYING")
+README_FILES = ("README.md", "README", "README.rst")
+
+
+class AdmissionError(SystemExit):
+    """A provider failed the upstream admission rule."""
+
+
+def require_tracked(provider: dict[str, Any]) -> None:
+    """Refuse to add tracked mappings for a provider that is not on the weekly lane."""
+    provider_id = provider.get("id")
+    tracking = provider.get("tracking")
+    if tracking == "pick-only":
+        raise AdmissionError(
+            f"{provider_id}: pick-only provider (docs/upstream-policy.md). Copy one reviewed skill into its "
+            "family root as a Stack-owned skill instead of adding a tracked mapping."
+        )
+    if tracking != "weekly":
+        raise AdmissionError(f"{provider_id}: registry/upstreams.json must set tracking to 'weekly' or 'pick-only'")
+
+
+def has_regular_file(checkout: Path, names: tuple[str, ...]) -> bool:
+    """True when one of ``names`` is a regular file (not a symlink) at the checkout root."""
+    return any((checkout / name).is_file() and not (checkout / name).is_symlink() for name in names)
+
+
+def admission_check(provider: dict[str, Any], checkout: Path) -> None:
+    """Check what code can check before a provider gains tracked skills.
+
+    Stable paths, a no-silent-deletion history or versioned releases, and
+    general-purpose skills are reviewed by a person and recorded in the audit
+    table in docs/upstream-policy.md.
+    """
+    require_tracked(provider)
+    provider_id = provider.get("id")
+    if provider.get("license") not in OSI_LICENSES:
+        raise AdmissionError(f"{provider_id}: license {provider.get('license')!r} is not an approved OSI license")
+    if not has_regular_file(checkout, LICENSE_FILES):
+        raise AdmissionError(f"{provider_id}: the upstream checkout has no license file")
+    if not has_regular_file(checkout, README_FILES):
+        raise AdmissionError(f"{provider_id}: the upstream checkout has no README for users")
 
 
 def load_script(filename: str, module_name: str):
@@ -244,6 +292,8 @@ def main(argv: list[str] | None = None) -> int:
     registry, imports, sources, lock = read(UPSTREAMS), read(IMPORTS), read(SOURCES), read(LOCK)
     provider = next((row for row in registry["providers"] if row["id"] == args.provider), None)
     rule = next((row for row in imports["providers"] if row["id"] == args.provider), None)
+    if provider is not None:
+        require_tracked(provider)
     if provider is None or rule is None or provider.get("install") != "pinned-import":
         raise SystemExit(f"{args.provider}: not a pinned-import provider with an import rule")
     if rule.get("mapping") != "explicit-source-json":
@@ -261,6 +311,7 @@ def main(argv: list[str] | None = None) -> int:
         checkout = Path(temporary) / "upstream"
         materializer.clone_exact(source_url, commit, checkout)
         materializer.validate_upstream_license(checkout, provider)
+        admission_check(provider, checkout)
         mapped = {Path(row["source"]).name for row in rule["targets"]}
         unmapped = [name for name in upstream_skills(checkout) if name not in mapped]
         if args.list_unmapped:

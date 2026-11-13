@@ -84,12 +84,12 @@
     },
     {
       "id": "david-skills",
-      "target": "David Ondrej imported skill collection",
+      "target": "David Ondrej skill provider (pick-only; picked skills are Stack-owned)",
       "disposition": "catalog-managed-provider",
       "provider_ref": "davidondrej/skills",
       "pin_source": "registry/upstreams.json:david",
       "provider_id": "david",
-      "target_paths": ["skills/imported/david"],
+      "target_paths": [],
       "required_exports": ["david-handoff", "david-goal-loop", "david-read-all-adrs"]
     },
     {
@@ -99,7 +99,7 @@
       "provider_ref": "thecolormaroun/stack",
       "pin_source": "repository source",
       "provider_id": null,
-      "target_paths": ["skills/engineering/david-brain-to-docs", "skills/engineering/david-create-readonly-db-role", "skills/engineering/david-prompt-me", "skills/knowledge/david-research-prompt", "skills/knowledge/david-youtube-transcript", "skills/orchestration/david-agent-self-scheduling", "skills/planning/matt-resolving-merge-conflicts", "skills/platform/david-folder-specific-claude-and-agents-md", "skills/review/david-cyber-audit", "skills/review/david-google-safe-browsing"],
+      "target_paths": ["skills/engineering/david-anti-sleep", "skills/engineering/david-brain-to-docs", "skills/engineering/david-create-readonly-db-role", "skills/engineering/david-deepapi", "skills/engineering/david-fable-safe-prompt", "skills/engineering/david-prompt-me", "skills/engineering/david-read-all-adrs", "skills/knowledge/david-deep-research", "skills/knowledge/david-research-prompt", "skills/knowledge/david-youtube-transcript", "skills/orchestration/david-agent-self-scheduling", "skills/orchestration/david-cmux", "skills/orchestration/david-codex-subagent", "skills/orchestration/david-goal-loop", "skills/orchestration/david-handoff", "skills/planning/matt-resolving-merge-conflicts", "skills/platform/david-effective-agent-skills", "skills/platform/david-folder-specific-claude-and-agents-md", "skills/platform/david-setup-help", "skills/qa/david-browser-harness", "skills/review/david-cyber-audit", "skills/review/david-google-safe-browsing"],
       "required_exports": []
     },
     {

@@ -12,10 +12,11 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "kind", "canonical_source", "pin", "license", "exports", "install", "adapters", "compatibility", "last_known_good"],
+        "required": ["id", "kind", "tracking", "canonical_source", "pin", "license", "exports", "install", "adapters", "compatibility", "last_known_good"],
         "properties": {
           "id": {"type": "string", "pattern": "^[a-z]+(?:-[a-z]+)*$"},
           "kind": {"enum": ["package", "repository-package", "imported-collection"]},
+          "tracking": {"enum": ["weekly", "pick-only"], "description": "weekly: the maintenance lane follows this provider. pick-only: Stack picked reviewed skills once; they are Stack-owned. See docs/upstream-policy.md."},
           "canonical_source": {"type": "string", "pattern": "^https://"},
           "pin": {
             "type": "object",

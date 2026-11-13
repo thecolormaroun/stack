@@ -213,6 +213,12 @@ mappings, changed licenses, file, directory, or dangling symlinks, upstream
 deletions, or renames fail closed for review. The symlink gate covers each
 mapped root and every intermediate path component, not only discovered files.
 
+A missing upstream skill directory reports `upstream_deletion_requires_approval`;
+an absent mapped Stack target remains `mapped_skill_missing`. Approved retained
+support files keep their individual inspected commits across later provider
+updates. The materializer reads both legacy grouped Markdown provenance and
+per-file Markdown/JSON provenance, and rejects malformed retained-file records.
+
 `prepare` creates a disposable candidate clone outside the caller checkout
 from that recorded `origin/main` SHA. Only explicit policy-allowlisted files
 with receipt-bound manifest hashes can be proposed, and candidate content is

@@ -357,9 +357,19 @@
       "source": "skills/imported/emil/emil-find-animation-opportunities/SKILL.md"
     },
     {
+      "canonical_name": "emil-gestures",
+      "destination": "skills/imported/emil/emil-gestures/SKILL.md",
+      "source": "skills/imported/emil/emil-gestures/SKILL.md"
+    },
+    {
       "canonical_name": "emil-improve-animations",
       "destination": "skills/imported/emil/emil-improve-animations/SKILL.md",
       "source": "skills/imported/emil/emil-improve-animations/SKILL.md"
+    },
+    {
+      "canonical_name": "emil-learn-taste",
+      "destination": "skills/imported/emil/emil-learn-taste/SKILL.md",
+      "source": "skills/imported/emil/emil-learn-taste/SKILL.md"
     },
     {
       "canonical_name": "emil-mobile-native",

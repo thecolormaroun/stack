@@ -183,6 +183,14 @@
         {
           "source": "skills/write-swift",
           "target": "skills/imported/emil/emil-write-swift"
+        },
+        {
+          "source": "skills/gestures",
+          "target": "skills/imported/emil/emil-gestures"
+        },
+        {
+          "source": "skills/learn-taste",
+          "target": "skills/imported/emil/emil-learn-taste"
         }
       ]
     },

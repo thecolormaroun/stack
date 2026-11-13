@@ -8,7 +8,7 @@ description: Reverse-lookup glossary that turns a vague description of a web ani
 - Invoke this curated import as `$emil-animation-vocabulary`.
 - Upstream name: `animation-vocabulary`.
 - Upstream author: Emil Kowalski.
-- Exact upstream commit: `c8a79627b59d72d764d6ab6f2c87c09a48169833`.
+- Exact upstream commit: `f8ff3b0a1b6edbad62a6cd7fc0d06ef2a6f7e4ab`.
 - Source metadata and license notice: [references/source.json](references/source.json).
 - New skills, deletions, and license changes remain review-gated.
 

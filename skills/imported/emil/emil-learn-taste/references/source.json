@@ -1,0 +1,15 @@
+{
+  "files": [
+    "skills/learn-taste/SKILL.md"
+  ],
+  "latest_commit": {
+    "sha": "f8ff3b0a1b6edbad62a6cd7fc0d06ef2a6f7e4ab"
+  },
+  "license": {
+    "source_file": "LICENSE",
+    "spdx_id": "MIT"
+  },
+  "retained_files": [],
+  "source_repo": "https://github.com/emilkowalski/skills",
+  "upstream_skill_path": "skills/learn-taste"
+}

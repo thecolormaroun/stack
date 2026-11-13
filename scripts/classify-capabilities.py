@@ -45,7 +45,7 @@ PRIMARY_CAPABILITIES = {"core-stack", "core-run", "cpo"}
 PINNED_DESIGN_IMPORTS = {
     "emil-animate", "emil-animate-expo", "emil-animation-vocabulary", "emil-apple-design", "emil-choreograph",
     "emil-find-animation-opportunities", "emil-improve-animations", "emil-mobile-native", "emil-prototype",
-    "emil-remove-animations",
+    "emil-remove-animations", "emil-gestures", "emil-learn-taste",
     "blank-page",
 }
 PURPOSE_OVERRIDES = {

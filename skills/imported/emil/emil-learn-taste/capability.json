@@ -1,0 +1,63 @@
+{
+  "artifact_type": "skill",
+  "audit_status": "reviewed",
+  "canonical_name": "emil-learn-taste",
+  "commands": [
+    "stack.design"
+  ],
+  "context": {
+    "inputs": [
+      "request",
+      "workspace-context"
+    ],
+    "outputs": [
+      "capability-result"
+    ]
+  },
+  "disposition": {
+    "evidence_gap": null,
+    "next_review_trigger": "Reassess on source, export, or runtime-target change.",
+    "status": "keep"
+  },
+  "domain": "design",
+  "family": "design",
+  "lifecycle": "active",
+  "overlaps": [],
+  "ownership": {
+    "package": "imported-skills",
+    "provider": "emil",
+    "source_path": "skills/imported/emil/emil-learn-taste/SKILL.md"
+  },
+  "provenance": {
+    "license": "MIT",
+    "posture": "imported-upstream",
+    "source_identity": "upstream:emil/skills/learn-taste"
+  },
+  "purpose": "Turn the design corrections a user made during a session into rules the next agent follows. Collects every correction (explicit ones, edits the user made to files you wrote, repeated nudges, reverts), generalizes each to the right level, confirms the why, and writes it as rule plus reason into the project's DESIGN.md, a project skill, or a lint check. Only runs when explicitly invoked.",
+  "role": "leaf",
+  "runtimes": {
+    "publish_targets": [
+      "claude",
+      "codex"
+    ],
+    "supported": [
+      "claude",
+      "codex"
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "skill_path": "skills/imported/emil/emil-learn-taste/SKILL.md"
+  },
+  "trust_class": "read-only",
+  "validation": {
+    "evidence": [
+      "reviewed-estate-refactor",
+      "structural-classification",
+      "primary-runtime-parity"
+    ],
+    "status": "validated"
+  },
+  "validation_class": "representative-route",
+  "visibility": "extended"
+}

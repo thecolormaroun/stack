@@ -79,7 +79,9 @@
       "skills/imported/emil/emil-choreograph/SKILL.md": "skills/imported/emil/emil-choreograph/capability.json",
       "skills/imported/emil/emil-design-eng/SKILL.md": "skills/imported/emil/emil-design-eng/capability.json",
       "skills/imported/emil/emil-find-animation-opportunities/SKILL.md": "skills/imported/emil/emil-find-animation-opportunities/capability.json",
+      "skills/imported/emil/emil-gestures/SKILL.md": "skills/imported/emil/emil-gestures/capability.json",
       "skills/imported/emil/emil-improve-animations/SKILL.md": "skills/imported/emil/emil-improve-animations/capability.json",
+      "skills/imported/emil/emil-learn-taste/SKILL.md": "skills/imported/emil/emil-learn-taste/capability.json",
       "skills/imported/emil/emil-mobile-native/SKILL.md": "skills/imported/emil/emil-mobile-native/capability.json",
       "skills/imported/emil/emil-pick-ui-library/SKILL.md": "skills/imported/emil/emil-pick-ui-library/capability.json",
       "skills/imported/emil/emil-prototype/SKILL.md": "skills/imported/emil/emil-prototype/capability.json",
@@ -240,7 +242,9 @@
       "skills/imported/emil/emil-choreograph/SKILL.md",
       "skills/imported/emil/emil-design-eng/SKILL.md",
       "skills/imported/emil/emil-find-animation-opportunities/SKILL.md",
+      "skills/imported/emil/emil-gestures/SKILL.md",
       "skills/imported/emil/emil-improve-animations/SKILL.md",
+      "skills/imported/emil/emil-learn-taste/SKILL.md",
       "skills/imported/emil/emil-mobile-native/SKILL.md",
       "skills/imported/emil/emil-pick-ui-library/SKILL.md",
       "skills/imported/emil/emil-prototype/SKILL.md",
@@ -332,8 +336,8 @@
     "missing": []
   },
   "counts": {
-    "callable_skills": 159,
-    "manifests": 159,
+    "callable_skills": 161,
+    "manifests": 161,
     "package_exports": 20,
     "private_declarations": 1,
     "unclassified": 0

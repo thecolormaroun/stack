@@ -93,6 +93,16 @@
       "required_exports": ["david-handoff", "david-goal-loop", "david-read-all-adrs"]
     },
     {
+      "id": "stack-owned-imports",
+      "target": "Former David and Matt imports now owned by Stack",
+      "disposition": "repository-owned-capability",
+      "provider_ref": "thecolormaroun/stack",
+      "pin_source": "repository source",
+      "provider_id": null,
+      "target_paths": ["skills/engineering/david-brain-to-docs", "skills/engineering/david-create-readonly-db-role", "skills/engineering/david-prompt-me", "skills/knowledge/david-research-prompt", "skills/knowledge/david-youtube-transcript", "skills/orchestration/david-agent-self-scheduling", "skills/planning/matt-resolving-merge-conflicts", "skills/platform/david-folder-specific-claude-and-agents-md", "skills/review/david-cyber-audit", "skills/review/david-google-safe-browsing"],
+      "required_exports": []
+    },
+    {
       "id": "impeccable",
       "target": "Stack Impeccable capabilities",
       "disposition": "repository-owned-capability",

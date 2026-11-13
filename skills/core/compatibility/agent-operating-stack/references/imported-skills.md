@@ -16,7 +16,6 @@ These are the concrete namespaced imports added from the Meng To recommendation.
 | `$matt-improve-codebase-architecture` | `improve-codebase-architecture` | `skills/engineering/improve-codebase-architecture` |
 | `$matt-prototype` | `prototype` | `skills/engineering/prototype` |
 | `$matt-research` | `research` | `skills/engineering/research` |
-| `$matt-resolving-merge-conflicts` | `resolving-merge-conflicts` | `skills/engineering/resolving-merge-conflicts` |
 | `$matt-setup-matt-pocock-skills` | `setup-matt-pocock-skills` | `skills/engineering/setup-matt-pocock-skills` |
 | `$matt-tdd` | `tdd` | `skills/engineering/tdd` |
 | `$matt-to-spec` | `to-spec` | `skills/engineering/to-spec` |
@@ -33,36 +32,37 @@ These are the concrete namespaced imports added from the Meng To recommendation.
 
 | Local skill | Upstream skill | Upstream path |
 | --- | --- | --- |
-| `$david-agent-self-scheduling` | `agent-self-scheduling` | `skills/agent-orchestration/agent-self-scheduling` |
 | `$david-cmux` | `cmux` | `skills/agent-orchestration/cmux` |
 | `$david-codex-subagent` | `codex-subagent` | `skills/agent-orchestration/codex-subagent` |
 | `$david-fable-safe-prompt` | `fable-safe-prompt` | `skills/agent-orchestration/fable-safe-prompt` |
 | `$david-goal-loop` | `goal-loop` | `skills/agent-orchestration/goal-loop` |
 | `$david-handoff` | `handoff` | `skills/agent-orchestration/handoff` |
-| `$david-run-deep-swe` | `run-deep-swe` | `skills/agent-orchestration/run-deep-swe` |
 | `$david-anti-sleep` | `anti-sleep` | `skills/ops-and-setup/anti-sleep` |
-| `$david-create-readonly-db-role` | `create-readonly-db-role` | `skills/ops-and-setup/create-readonly-db-role` |
-| `$david-cyber-audit` | `cyber-audit` | `skills/ops-and-setup/cyber-audit` |
-| `$david-google-safe-browsing` | `google-safe-browsing` | `skills/ops-and-setup/google-safe-browsing` |
-| `$david-pi-custom-model` | `pi-custom-model` | `skills/ops-and-setup/pi-custom-model` |
 | `$david-setup-help` | `setup-help` | `skills/ops-and-setup/setup-help` |
 | `$david-browser-harness` | `browser-harness` | `skills/research-and-web/browser-harness` |
 | `$david-deep-research` | `deep-research` | `skills/research-and-web/deep-research` |
 | `$david-deepapi` | `deepapi` | `skills/research-and-web/deepapi` |
-| `$david-online-shopping` | `online-shopping` | `skills/research-and-web/online-shopping` |
-| `$david-pi-web-search` | `pi-web-search` | `skills/research-and-web/pi-web-search` |
+| `$david-effective-agent-skills` | `effective-agent-skills` | `skills/skill-authoring/effective-agent-skills` |
+| `$david-read-all-adrs` | `read-all-adrs` | `skills/thinking-and-docs/read-all-adrs` |
+
+## Stack-owned Former Imports
+
+These started as imports but their upstream copies were removed or moved. Stack owns them as of 2026-11-13 and no longer tracks upstream; each keeps its origin and MIT notice in `references/source.md`.
+
+| Local skill | Origin skill | Origin path |
+| --- | --- | --- |
+| `$matt-resolving-merge-conflicts` | `resolving-merge-conflicts` | `skills/engineering/resolving-merge-conflicts` |
+| `$david-agent-self-scheduling` | `agent-self-scheduling` | `skills/agent-orchestration/agent-self-scheduling` |
+| `$david-create-readonly-db-role` | `create-readonly-db-role` | `skills/ops-and-setup/create-readonly-db-role` |
+| `$david-cyber-audit` | `cyber-audit` | `skills/ops-and-setup/cyber-audit` |
+| `$david-google-safe-browsing` | `google-safe-browsing` | `skills/ops-and-setup/google-safe-browsing` |
 | `$david-research-prompt` | `research-prompt` | `skills/research-and-web/research-prompt` |
 | `$david-youtube-transcript` | `youtube-transcript` | `skills/research-and-web/youtube-transcript` |
-| `$david-distribute-skill-to-all-agents` | `distribute-skill-to-all-agents` | `skills/skill-authoring/distribute-skill-to-all-agents` |
-| `$david-effective-agent-skills` | `effective-agent-skills` | `skills/skill-authoring/effective-agent-skills` |
 | `$david-folder-specific-claude-and-agents-md` | `folder-specific-claude-and-agents-md` | `skills/skill-authoring/folder-specific-claude-and-agents-md` |
-| `$david-push-skill-to-github` | `push-skill-to-github` | `skills/skill-authoring/push-skill-to-github` |
 | `$david-brain-to-docs` | `brain-to-docs` | `skills/thinking-and-docs/brain-to-docs` |
-| `$david-level-up` | `level-up` | `skills/thinking-and-docs/level-up` |
 | `$david-prompt-me` | `prompt-me` | `skills/thinking-and-docs/prompt-me` |
-| `$david-read-all-adrs` | `read-all-adrs` | `skills/thinking-and-docs/read-all-adrs` |
-| `$david-short` | `short` | `skills/thinking-and-docs/short` |
-| `$david-teach` | `teach` | `skills/thinking-and-docs/teach` |
+
+Retired on 2026-11-13 (reasons in `docs/stack-maintenance.md`): `david-pi-web-search`, `david-pi-custom-model`, `david-push-skill-to-github`, `david-distribute-skill-to-all-agents`, `david-run-deep-swe`, `david-level-up`, `david-short`, `david-teach`.
 
 ## Source Pins
 

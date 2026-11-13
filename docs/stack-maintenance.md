@@ -219,6 +219,49 @@ support files keep their individual inspected commits across later provider
 updates. The materializer reads both legacy grouped Markdown provenance and
 per-file Markdown/JSON provenance, and rejects malformed retained-file records.
 
+### Retired and Stack-owned former imports (2026-11-13)
+
+Retention keeps a removed upstream skill at its last reviewed bytes until the
+owner decides. On 2026-11-13 every retained David and Matt skill was decided.
+None is a retained target any more.
+
+Retired, because each only works in its author's own setup or adds nothing
+Stack lacks. Git history at the parent of the retiring commit is the rollback
+reference.
+
+| Skill | Reason |
+| --- | --- |
+| `david-pi-web-search` | Pi agent only; other runtimes have their own web tools. |
+| `david-pi-custom-model` | Pi agent model registry (`~/.pi/agent`). |
+| `david-push-skill-to-github` | Pushes the author's private `~/.agents` repo through cmux. |
+| `david-distribute-skill-to-all-agents` | The author's four-folder symlink layout; Stack's installer owns distribution. |
+| `david-run-deep-swe` | Model benchmark using the author's OpenRouter key from `~/.zshrc`. |
+| `david-level-up` | Writes `notes/learning/david-knowledge.md` and is tuned to the author. |
+| `david-short` | A one-line "make it shorter" prompt. |
+| `david-teach` | An older fork of `matt-teach`, which Stack keeps. |
+
+Stack-owned, so the lane no longer tracks upstream. Each skill keeps its
+canonical name, family and command, and moved out of `skills/imported/`
+into its family root. `references/source.md` keeps the origin path, the last
+inspected commit and the MIT notice. The `stack-owned-imports` source row
+records them as `repository-owned-capability`, which puts them outside the
+maintenance diff allowlist.
+
+| Skill | Stack path | Origin |
+| --- | --- | --- |
+| `david-youtube-transcript` | `skills/knowledge/` | `davidondrej/skills` research-and-web |
+| `david-research-prompt` | `skills/knowledge/` | `davidondrej/skills` research-and-web |
+| `david-google-safe-browsing` | `skills/review/` | `davidondrej/skills` ops-and-setup |
+| `david-cyber-audit` | `skills/review/` | `davidondrej/skills` ops-and-setup |
+| `david-create-readonly-db-role` | `skills/engineering/` | `davidondrej/skills` ops-and-setup |
+| `david-prompt-me` | `skills/engineering/` | `davidondrej/skills` thinking-and-docs |
+| `david-brain-to-docs` | `skills/engineering/` | `davidondrej/skills` thinking-and-docs |
+| `david-agent-self-scheduling` | `skills/orchestration/` | `davidondrej/skills` agent-orchestration |
+| `david-folder-specific-claude-and-agents-md` | `skills/platform/` | `davidondrej/skills` skill-authoring |
+| `matt-resolving-merge-conflicts` | `skills/planning/` | `mattpocock/skills` engineering; upstream removed the skill (CHANGELOG, PR 1120) and keeps only an archived docs page |
+
+The David skills that still exist upstream stay on the maintenance lane.
+
 `prepare` creates a disposable candidate clone outside the caller checkout
 from that recorded `origin/main` SHA. Only explicit policy-allowlisted files
 with receipt-bound manifest hashes can be proposed, and candidate content is

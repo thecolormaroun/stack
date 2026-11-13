@@ -54,6 +54,8 @@ PURPOSE_OVERRIDES = {
     "departments": "Deprecated compatibility alias for the canonical Stack planning run.",
     "ideate": "Deprecated compatibility alias for canonical Stack exploration.",
 }
+# Import providers this classifier has family rules for; see hand_curated().
+CLASSIFIED_IMPORT_PROVIDERS = ("matt", "david", "impeccable", "studio", "ui", "emil", "stewdio", "taste-skill-suite", "other")
 PRIMARY_TARGETS = {
     "claude": ".claude/skills/stack",
     "codex": ".codex/skills/stack",
@@ -64,8 +66,19 @@ def canonical_json(value: Any) -> str:
     return json.dumps(value, indent=2, sort_keys=True, ensure_ascii=True) + "\n"
 
 
+def hand_curated(path: str) -> bool:
+    """An import from a provider this classifier has no rules for keeps its reviewed manifest.
+
+    Such manifests (for example benjitaylor/stageshow) carry their own reviewed
+    family, context and validation evidence; reclassifying them would overwrite
+    that review and make a rerun non-idempotent.
+    """
+    parts = path.split("/")
+    return len(parts) > 3 and parts[:2] == ["skills", "imported"] and parts[2] not in CLASSIFIED_IMPORT_PROVIDERS
+
+
 def provider_for(path: str) -> tuple[str, str]:
-    for provider in ("matt", "david", "impeccable", "studio", "ui", "emil", "stewdio", "taste-skill-suite", "other"):
+    for provider in CLASSIFIED_IMPORT_PROVIDERS:
         if path.startswith(f"skills/imported/{provider}/"):
             return provider, "imported-skills"
     for prefix, provider in (("skills/matt-", "matt"), ("skills/david-", "david"), ("skills/impeccable/", "impeccable"), ("skills/studio/", "studio"), ("skills/ui-skills/", "ui"), ("skills/emil-", "emil"), ("skills/taste-skill-suite/", "impeccable")):
@@ -80,23 +93,23 @@ def family_for(name: str, path: str) -> str:
             return family
     if name in {"agent-operating-stack", "mega-workflow", "departments"}:
         return "core"
-    if path.startswith("skills/orchestration/") or name in {"goal-validation-threads", "david-codex-subagent", "david-cmux", "david-handoff", "david-goal-loop", "david-agent-self-scheduling", "matt-handoff", "david-run-deep-swe"}:
+    if path.startswith("skills/orchestration/") or name in {"goal-validation-threads", "david-codex-subagent", "david-cmux", "david-handoff", "david-goal-loop", "matt-handoff"}:
         return "orchestration"
     if path.startswith("skills/studio/product/") or name in {"cpo", "ideate", "matt-to-spec", "matt-to-tickets", "matt-triage", "matt-wayfinder"}:
         return "product"
-    if path.startswith("skills/studio/research/") or name in {"field-theory-bookmark-synthesis", "fieldbook-source-split", "david-deep-research", "david-research-prompt", "david-youtube-transcript", "matt-research", "muller-brockmann-grid-systems", "userinterface-wiki"}:
+    if path.startswith("skills/studio/research/") or name in {"field-theory-bookmark-synthesis", "fieldbook-source-split", "david-deep-research", "matt-research", "muller-brockmann-grid-systems", "userinterface-wiki"}:
         return "knowledge"
     if path.startswith(("skills/studio/design/", "skills/impeccable/", "skills/ui-skills/", "skills/cdo/")) or name in {"cdo", "emil-design-eng", "illo", "better-icons", "review-animations", "ui-design-brain", "make-interfaces-feel-better", "design-intelligence", "rams", "deslop", "taste-skill-suite-soft-skill", "taste-skill-suite-redesign-skill", "cdo-taste-skill"} or name in PINNED_DESIGN_IMPORTS:
         return "design"
     if name in {"tdd", "matt-tdd", "matt-implement", "matt-prototype", "matt-diagnosing-bugs", "matt-codebase-design", "matt-domain-modeling", "matt-improve-codebase-architecture", "matt-ask-matt", "react-doctor", "simplify", "knip", "fix-sentry-issues", "gemini-review"}:
         return "engineering"
-    if name in {"matt-code-review", "david-cyber-audit", "david-google-safe-browsing", "scratch-eval-promotion-gate", "agent-verification-ladder"}:
+    if name in {"matt-code-review", "scratch-eval-promotion-gate", "agent-verification-ladder"}:
         return "review"
     if name in {"emil-break-ui", "david-browser-harness", "live-site-health-check", "review-animations", "fixing-accessibility", "fixing-metadata", "fixing-motion-performance"} or "accessibility" in name:
         return "qa"
-    if path.startswith("skills/studio/ship/") or name in {"stack-refresh-pr-mode", "david-push-skill-to-github"}:
+    if path.startswith("skills/studio/ship/") or name in {"stack-refresh-pr-mode"}:
         return "delivery"
-    if name in {"local-tracker-dashboard", "reclaude", "david-setup-help", "david-effective-agent-skills", "david-distribute-skill-to-all-agents", "david-folder-specific-claude-and-agents-md", "david-pi-custom-model"}:
+    if name in {"local-tracker-dashboard", "reclaude", "david-setup-help", "david-effective-agent-skills"}:
         return "platform"
     return "planning" if name.startswith("matt-") else "engineering"
 
@@ -163,6 +176,8 @@ def classify(root: Path) -> dict[str, Any]:
         value = json.loads(manifest_path.read_text(encoding="utf-8"))
         source_path = value["source"].get("skill_path", manifest_path.parent.relative_to(root).as_posix() + "/SKILL.md")
         name = value["canonical_name"]
+        if hand_curated(source_path):
+            continue
         family = family_for(name, source_path)
         provider, package = provider_for(source_path)
         alias_target = ALIASES.get(name)
